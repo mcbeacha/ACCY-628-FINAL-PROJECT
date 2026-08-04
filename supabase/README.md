@@ -1,0 +1,5 @@
+-- SQL history for Rebel Law Group (applied via Supabase MCP)
+-- See applied migrations on project ACC628 environment.
+-- Tables: profiles, clients, matters, matter_assignments, matter_tasks, matter_activity
+-- RLS enabled on all application tables
+-- Seed demo password: RebelDemo2026!

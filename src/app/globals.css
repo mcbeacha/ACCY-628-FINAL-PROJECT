@@ -1,0 +1,54 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: corporate --default, business, luxury, night, winter, emerald, nord, dim;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-source-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-libre), ui-serif, Georgia, serif;
+}
+
+/* Consistent form field alignment */
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(9.5rem, 11rem) 1fr;
+  gap: 0.75rem 1rem;
+  align-items: center;
+}
+
+.form-grid .label-cell {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: oklch(var(--bc) / 0.8);
+}
+
+.form-grid .field-cell {
+  min-width: 0;
+}
+
+.form-grid .field-span {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 0.35rem 0;
+  }
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.page-shell {
+  @apply space-y-6;
+}

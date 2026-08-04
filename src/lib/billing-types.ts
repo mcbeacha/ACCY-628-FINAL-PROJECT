@@ -1,0 +1,65 @@
+export type Invoice = {
+  id: string;
+  invoice_number: string;
+  matter_id: string;
+  client_id: string;
+  invoice_date: string;
+  due_date: string;
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  invoice_status: string;
+  approval_status: string;
+  subtotal: number;
+  write_down_total: number;
+  expense_total: number;
+  credits_total: number;
+  retainer_applied: number;
+  tax_total: number;
+  invoice_total: number;
+  payments_applied: number;
+  write_off_total: number;
+  balance_due: number;
+  client_message: string | null;
+  internal_notes: string | null;
+  dispute_status: string;
+  dispute_reason: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  finalized_by: string | null;
+  finalized_at: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type InvoiceLine = {
+  id: string;
+  invoice_id: string;
+  matter_id: string;
+  line_type: string;
+  time_entry_id: string | null;
+  expense_entry_id: string | null;
+  description: string;
+  service_date: string | null;
+  quantity: number;
+  unit_rate: number;
+  original_amount: number;
+  write_down_amount: number;
+  final_amount: number;
+};
+
+export type Payment = {
+  id: string;
+  payment_number: string;
+  client_id: string;
+  matter_id: string | null;
+  payment_date: string;
+  payment_method: string;
+  total_amount: number;
+  reference_number: string | null;
+  payment_status: string;
+  unapplied_amount: number;
+  notes: string | null;
+};
+
+export const FINANCE_NOTICE =
+  "All financial activity is simulated for an academic project. No real payments or client funds are processed.";
