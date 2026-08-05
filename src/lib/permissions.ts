@@ -81,7 +81,7 @@ export function canViewProductivity(role: UserRole) {
 }
 
 export function canViewReports(role: UserRole) {
-  return role === "managing_partner" || role === "billing_staff";
+  return role === "managing_partner" || role === "billing_staff" || role === "attorney";
 }
 
 export function canViewDataQuality(role: UserRole) {
@@ -144,6 +144,21 @@ export function isStaffRole(role: UserRole) {
 
 export type NavItem = { href: string; label: string };
 
+/** Workspace tools every staff role shares. */
+const STAFF_WORKSPACE: NavItem[] = [
+  { href: "/calendar", label: "Calendar" },
+  { href: "/documents", label: "Documents" },
+];
+
+/** Firm-wide references available to every staff role. */
+const STAFF_FIRM: NavItem[] = [
+  { href: "/messages", label: "Messages" },
+  { href: "/research", label: "Legal Research" },
+  { href: "/directory", label: "Firm Directory" },
+  { href: "/resources", label: "Resources" },
+  { href: "/settings", label: "Settings" },
+];
+
 export function navForRole(role: UserRole): NavItem[] {
   switch (role) {
     case "managing_partner":
@@ -158,6 +173,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/clients", label: "Clients" },
         { href: "/matters", label: "Matters" },
         { href: "/tasks", label: "Tasks" },
+        ...STAFF_WORKSPACE,
         { href: "/profitability/matters", label: "Matter Profitability" },
         { href: "/profitability/clients", label: "Client Profitability" },
         { href: "/profitability/practice-areas", label: "Practice Areas" },
@@ -175,12 +191,15 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/retainers", label: "Retainers" },
         { href: "/trust-ledger", label: "Trust Ledger" },
         { href: "/journal", label: "Journal Entries" },
+        ...STAFF_FIRM,
       ];
     case "attorney":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/clients", label: "Clients" },
         { href: "/matters", label: "My Matters" },
         { href: "/tasks", label: "My Tasks" },
+        ...STAFF_WORKSPACE,
         { href: "/time", label: "My Time" },
         { href: "/time/new", label: "Enter Time" },
         { href: "/expenses", label: "My Expenses" },
@@ -188,17 +207,21 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/costs/new", label: "Cost Entry" },
         { href: "/costs/vendor-charge", label: "Request Vendor Charge" },
         { href: "/invoices", label: "Assigned Matter Billing Status" },
+        { href: "/reports", label: "Reports" },
+        ...STAFF_FIRM,
       ];
     case "paralegal":
       return [
         { href: "/dashboard", label: "Dashboard" },
         { href: "/matters", label: "My Matters" },
         { href: "/tasks", label: "My Tasks" },
+        ...STAFF_WORKSPACE,
         { href: "/time", label: "My Time" },
         { href: "/time/new", label: "Enter Time" },
         { href: "/expenses", label: "My Expenses" },
         { href: "/expenses/new", label: "Enter Expense" },
         { href: "/costs/new", label: "Cost Entry" },
+        ...STAFF_FIRM,
       ];
     case "billing_staff":
       return [
@@ -211,6 +234,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/costs/review", label: "Cost Approval" },
         { href: "/clients", label: "Clients" },
         { href: "/matters", label: "Matters" },
+        ...STAFF_WORKSPACE,
         { href: "/profitability/matters", label: "Matter Profitability" },
         { href: "/profitability/clients", label: "Client Profitability" },
         { href: "/profitability/practice-areas", label: "Practice Areas" },
@@ -228,6 +252,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/retainers", label: "Retainers" },
         { href: "/trust-ledger", label: "Trust Ledger" },
         { href: "/journal", label: "Journal Entries" },
+        ...STAFF_FIRM,
       ];
     case "client":
       return [
@@ -235,6 +260,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/matters", label: "My Matters" },
         { href: "/portal", label: "Milestones" },
         { href: "/portal/billing", label: "My Invoices & Payments" },
+        { href: "/settings", label: "Settings" },
       ];
     default:
       return [{ href: "/dashboard", label: "Dashboard" }];
