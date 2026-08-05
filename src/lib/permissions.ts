@@ -158,6 +158,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/clients", label: "Clients" },
         { href: "/matters", label: "Matters" },
         { href: "/tasks", label: "Tasks" },
+        { href: "/document-requests", label: "Document Requests" },
         { href: "/profitability/matters", label: "Matter Profitability" },
         { href: "/profitability/clients", label: "Client Profitability" },
         { href: "/profitability/practice-areas", label: "Practice Areas" },
@@ -179,6 +180,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "attorney":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/document-requests", label: "Document Requests" },
         { href: "/matters", label: "My Matters" },
         { href: "/tasks", label: "My Tasks" },
         { href: "/time", label: "My Time" },
@@ -192,6 +194,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "paralegal":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/document-requests", label: "Document Requests" },
         { href: "/matters", label: "My Matters" },
         { href: "/tasks", label: "My Tasks" },
         { href: "/time", label: "My Time" },
@@ -232,6 +235,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "client":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/document-requests", label: "Document Requests" },
         { href: "/matters", label: "My Matters" },
         { href: "/portal", label: "Milestones" },
         { href: "/portal/billing", label: "My Invoices & Payments" },

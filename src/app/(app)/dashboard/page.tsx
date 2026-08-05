@@ -5,6 +5,10 @@ import { StatusBadge, PriorityBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
 import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
 import { ExecutiveCharts } from "./ExecutiveCharts";
+import { AttorneyDocumentRequestForm } from "@/components/document-requests/AttorneyDocumentRequestForm";
+import { AttorneyDocumentRequestList } from "@/components/document-requests/AttorneyDocumentRequestList";
+import { ParalegalDocumentQueue } from "@/components/document-requests/ParalegalDocumentQueue";
+import { ClientDocumentTasks } from "@/components/document-requests/ClientDocumentTasks";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
 import { evaluateBillingReadiness } from "@/lib/billing-readiness";
 import { calcBillableAmount } from "@/lib/phase2-types";
@@ -444,8 +448,10 @@ async function AttorneyDashboard({
     <>
       <PageHeader
         title="Attorney Workspace"
-        description="Assigned matters, open work, deadlines, and your timekeeping."
+        description="Request documents from clients, then track assigned matters, open work, and timekeeping."
       />
+      <AttorneyDocumentRequestForm profile={profile} compact />
+      <AttorneyDocumentRequestList profile={profile} />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Assigned active matters" value={active.length} href="/matters" />
         <StatCard label="Open tasks" value={openTasks.length} href="/tasks" />
@@ -653,8 +659,9 @@ async function StaffDashboard({
     <>
       <PageHeader
         title="Staff Workspace"
-        description="Your assigned tasks, due dates, matter support work, and timekeeping."
+        description="Process document requests from attorneys, collect client materials, and track assigned tasks."
       />
+      <ParalegalDocumentQueue profile={profile} mineOnly />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Assigned tasks" value={open.length} href="/tasks" />
         <StatCard label="Due soon" value={dueSoon.length} tone="warning" href="/tasks" />
@@ -962,7 +969,7 @@ async function ClientDashboard({
     <>
       <PageHeader
         title="Client Workspace"
-        description="A simplified view of your matters, invoices, and important dates. This system contains fictional project data only."
+        description="A simplified view of your matters, document requests, invoices, and important dates. This system contains fictional project data only."
       />
       <div className="alert alert-info text-sm">
         <span>
@@ -979,6 +986,10 @@ async function ClientDashboard({
           )}
         </span>
       </div>
+      <ClientDocumentTasks
+        profile={profile}
+        clientIds={client ? [(client as Client).id] : []}
+      />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active matters" value={active.length} href="/portal" />
         <StatCard label="All your matters" value={matterRows.length} href="/portal" />
