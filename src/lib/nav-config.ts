@@ -103,7 +103,6 @@ export const NAV_SECTIONS: NavSectionDef[] = [
     label: "Firm & Resources",
     icon: Library,
     links: [
-      { href: "/messages", label: "Messages" },
       { href: "/research", label: "Legal Research" },
       { href: "/directory", label: "Firm Directory" },
       { href: "/resources", label: "Resources" },
@@ -111,6 +110,12 @@ export const NAV_SECTIONS: NavSectionDef[] = [
     ],
   },
 ];
+
+/**
+ * Routes that stay permitted in navForRole but are opened from the header
+ * instead of the sidebar (Messages uses the header messaging icon).
+ */
+export const HEADER_ONLY_HREFS = new Set<string>(["/messages"]);
 
 export const DASHBOARD_LINK: NavLinkDef = {
   href: "/dashboard",
@@ -154,7 +159,7 @@ export function buildNavSections(role: UserRole): {
   inbox: NavItem | null;
   sections: ResolvedNavSection[];
 } {
-  const allowed = navForRole(role);
+  const allowed = navForRole(role).filter((item) => !HEADER_ONLY_HREFS.has(item.href));
   const byHref = new Map(allowed.map((item) => [item.href, item]));
 
   const dashboard = byHref.get("/dashboard") ?? null;

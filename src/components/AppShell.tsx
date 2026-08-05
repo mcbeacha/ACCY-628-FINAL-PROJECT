@@ -14,7 +14,9 @@ import {
 } from "@/components/demo/DemoRoleSelector";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
 import { GlobalSearch } from "@/components/workspace/GlobalSearch";
+import { MessagesIndicator } from "@/components/workspace/MessagesIndicator";
 import { NotificationCenter } from "@/components/workspace/NotificationCenter";
+import type { MessagingPerson } from "@/lib/messaging";
 import { LogOut, Menu, Scale } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,6 +38,17 @@ export function AppShell({
   const demo = useDemoRole();
   const viewBadge = demo?.activeIdentity.viewBadge;
   const isStaff = (demo?.activeDemoRole ?? profile.role) !== "client";
+
+  // The header messaging and notification controls follow the signed-in profile;
+  // in Demo Mode each component re-resolves this against the active identity.
+  const headerViewer: MessagingPerson = {
+    id: profile.id,
+    name: profile.full_name,
+    title: profile.job_title ?? "Contact",
+    email: profile.email,
+    role: profile.role,
+    kind: profile.role === "client" ? "client" : "staff",
+  };
 
   async function logout() {
     setBusy(true);
@@ -82,7 +95,8 @@ export function AppShell({
             </div>
 
             <div className="flex-none items-center gap-1 sm:gap-2 flex min-w-0">
-              {isStaff && <NotificationCenter />}
+              <MessagesIndicator viewer={headerViewer} />
+              <NotificationCenter viewer={headerViewer} />
               {demoMode ? (
                 <DemoRoleSelector />
               ) : (
