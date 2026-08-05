@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @plugin "daisyui" {
-  themes: corporate --default, business, luxury, night, winter, emerald, nord, dim;
+  themes: corporate --default, business;
 }
 
 html,
