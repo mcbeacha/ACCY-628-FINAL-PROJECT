@@ -267,6 +267,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/retainers", label: "Retainers" },
         { href: "/trust-ledger", label: "Trust Ledger" },
         { href: "/journal", label: "Journal Entries" },
+        { href: "/exports", label: "Tax Info" },
         ...STAFF_FIRM,
       ];
     case "client":

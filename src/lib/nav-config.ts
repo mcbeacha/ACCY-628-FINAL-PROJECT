@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Briefcase,
   ChartColumn,
+  Download,
   FileText,
   Inbox,
   LayoutDashboard,
@@ -17,6 +18,7 @@ export type NavSectionId =
   | "contracts"
   | "billing"
   | "financial_analysis"
+  | "exports"
   | "firm"
   | "more";
 
@@ -98,6 +100,12 @@ export const NAV_SECTIONS: NavSectionDef[] = [
       { href: "/profitability/clients", label: "Client Profitability" },
       { href: "/reports", label: "Reports" },
     ],
+  },
+  {
+    id: "exports",
+    label: "Exports",
+    icon: Download,
+    links: [{ href: "/exports", label: "Tax Info" }],
   },
   {
     id: "firm",
