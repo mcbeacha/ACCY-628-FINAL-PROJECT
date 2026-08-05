@@ -47,7 +47,7 @@ export default async function SettingsPage() {
           <div className="card-body gap-3">
             <h2 className="font-display text-xl font-semibold">Appearance</h2>
             <p className="text-sm opacity-70">
-              Choose a daisyUI color theme for your workspace.
+              Switch your workspace between light and dark mode.
             </p>
             <ThemeSelector />
           </div>

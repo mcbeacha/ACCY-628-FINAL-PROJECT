@@ -27,7 +27,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${sourceSans.variable} ${libre.variable} h-full`}
       suppressHydrationWarning
     >
-      <body className="min-h-full antialiased">{children}</body>
+      <body className="min-h-full antialiased">
+        {/* Applies the stored theme before first paint. Keep the key and values
+            in sync with THEME_STORAGE_KEY / LIGHT_THEME / DARK_THEME. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem("rlg-theme");document.documentElement.setAttribute("data-theme",t==="business"?"business":"corporate")}catch(e){}`,
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }
