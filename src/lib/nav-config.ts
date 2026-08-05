@@ -6,6 +6,7 @@ import {
   Briefcase,
   ChartColumn,
   FileText,
+  Inbox,
   LayoutDashboard,
   Library,
   Receipt,
@@ -118,6 +119,7 @@ export const DASHBOARD_LINK: NavLinkDef = {
 };
 
 export const DASHBOARD_ICON = LayoutDashboard;
+export const INBOX_ICON = Inbox;
 
 /**
  * First sidebar section title by active role.
@@ -150,14 +152,16 @@ export type ResolvedNavSection = {
 /** Build role-filtered sections from navForRole (preserves existing permission lists). */
 export function buildNavSections(role: UserRole): {
   dashboard: NavItem | null;
+  inbox: NavItem | null;
   sections: ResolvedNavSection[];
 } {
   const allowed = navForRole(role);
   const byHref = new Map(allowed.map((item) => [item.href, item]));
 
   const dashboard = byHref.get("/dashboard") ?? null;
+  const inbox = byHref.get("/inbox") ?? null;
 
-  const placed = new Set<string>(["/dashboard"]);
+  const placed = new Set<string>(["/dashboard", "/inbox"]);
   const sections: ResolvedNavSection[] = [];
 
   for (const section of NAV_SECTIONS) {
@@ -188,7 +192,7 @@ export function buildNavSections(role: UserRole): {
     });
   }
 
-  return { dashboard, sections };
+  return { dashboard, inbox, sections };
 }
 
 /** Prefer the longest matching href so /costs/new wins over /costs. */
