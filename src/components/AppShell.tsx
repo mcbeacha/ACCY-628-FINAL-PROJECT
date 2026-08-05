@@ -13,6 +13,8 @@ import {
   DemoRoleSelector,
 } from "@/components/demo/DemoRoleSelector";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
+import { GlobalSearch } from "@/components/workspace/GlobalSearch";
+import { NotificationCenter } from "@/components/workspace/NotificationCenter";
 import { LogOut, Menu, Scale } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,6 +35,7 @@ export function AppShell({
   const [busy, setBusy] = useState(false);
   const demo = useDemoRole();
   const viewBadge = demo?.activeIdentity.viewBadge;
+  const isStaff = (demo?.activeDemoRole ?? profile.role) !== "client";
 
   async function logout() {
     setBusy(true);
@@ -75,9 +78,11 @@ export function AppShell({
                   </span>
                 </span>
               </Link>
+              {isStaff && <GlobalSearch />}
             </div>
 
             <div className="flex-none items-center gap-1 sm:gap-2 flex min-w-0">
+              {isStaff && <NotificationCenter />}
               {demoMode ? (
                 <DemoRoleSelector />
               ) : (

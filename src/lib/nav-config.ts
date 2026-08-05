@@ -7,6 +7,7 @@ import {
   ChartColumn,
   FileText,
   LayoutDashboard,
+  Library,
   Receipt,
 } from "lucide-react";
 
@@ -15,6 +16,7 @@ export type NavSectionId =
   | "contracts"
   | "billing"
   | "financial_analysis"
+  | "firm"
   | "more";
 
 export type NavLinkDef = {
@@ -42,7 +44,10 @@ export const NAV_SECTIONS: NavSectionDef[] = [
     links: [
       { href: "/clients", label: "Clients" },
       { href: "/matters", label: "Matters" },
+      { href: "/case-evaluations", label: "Case Evaluations" },
       { href: "/tasks", label: "Tasks" },
+      { href: "/calendar", label: "Calendar" },
+      { href: "/documents", label: "Documents" },
       { href: "/profitability/practice-areas", label: "Practice Areas" },
       { href: "/productivity", label: "Attorney Productivity" },
       { href: "/data-quality", label: "Data Quality" },
@@ -90,6 +95,18 @@ export const NAV_SECTIONS: NavSectionDef[] = [
       { href: "/profitability/matters", label: "Matter Profitability" },
       { href: "/profitability/clients", label: "Client Profitability" },
       { href: "/reports", label: "Reports" },
+    ],
+  },
+  {
+    id: "firm",
+    label: "Firm & Resources",
+    icon: Library,
+    links: [
+      { href: "/messages", label: "Messages" },
+      { href: "/research", label: "Legal Research" },
+      { href: "/directory", label: "Firm Directory" },
+      { href: "/resources", label: "Resources" },
+      { href: "/settings", label: "Settings" },
     ],
   },
 ];

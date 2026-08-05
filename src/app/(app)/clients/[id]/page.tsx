@@ -2,10 +2,33 @@ import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
-import { clientDisplayName, formatDate } from "@/lib/format";
+import { StatCard } from "@/components/StatCard";
+import { SectionHeader } from "@/components/workspace/SectionHeader";
+import { clientDisplayName, formatCurrency, formatDate } from "@/lib/format";
+import {
+  CLIENT_COMMUNICATIONS,
+  CONFLICT_CHECKS,
+  DOCUMENTS,
+  MATTER_CONTACTS,
+  MATTER_NOTES,
+  PREFERRED_CONTACT_METHOD,
+  relativeTime,
+} from "@/lib/workspace-mock";
 import type { Client, Matter } from "@/lib/types";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+
+type InvoiceRow = {
+  id: string;
+  invoice_number: string;
+  invoice_status: string;
+  invoice_date: string | null;
+  due_date: string | null;
+  invoice_total: number | null;
+  balance_due: number | null;
+};
+
+const CLOSED_STATUSES = ["Closed", "Canceled"];
 
 export default async function ClientDetailPage({
   params,
@@ -32,9 +55,20 @@ export default async function ClientDetailPage({
     .eq("client_id", id)
     .order("created_at", { ascending: false });
   const matterRows = (matters || []) as Matter[];
-  const activeCount = matterRows.filter((m) => m.matter_status === "Active").length;
+  const activeMatters = matterRows.filter((m) => !CLOSED_STATUSES.includes(m.matter_status));
+  const closedMatters = matterRows.filter((m) => CLOSED_STATUSES.includes(m.matter_status));
   const c = client as Client;
   const isClientUser = profile.role === "client";
+
+  const { data: invoiceData } = await supabase
+    .from("invoices")
+    .select("id, invoice_number, invoice_status, invoice_date, due_date, invoice_total, balance_due")
+    .eq("client_id", id)
+    .order("invoice_date", { ascending: false });
+  const invoices = (invoiceData || []) as InvoiceRow[];
+  const totalInvoiced = invoices.reduce((sum, i) => sum + Number(i.invoice_total ?? 0), 0);
+  const outstanding = invoices.reduce((sum, i) => sum + Number(i.balance_due ?? 0), 0);
+  const openInvoices = invoices.filter((i) => Number(i.balance_due ?? 0) > 0);
 
   return (
     <>
@@ -76,6 +110,10 @@ export default async function ClientDetailPage({
                 </div>
               )}
               <div>
+                <dt className="opacity-60">Company or organization</dt>
+                <dd className="font-medium">{c.organization_name || "—"}</dd>
+              </div>
+              <div>
                 <dt className="opacity-60">Primary contact</dt>
                 <dd className="font-medium">
                   {c.primary_contact_name ||
@@ -97,6 +135,10 @@ export default async function ClientDetailPage({
                   <dd className="font-medium">{c.billing_email || "—"}</dd>
                 </div>
               )}
+              <div>
+                <dt className="opacity-60">Preferred communication</dt>
+                <dd className="font-medium">{PREFERRED_CONTACT_METHOD}</dd>
+              </div>
               <div className="sm:col-span-2">
                 <dt className="opacity-60">Address</dt>
                 <dd className="font-medium">
@@ -111,7 +153,7 @@ export default async function ClientDetailPage({
               </div>
               <div>
                 <dt className="opacity-60">Active matters</dt>
-                <dd className="font-medium">{activeCount}</dd>
+                <dd className="font-medium">{activeMatters.length}</dd>
               </div>
             </dl>
           </div>
@@ -119,12 +161,12 @@ export default async function ClientDetailPage({
 
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
-            <h2 className="card-title text-base">Related matters</h2>
-            {matterRows.length === 0 ? (
-              <EmptyState title="No matters for this client yet." />
+            <h2 className="card-title text-base">Active matters</h2>
+            {activeMatters.length === 0 ? (
+              <EmptyState title="No active matters for this client." />
             ) : (
               <ul className="space-y-3">
-                {matterRows.map((m) => (
+                {activeMatters.map((m) => (
                   <li key={m.id} className="text-sm">
                     <Link href={`/matters/${m.id}`} className="link link-hover font-medium">
                       {m.matter_number} · {m.matter_name}
@@ -136,9 +178,223 @@ export default async function ClientDetailPage({
                 ))}
               </ul>
             )}
+
+            {closedMatters.length > 0 && (
+              <>
+                <div className="divider my-2" />
+                <h3 className="text-sm font-semibold">Closed matters</h3>
+                <ul className="space-y-2 mt-1">
+                  {closedMatters.map((m) => (
+                    <li key={m.id} className="text-sm opacity-70">
+                      <Link href={`/matters/${m.id}`} className="link link-hover">
+                        {m.matter_number} · {m.matter_name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      {!isClientUser && (
+        <>
+          <SectionHeader
+            title="Billing summary"
+            description="Recorded invoices and balances for this client."
+            action={
+              <Link href="/ar" className="btn btn-outline btn-sm">
+                Accounts receivable
+              </Link>
+            }
+          />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Invoices issued" value={invoices.length} />
+            <StatCard label="Total invoiced" value={formatCurrency(totalInvoiced)} />
+            <StatCard
+              label="Outstanding balance"
+              value={formatCurrency(outstanding)}
+              tone={outstanding > 0 ? "warning" : "success"}
+            />
+            <StatCard label="Open invoices" value={openInvoices.length} />
+          </div>
+
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
+            <div className="card-body">
+              <h2 className="card-title text-base">Outstanding invoices</h2>
+              {openInvoices.length === 0 ? (
+                <EmptyState
+                  title="No outstanding invoices"
+                  description="Every finalized invoice for this client has been paid or written off."
+                />
+              ) : (
+                <div className="table-wrap">
+                  <table className="table table-sm">
+                    <thead>
+                      <tr>
+                        <th>Invoice</th>
+                        <th>Issued</th>
+                        <th>Due</th>
+                        <th>Total</th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {openInvoices.map((invoice) => (
+                        <tr key={invoice.id} className="hover">
+                          <td>
+                            <Link href={`/invoices/${invoice.id}`} className="link link-hover">
+                              {invoice.invoice_number}
+                            </Link>
+                          </td>
+                          <td className="text-sm">{formatDate(invoice.invoice_date)}</td>
+                          <td className="text-sm">{formatDate(invoice.due_date)}</td>
+                          <td className="text-sm">{formatCurrency(invoice.invoice_total)}</td>
+                          <td className="text-sm font-medium">
+                            {formatCurrency(invoice.balance_due)}
+                          </td>
+                          <td>
+                            <StatusBadge status={invoice.invoice_status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="card bg-base-100 border border-base-300 shadow-sm">
+              <div className="card-body">
+                <h2 className="card-title text-base">Recent communications</h2>
+                <ul className="divide-y divide-base-200">
+                  {CLIENT_COMMUNICATIONS.map((entry) => (
+                    <li key={entry.id} className="flex items-start gap-3 py-3">
+                      <span className="badge badge-ghost badge-sm shrink-0">{entry.channel}</span>
+                      <span className="min-w-0 flex-1 text-sm">{entry.summary}</span>
+                      <span className="text-xs opacity-60 shrink-0">
+                        {relativeTime(entry.minutesAgo)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="card bg-base-100 border border-base-300 shadow-sm">
+              <div className="card-body">
+                <h2 className="card-title text-base">Documents</h2>
+                <ul className="divide-y divide-base-200">
+                  {DOCUMENTS.slice(0, 5).map((doc) => (
+                    <li key={doc.id} className="flex items-start gap-3 py-3">
+                      <span className="badge badge-ghost badge-sm shrink-0">{doc.fileType}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium truncate">{doc.name}</span>
+                        <span className="block text-xs opacity-60">
+                          {doc.folder} · modified {formatDate(doc.modifiedOn)}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/documents" className="link text-sm mt-2">
+                  Open document library
+                </Link>
+              </div>
+            </div>
+
+            <div className="card bg-base-100 border border-base-300 shadow-sm">
+              <div className="card-body">
+                <h2 className="card-title text-base">Notes</h2>
+                <ul className="space-y-3">
+                  {MATTER_NOTES.map((note) => (
+                    <li key={note.id} className="rounded-box border border-base-200 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium">{note.author}</span>
+                        <span className="text-xs opacity-60">{formatDate(note.date)}</span>
+                      </div>
+                      <p className="text-sm opacity-80 mt-1">{note.body}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="card bg-base-100 border border-base-300 shadow-sm">
+              <div className="card-body">
+                <h2 className="card-title text-base">Conflict-check history</h2>
+                <div className="table-wrap">
+                  <table className="table table-sm">
+                    <thead>
+                      <tr>
+                        <th>Run</th>
+                        <th>By</th>
+                        <th>Scope</th>
+                        <th>Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {CONFLICT_CHECKS.map((check) => (
+                        <tr key={check.id}>
+                          <td className="text-sm">{formatDate(check.runOn)}</td>
+                          <td className="text-sm">{check.performedBy}</td>
+                          <td className="text-sm">{check.scope}</td>
+                          <td>
+                            <span className="badge badge-ghost badge-sm">{check.result}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
+            <div className="card-body">
+              <h2 className="card-title text-base">Related contacts</h2>
+              <div className="table-wrap">
+                <table className="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Role</th>
+                      <th>Organization</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MATTER_CONTACTS.map((contact) => (
+                      <tr key={contact.id} className="hover">
+                        <td className="font-medium">{contact.name}</td>
+                        <td className="text-sm">{contact.role}</td>
+                        <td className="text-sm">{contact.organization}</td>
+                        <td className="text-sm">
+                          <a href={`mailto:${contact.email}`} className="link link-hover">
+                            {contact.email}
+                          </a>
+                        </td>
+                        <td className="text-sm">{contact.phone}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs opacity-60">
+            Communications, documents, notes, conflict-check history, and related contacts are
+            fictional placeholders until those records are added to the schema.
+          </p>
+        </>
+      )}
     </>
   );
 }

@@ -173,6 +173,7 @@ export function statusBadgeClass(status: string): string {
 export function priorityBadgeClass(priority: string): string {
   switch (priority) {
     case "Urgent":
+    case "Critical":
       return "badge-error";
     case "High":
       return "badge-warning";

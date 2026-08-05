@@ -6,7 +6,7 @@ import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
 import { EmptyState } from "@/components/EmptyState";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
 import { arBucket, n } from "@/lib/analytics";
-import { formatCurrency, formatDate, clientDisplayName } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { toCsv, csvHref } from "@/lib/csv";
 import { calcBillableAmount } from "@/lib/phase2-types";
 import Link from "next/link";
@@ -317,7 +317,12 @@ export default async function ReportDetailPage({
     ]);
   } else if (report === "write-downs-offs") {
     const { data: adjs } = await supabase.from("billing_adjustments").select("*").limit(200);
-    const adjRows = (adjs || []).filter((a: any) => !from || true);
+    const adjRows = (adjs || []).filter((a: any) =>
+      inRange(typeof a.created_at === "string" ? a.created_at.slice(0, 10) : null)
+    );
+    const writeOffRows = raw.writeOffs.filter((w: any) =>
+      inRange(w.write_off_date || (typeof w.created_at === "string" ? w.created_at.slice(0, 10) : null))
+    );
     tableHeaders = ["Type", "Matter/Inv", "Original", "Amount", "Status", "Reason"];
     csvRows = [
       ...adjRows.map((a: any) => ({
@@ -327,7 +332,7 @@ export default async function ReportDetailPage({
         status: a.approval_status,
         reason: a.reason,
       })),
-      ...raw.writeOffs.map((w: any) => ({
+      ...writeOffRows.map((w: any) => ({
         kind: "Write-Off",
         amount: w.amount,
         original: "",
@@ -344,7 +349,7 @@ export default async function ReportDetailPage({
         a.approval_status,
         a.reason || "—",
       ]),
-      ...raw.writeOffs.map((w: any) => [
+      ...writeOffRows.map((w: any) => [
         "Write-Off",
         (w.invoice_id || "").slice(0, 8),
         "—",
