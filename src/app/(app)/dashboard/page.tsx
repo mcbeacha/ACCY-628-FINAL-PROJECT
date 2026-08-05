@@ -3,8 +3,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge, PriorityBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
-import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
-import { ClientHomePage } from "@/components/client-home/ClientHomePage";
+import { DeadlineCalendar, buildDeadlineWindow } from "@/components/DeadlineCalendar";
+import { WeeklyUtilizationCard } from "@/components/WeeklyUtilizationCard";
 import { CaseEvaluationsMiniList } from "@/components/intake/CaseEvaluationDetailClient";
 import { ExecutiveCharts } from "./ExecutiveCharts";
 import { AttorneyDocumentRequestForm } from "@/components/document-requests/AttorneyDocumentRequestForm";
@@ -15,11 +15,13 @@ import { evaluateBillingReadiness } from "@/lib/billing-readiness";
 import { calcBillableAmount } from "@/lib/phase2-types";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
 import { weeksInRange } from "@/lib/analytics";
-import { inboxMetaForRole, loadInboxItems } from "@/lib/inbox";
+import { buildDataQualityExceptions } from "@/lib/data-quality";
+import { inboxItemsToFocus, inboxMetaForRole, loadInboxItems } from "@/lib/inbox";
 import type { CaseEvaluation } from "@/lib/case-evaluations";
 import type { Client, Matter, MatterTask, Profile } from "@/lib/types";
 import { SectionHeader } from "@/components/workspace/SectionHeader";
 import { TodaysFocus } from "@/components/workspace/TodaysFocus";
+import { PartnerQuickActions } from "@/components/workspace/PartnerQuickActions";
 import { DeadlineCard } from "@/components/workspace/DeadlineCard";
 import { ActivityFeed } from "@/components/workspace/ActivityFeed";
 import { ActiveMattersPanel } from "@/components/workspace/ActiveMattersPanel";
@@ -42,6 +44,8 @@ import {
 } from "@/lib/workspace-adapters";
 import {
   CalendarClock,
+  ChartColumn,
+  ClipboardList,
   History,
   LayoutGrid,
   ListChecks,
@@ -49,6 +53,7 @@ import {
   Timer,
 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 function startOfWeekISO() {
   const d = new Date();
@@ -74,7 +79,10 @@ export default async function DashboardPage() {
   if (profile.role === "billing_staff") {
     return <BillingDashboard supabase={supabase} profile={profile} />;
   }
-  return <ClientDashboard supabase={supabase} profile={profile} />;
+  // Client experiences live on dedicated routes (Potential vs Current).
+  // Default authenticated client home is the Current Client portal; Potential Client
+  // is opened via View App As → Potential Client (/potential-client).
+  redirect("/client-portal");
 }
 
 async function PartnerDashboard({
@@ -90,41 +98,21 @@ async function PartnerDashboard({
   const inboxItems = await loadInboxItems(supabase, "managing_partner", profile.id);
   const inboxMeta = inboxMetaForRole("managing_partner");
 
-  const [{ data: clients }, { data: matters }, { data: tasks }, { data: activity }] =
-    await Promise.all([
-      supabase.from("clients").select("*"),
-      supabase
-        .from("matters")
-        .select("*, clients(*)")
-        .order("updated_at", { ascending: false }),
-      supabase
-        .from("matter_tasks")
-        .select("*, matters(matter_name, matter_number)")
-        .order("created_at", { ascending: false })
-        .limit(8),
-      supabase
-        .from("matter_activity")
-        .select("*, performer:profiles!matter_activity_performed_by_fkey(full_name)")
-        .order("created_at", { ascending: false })
-        .limit(8),
-    ]);
+  const [{ data: matters }, { data: activity }] = await Promise.all([
+    supabase
+      .from("matters")
+      .select("*, clients(*)")
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("matter_activity")
+      .select("*, performer:profiles!matter_activity_performed_by_fkey(full_name)")
+      .order("created_at", { ascending: false })
+      .limit(8),
+  ]);
 
-  const clientRows = (clients || []) as Client[];
   const matterRows = (matters || []) as Matter[];
-  const taskRows = (tasks || []) as MatterTask[];
 
-  const activeClients = clientRows.filter((c) => c.client_status === "Active").length;
   const activeMatters = matterRows.filter((m) => m.matter_status === "Active").length;
-  const awaiting = matterRows.filter(
-    (m) =>
-      m.approval_status === "Pending Approval" || m.matter_status === "Pending Approval"
-  );
-  const missingLead = matterRows.filter(
-    (m) =>
-      !m.responsible_attorney_id &&
-      m.matter_status !== "Closed" &&
-      m.matter_status !== "Canceled"
-  );
   const missingEngagement = matterRows.filter(
     (m) =>
       m.matter_status !== "Closed" &&
@@ -139,15 +127,7 @@ async function PartnerDashboard({
     return days >= 0 && days <= 30;
   });
 
-  const byStatus = countBy(matterRows.map((m) => m.matter_status));
-  const byBilling = countBy(matterRows.map((m) => m.billing_method || "Not set"));
-
-  const totalInvoiced = bundle.matters.reduce((s, m) => s + m.invoicedRevenue, 0);
-  const totalCollected = bundle.matters.reduce((s, m) => s + m.collectedRevenue, 0);
-  const outstandingAR = bundle.matters.reduce((s, m) => s + m.outstandingAR, 0);
   const pastDueAR = bundle.clients.reduce((s, c) => s + c.pastDueAR, 0);
-  const grossProfit = bundle.matters.reduce((s, m) => s + m.grossProfit, 0);
-  const grossMargin = totalInvoiced > 0 ? (grossProfit / totalInvoiced) * 100 : null;
   const unbilledTimeAmt = raw.time
     .filter(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -162,29 +142,6 @@ async function PartnerDashboard({
         s + calcBillableAmount(Number(t.hours), Number(t.billing_rate), t.billable_status),
       0
     );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const unbilledExpAmt = raw.expenses
-    .filter(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (e: any) =>
-        e.approval_status === "Approved" && e.client_reimbursable && e.invoice_status === "Unbilled"
-    )
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .reduce((s: number, e: any) => s + Number(e.amount), 0);
-  const lowRetainers = raw.retainers.filter(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (r: any) => r.account_status === "Below Threshold"
-  ).length;
-  const overBudget = bundle.matters.filter((m) => m.budgetFlag === "Over Budget").length;
-  const nearBudget = bundle.matters.filter((m) => m.budgetFlag === "Near Budget").length;
-  const invAwaiting = raw.invoices.filter(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (i: any) => i.approval_status === "Submitted"
-  ).length;
-  const disputedInv = raw.invoices.filter(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (i: any) => i.invoice_status === "Disputed"
-  ).length;
   const submittedTime = raw.time.filter(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (t: any) => t.approval_status === "Submitted"
@@ -212,221 +169,151 @@ async function PartnerDashboard({
   const evalRows = (evals || []) as CaseEvaluation[];
   const monthStartIso = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
   const evalsThisMonth = evalRows.filter((e) => e.submitted_at >= monthStartIso);
-  const evalsByArea = countBy(evalRows.map((e) => e.practice_area));
   const awaitingPartner = evalRows.filter((e) => e.evaluation_status === "Referred to Partner");
-  const converted = evalRows.filter((e) => e.converted_matter_id);
-  const closedDeclined = evalRows.filter((e) =>
-    ["Closed", "Declined"].includes(e.evaluation_status)
-  );
-  const followUpSamples = evalRows.filter((e) => e.follow_up_due_at && e.submitted_at).slice(0, 20);
-  const avgFollowHours =
-    followUpSamples.length > 0
-      ? followUpSamples.reduce((s, e) => {
-          const due = new Date(e.follow_up_due_at!).getTime();
-          const sub = new Date(e.submitted_at).getTime();
-          return s + (due - sub) / (1000 * 60 * 60);
-        }, 0) / followUpSamples.length
-      : null;
+
+  const focusItems = inboxItemsToFocus(inboxItems, 6);
+  const { data: rates } = await supabase
+    .from("employee_rates")
+    .select("*")
+    .eq("active_status", true);
+  const dqCount = buildDataQualityExceptions(raw, rates).length;
+  const mattersAwaitingInbox = inboxItems.filter((i) => i.kind === "matter_approval").length;
+  const invoicesAwaitingInbox = inboxItems.filter((i) => i.kind === "invoice_approval").length;
 
   return (
     <>
       <PageHeader
-        title="Executive Dashboard"
-        description="Actionable firm metrics from saved operational data (fictional academic simulation)."
+        title="Partner Workspace"
+        description={`Firm-Wide View · ${profile.full_name} — approvals, collections risk, and firm health.`}
         actions={
-          <Link href="/inbox" className="btn btn-primary btn-sm">
-            {inboxMeta.title}
-            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
-          </Link>
+          <>
+            <Link href="/inbox" className="btn btn-primary btn-sm">
+              {inboxMeta.title}
+              {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+            </Link>
+            <Link href="/reports" className="btn btn-outline btn-sm">
+              Open reports
+            </Link>
+          </>
         }
       />
-      <AnalyticsNotice />
-      <div className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="card-title text-base">Client intake — case evaluations</h2>
-            <Link href="/case-evaluations" className="btn btn-sm btn-outline">
-              View all evaluations
-            </Link>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatCard
-              label="New evaluations this month"
-              value={evalsThisMonth.length}
-              href="/case-evaluations"
-            />
-            <StatCard
-              label="Awaiting partner review"
-              value={awaitingPartner.length}
-              tone={awaitingPartner.length ? "warning" : "default"}
-              href="/case-evaluations"
-            />
-            <StatCard
-              label="Converted to prospective clients"
-              value={converted.length}
-              href="/case-evaluations"
-            />
-            <StatCard
-              label="Closed or declined"
-              value={closedDeclined.length}
-              href="/case-evaluations"
-            />
-            <StatCard
-              label="Avg fictional follow-up window"
-              value={avgFollowHours == null ? "—" : `${avgFollowHours.toFixed(0)}h`}
-            />
-            <StatCard label="Total evaluations" value={evalRows.length} href="/case-evaluations" />
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div>
-              <h3 className="text-sm font-semibold mb-2">By practice area</h3>
-              <StatusList items={evalsByArea.slice(0, 6)} />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold mb-2">Recent evaluations</h3>
-              <CaseEvaluationsMiniList
-                rows={evalRows.slice(0, 5) as never[]}
-                emptyTitle="No case evaluations yet."
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+
+      <section className="space-y-3">
+        <SectionHeader
+          title="Quick actions"
+          description="Start the work you do most often as Managing Partner."
+          icon={<LayoutGrid className="h-5 w-5" />}
+        />
+        <PartnerQuickActions />
+      </section>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Items needing your approval"
+          label="Items needing approval"
           value={inboxItems.length}
           tone={inboxItems.length ? "warning" : "success"}
           href="/inbox"
-        />
-        <StatCard label="Invoiced revenue" value={formatCurrency(totalInvoiced)} href="/invoices" />
-        <StatCard label="Collected revenue" value={formatCurrency(totalCollected)} href="/ar" />
-        <StatCard
-          label="Outstanding AR"
-          value={formatCurrency(outstandingAR)}
-          tone={outstandingAR ? "warning" : "default"}
-          href="/ar"
         />
         <StatCard
           label="Past-due AR"
           value={formatCurrency(pastDueAR)}
           tone={pastDueAR ? "error" : "default"}
-          href="/ar"
-        />
-        <StatCard label="Gross profit" value={formatCurrency(grossProfit)} href="/profitability/matters" />
-        <StatCard
-          label="Gross margin"
-          value={grossMargin == null ? "N/A" : `${grossMargin.toFixed(1)}%`}
-          href="/profitability/matters"
-        />
-        <StatCard label="Unbilled approved time" value={formatCurrency(unbilledTimeAmt)} href="/unbilled" />
-        <StatCard label="Unbilled approved expenses" value={formatCurrency(unbilledExpAmt)} href="/unbilled" />
-        <StatCard
-          label="Retainers below threshold"
-          value={lowRetainers}
-          tone={lowRetainers ? "warning" : "success"}
-          href="/retainers"
-        />
-        <StatCard
-          label="Matters over budget"
-          value={overBudget}
-          tone={overBudget ? "error" : "default"}
-          href="/profitability/matters"
-        />
-        <StatCard
-          label="Matters near budget"
-          value={nearBudget}
-          tone={nearBudget ? "warning" : "default"}
+          href="/ar?bucket=past_due"
         />
         <StatCard
           label="Invoices awaiting approval"
-          value={invAwaiting}
-          tone={invAwaiting ? "warning" : "default"}
-          href="/inbox"
+          value={invoicesAwaitingInbox}
+          tone={invoicesAwaitingInbox ? "warning" : "default"}
+          href="/inbox?kind=invoice_approval"
         />
-        <StatCard label="Active matters" value={activeMatters} href="/matters" />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Link href="/inbox" className="btn btn-sm btn-primary">
-          {inboxMeta.title}
-        </Link>
-        <Link href="/costs" className="btn btn-sm btn-outline">
-          Cost &amp; resources
-        </Link>
-        <Link href="/profitability/matters" className="btn btn-sm btn-outline">
-          Matter profitability
-        </Link>
-        <Link href="/ar" className="btn btn-sm btn-outline">
-          AR aging
-        </Link>
-        <Link href="/data-quality" className="btn btn-sm btn-outline">
-          Data quality ({missingLead.length + (unbilledTimeAmt === 0 ? 0 : 0)})
-        </Link>
-        <Link href="/controls" className="btn btn-sm btn-outline">
-          Controls
-        </Link>
-        <Link href="/reports" className="btn btn-sm btn-outline">
-          Reports
-        </Link>
-        <Link href="/invoices" className="btn btn-sm btn-outline">
-          Invoices
-        </Link>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Active clients" value={activeClients} href="/clients" />
         <StatCard
           label="Matters awaiting approval"
-          value={awaiting.length}
-          tone={awaiting.length ? "warning" : "default"}
-          href="/inbox"
-        />
-        <StatCard
-          label="Missing lead attorney"
-          value={missingLead.length}
-          tone={missingLead.length ? "error" : "success"}
-          href="/data-quality"
+          value={mattersAwaitingInbox}
+          tone={mattersAwaitingInbox ? "warning" : "default"}
+          href="/inbox?kind=matter_approval"
         />
         <StatCard
           label="Submitted time to review"
           value={submittedTime}
           tone={submittedTime ? "warning" : "default"}
-          href="/inbox"
+          href="/time/review"
         />
+        <StatCard label="Active matters" value={activeMatters} href="/matters?status=Active" />
         <StatCard
-          label="Disputed invoices"
-          value={disputedInv}
-          tone={disputedInv ? "warning" : "default"}
-          href="/invoices"
+          label="Unbilled approved time"
+          value={formatCurrency(unbilledTimeAmt)}
+          href="/unbilled"
         />
+        {dqCount > 0 && (
+          <StatCard
+            label="Data quality exceptions"
+            value={dqCount}
+            tone="warning"
+            href="/data-quality"
+          />
+        )}
+        {awaitingPartner.length > 0 && (
+          <StatCard
+            label="Intake awaiting partner"
+            value={awaitingPartner.length}
+            tone="warning"
+            href="/case-evaluations"
+          />
+        )}
       </div>
-      <ExecutiveCharts
-        monthly={bundle.monthly}
-        practices={bundle.practices.map((p) => ({
-          practiceArea: p.practiceArea,
-          grossProfit: p.grossProfit,
-        }))}
-        arAging={bundle.arAging}
-        utilization={utilData}
-        collectionTrend={collectionTrend}
-        writeTrend={bundle.writeTrend}
-        matterProfit={matterProfitSorted}
-        byMethod={bundle.revenueByMethod}
-      />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-base">Matters by status</h2>
-            <StatusList items={byStatus} />
-          </div>
-        </div>
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-base">Matters by billing method</h2>
-            <StatusList items={byBilling} />
-          </div>
-        </div>
-      </div>
+      <section className="space-y-3">
+        <SectionHeader
+          title="Today's focus — approvals"
+          description="Pending authority work, prioritized for you."
+          icon={<Sparkles className="h-5 w-5" />}
+          action={
+            <Link href="/inbox" className="btn btn-outline btn-sm">
+              Open full inbox
+            </Link>
+          }
+        />
+        {focusItems.length === 0 ? (
+          <EmptyState
+            title="You're clear on approvals"
+            description="Nothing is waiting in the Approval Inbox right now."
+            action={
+              <Link href="/inbox" className="btn btn-primary btn-sm">
+                Open Approval Inbox
+              </Link>
+            }
+          />
+        ) : (
+          <TodaysFocus items={focusItems} />
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <SectionHeader
+          title="Firm pulse"
+          description="Cash conversion and contribution at a glance."
+          icon={<ChartColumn className="h-5 w-5" />}
+          action={
+            <Link href="/reports" className="btn btn-outline btn-sm">
+              View all analytics →
+            </Link>
+          }
+        />
+        <ExecutiveCharts
+          variant="compact"
+          monthly={bundle.monthly}
+          practices={bundle.practices.map((p) => ({
+            practiceArea: p.practiceArea,
+            grossProfit: p.grossProfit,
+          }))}
+          arAging={bundle.arAging}
+          utilization={utilData}
+          collectionTrend={collectionTrend}
+          writeTrend={bundle.writeTrend}
+          matterProfit={matterProfitSorted}
+          byMethod={bundle.revenueByMethod}
+        />
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <WarningTable
@@ -454,8 +341,32 @@ async function PartnerDashboard({
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
-            <h2 className="card-title text-base">Recent tasks</h2>
-            <TaskMiniList tasks={taskRows} />
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="card-title text-base flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-primary" />
+                Client intake
+              </h2>
+              <Link href="/case-evaluations" className="btn btn-ghost btn-xs">
+                View all
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <StatCard
+                label="New this month"
+                value={evalsThisMonth.length}
+                href="/case-evaluations"
+              />
+              <StatCard
+                label="Awaiting partner"
+                value={awaitingPartner.length}
+                tone={awaitingPartner.length ? "warning" : "default"}
+                href="/case-evaluations"
+              />
+            </div>
+            <CaseEvaluationsMiniList
+              rows={evalRows.slice(0, 4) as never[]}
+              emptyTitle="No case evaluations yet."
+            />
           </div>
         </div>
         <div className="card bg-base-100 border border-base-300 shadow-sm">
@@ -503,12 +414,13 @@ async function AttorneyDashboard({
 
   const { data: tasks } = await supabase
     .from("matter_tasks")
-    .select("*, matters(matter_name, matter_number)")
+    .select("*, matters(id, matter_name, matter_number)")
     .eq("assigned_to", profile.id)
     .order("due_date", { ascending: true });
   const taskRows = (tasks || []) as MatterTask[];
 
-  const [{ data: myTime }, { data: myExp }, { data: retainers }, { data: matterInvoices }] = await Promise.all([
+  const [{ data: myTime }, { data: myExp }, { data: retainers }, { data: matterInvoices }, { data: oosQueue }] =
+    await Promise.all([
     supabase.from("time_entries").select("*").eq("employee_id", profile.id),
     supabase.from("expense_entries").select("*").eq("created_by", profile.id).order("expense_date", { ascending: false }).limit(5),
     supabase.from("retainer_accounts").select("*, matters(matter_number, matter_name)").in("account_status", ["Below Threshold", "Exhausted"]),
@@ -517,6 +429,11 @@ async function AttorneyDashboard({
       .select("id, invoice_number, invoice_status, balance_due, due_date, matter_id, finalized_at")
       .order("due_date", { ascending: false })
       .limit(30),
+    supabase
+      .from("time_entries")
+      .select("id")
+      .eq("out_of_scope", true)
+      .eq("approval_status", "Submitted"),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -528,6 +445,7 @@ async function AttorneyDashboard({
     .reduce((s, t) => s + Number(t.hours), 0);
   const draftTime = timeRows.filter((t) => t.approval_status === "Draft").length;
   const rejectedTime = timeRows.filter((t) => t.approval_status === "Rejected").length;
+  const oosToAuthorize = (oosQueue || []).length;
   const unsubmitted = timeRows.filter((t) => t.approval_status === "Draft").length;
   const unbilledMine = timeRows
     .filter((t) => t.approval_status === "Approved" && t.invoice_status === "Unbilled" && t.billable_status === "Billable")
@@ -589,6 +507,11 @@ async function AttorneyDashboard({
   const deadlinesThisWeek = deadlines.filter((d) => daysUntil(d.dueDate) <= 7).length;
 
   const active = matterRows.filter((m) => m.matter_status === "Active");
+  const { items: deadlineItems, today: deadlineToday, end: deadlineEnd } = buildDeadlineWindow({
+    tasks: taskRows,
+    matters: matterRows,
+    days: 14,
+  });
   const needsUpdate = matterRows.filter((m) =>
     ["Draft", "Pending Approval", "Needs Review", "On Hold"].includes(m.matter_status) ||
     m.approval_status === "Needs Review"
@@ -678,13 +601,13 @@ async function AttorneyDashboard({
           label="Tasks due today"
           value={dueTodayCount}
           tone={dueTodayCount ? "warning" : "default"}
-          href="/tasks"
+          href="/tasks?filter=due_soon"
         />
         <StatCard
           label="Overdue tasks"
           value={overdueTaskCount}
           tone={overdueTaskCount ? "error" : "success"}
-          href="/tasks"
+          href="/tasks?filter=overdue"
         />
         <StatCard
           label="Deadlines within 7 days"
@@ -759,8 +682,8 @@ async function AttorneyDashboard({
             description="Filter by what is due, late, or waiting on someone else."
             icon={<ListChecks className="h-5 w-5" />}
             action={
-              <Link href="/tasks" className="btn btn-outline btn-sm">
-                Open task board
+              <Link href="/tasks?filter=open" className="btn btn-outline btn-sm">
+                Open task queue
               </Link>
             }
           />
@@ -777,7 +700,7 @@ async function AttorneyDashboard({
             description="Hours logged, billable progress, and quick entry."
             icon={<Timer className="h-5 w-5" />}
             action={
-              <Link href="/time" className="btn btn-outline btn-sm">
+              <Link href={`/time?from=${weekStart}`} className="btn btn-outline btn-sm">
                 View my time
               </Link>
             }
@@ -793,22 +716,34 @@ async function AttorneyDashboard({
         description="Detail behind the summary above, drawn from recorded time and billing data."
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Hours entered this week" value={hoursWeek.toFixed(2)} href="/time" />
-        <StatCard label="Billable hours this week" value={billableWeek.toFixed(2)} href="/time" />
-        <StatCard label="Billable hours this month" value={billableMonth.toFixed(2)} href="/time" />
+        <StatCard
+          label="Hours entered this week"
+          value={hoursWeek.toFixed(2)}
+          href={`/time?from=${weekStart}`}
+        />
+        <StatCard
+          label="Billable hours this week"
+          value={billableWeek.toFixed(2)}
+          href={`/time?from=${weekStart}&billable=Billable`}
+        />
+        <StatCard
+          label="Billable hours this month"
+          value={billableMonth.toFixed(2)}
+          href={`/time?from=${monthIso}&billable=Billable`}
+        />
         <StatCard
           label="Utilization estimate (month)"
           value={utilEst == null ? "—" : `${utilEst.toFixed(1)}%`}
-          href="/time"
+          href={`/time?from=${monthIso}`}
         />
-        <StatCard label="Draft / unsubmitted time" value={unsubmitted} href="/time" />
+        <StatCard label="Draft / unsubmitted time" value={unsubmitted} href="/time?status=Draft" />
         <StatCard
           label="Rejected time entries"
           value={rejectedTime}
           tone={rejectedTime ? "error" : "default"}
-          href="/time"
+          href="/time?status=Rejected"
         />
-        <StatCard label="My unbilled approved time" value={formatCurrency(unbilledMine)} href="/time" />
+        <StatCard label="My unbilled approved time" value={formatCurrency(unbilledMine)} href="/time?status=Approved" />
         <StatCard label="Matter invoices (visible)" value={invMine.length} href="/invoices" />
         <StatCard
           label="Past-due balances (visible)"
@@ -817,17 +752,41 @@ async function AttorneyDashboard({
           href="/invoices"
         />
         <StatCard
+          label="Out-of-scope to authorize"
+          value={oosToAuthorize}
+          tone={oosToAuthorize ? "warning" : "default"}
+          href="/time/review"
+        />
+        <StatCard
           label="Past-due $ (assigned matters)"
           value={formatCurrency(pastDueMine.reduce((s, i) => s + Number(i.balance_due), 0))}
           tone={pastDueMine.length ? "warning" : "default"}
           href="/invoices"
         />
         <StatCard label="Matters with budgets set" value={budgetWarnings.length} href="/matters" />
-        <StatCard label="Draft time entries" value={draftTime} href="/time" />
+        <StatCard label="Draft time entries" value={draftTime} href="/time?status=Draft" />
       </div>
-      <p className="text-xs opacity-60">
-        Utilization uses available weekly hours (default 40) × weeks this month — management estimate only.
+
+      <WeeklyUtilizationCard
+        weekStart={weekStart}
+        availableHours={avail}
+        totalHours={hoursWeek}
+        billableHours={billableWeek}
+        timeHref={`/time?from=${weekStart}`}
+      />
+      <p className="text-xs opacity-60 -mt-2">
+        Month utilization ({utilEst == null ? "—" : `${utilEst.toFixed(1)}%`}): billable this month ÷
+        (available weekly × weeks elapsed). Same available-hours source as the weekly meter above.
       </p>
+
+      <DeadlineCalendar
+        items={deadlineItems}
+        today={deadlineToday}
+        end={deadlineEnd}
+        title="Coming up — next 7–14 days"
+        emptyTitle="No due tasks, court dates, or filing deadlines in the next 14 days."
+      />
+
       {invMine.length > 0 && (
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
@@ -927,20 +886,67 @@ async function StaffDashboard({
 
   const { data: matters } = await supabase
     .from("matters")
-    .select("id, matter_number, matter_name, matter_status")
+    .select(
+      "id, matter_number, matter_name, matter_status, next_court_date, next_filing_deadline, expected_end_date"
+    )
     .order("updated_at", { ascending: false });
 
+  const matterRows = (matters || []) as Matter[];
+  const { items: deadlineItems, today: deadlineToday, end: deadlineEnd } = buildDeadlineWindow({
+    tasks: taskRows,
+    matters: matterRows,
+    days: 14,
+  });
+
   const [{ data: myTime }, { data: myExp }] = await Promise.all([
-    supabase.from("time_entries").select("*").eq("employee_id", profile.id),
+    supabase
+      .from("time_entries")
+      .select("*, matters(id, matter_number, matter_name)")
+      .eq("employee_id", profile.id),
     supabase.from("expense_entries").select("id, approval_status").eq("created_by", profile.id),
   ]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const timeRows = (myTime || []) as any[];
-  const hoursWeek = timeRows.filter((t) => t.work_date >= weekStart).reduce((s, t) => s + Number(t.hours), 0);
+  const weekRows = timeRows.filter((t) => t.work_date >= weekStart);
+  const hoursWeek = weekRows.reduce((s, t) => s + Number(t.hours), 0);
+  const billableWeek = weekRows
+    .filter((t) => t.billable_status === "Billable")
+    .reduce((s, t) => s + Number(t.hours), 0);
   const draftTime = timeRows.filter((t) => t.approval_status === "Draft").length;
   const rejected = timeRows.filter((t) => t.approval_status === "Rejected").length;
+  const oosPending = timeRows.filter(
+    (t) => t.out_of_scope && t.approval_status === "Submitted"
+  ).length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const submittedExp = (myExp || []).filter((e: any) => e.approval_status === "Submitted").length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const availableWeekly = Number((profile as any).available_weekly_hours) || 40;
+
+  const hoursByMatterMap = new Map<
+    string,
+    { id: string; matter_number: string; matter_name: string; hours: number; billable: number }
+  >();
+  for (const t of weekRows) {
+    const mid = String(t.matter_id);
+    const existing = hoursByMatterMap.get(mid);
+    const h = Number(t.hours) || 0;
+    const billableHours = t.billable_status === "Billable" ? h : 0;
+    if (existing) {
+      existing.hours += h;
+      existing.billable += billableHours;
+    } else {
+      hoursByMatterMap.set(mid, {
+        id: t.matters?.id || mid,
+        matter_number: t.matters?.matter_number || "—",
+        matter_name: t.matters?.matter_name || "Unknown matter",
+        hours: h,
+        billable: billableHours,
+      });
+    }
+  }
+  const hoursByMatter = Array.from(hoursByMatterMap.values()).sort((a, b) => b.hours - a.hours);
+
+  const deadlines = upcomingDeadlines(5);
 
   const { data: intakeEvals } = await supabase
     .from("case_evaluations")
@@ -962,8 +968,8 @@ async function StaffDashboard({
   return (
     <>
       <PageHeader
-        title="Staff Workspace"
-        description="Process document requests from attorneys, collect client materials, and track assigned tasks."
+        title="Paralegal/Legal Staff Workspace"
+        description="Process document requests, track assigned tasks, due dates, matter support work, and timekeeping."
         actions={
           <Link href="/inbox" className="btn btn-primary btn-sm">
             {inboxMeta.title}
@@ -972,6 +978,16 @@ async function StaffDashboard({
         }
       />
       <ParalegalDocumentQueue profile={profile} mineOnly />
+
+      <section className="space-y-3">
+        <SectionHeader
+          title="Quick actions"
+          description="Start the work you do most often."
+          icon={<LayoutGrid className="h-5 w-5" />}
+        />
+        <QuickActions />
+      </section>
+
       <div className="card bg-base-100 border border-base-300 shadow-sm">
         <div className="card-body gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -996,7 +1012,6 @@ async function StaffDashboard({
             />
             <StatCard label="Referred to partners" value={referredOut.length} href="/case-evaluations" />
             <StatCard label="Scheduled consultations" value={scheduled.length} href="/case-evaluations" />
-            <StatCard label="Intake tasks (open)" value={open.length} href="/tasks" />
           </div>
           <CaseEvaluationsMiniList
             rows={intake.slice(0, 8) as never[]}
@@ -1011,44 +1026,143 @@ async function StaffDashboard({
           tone={inboxItems.length ? "warning" : "success"}
           href="/inbox"
         />
-        <StatCard label="Assigned tasks" value={open.length} href="/tasks" />
-        <StatCard label="Due soon" value={dueSoon.length} tone="warning" href="/tasks" />
+        <StatCard label="Assigned tasks" value={open.length} href="/tasks?filter=open" />
+        <StatCard label="Due soon" value={dueSoon.length} tone="warning" href="/tasks?filter=due_soon" />
         <StatCard
           label="Overdue"
           value={overdue.length}
           tone={overdue.length ? "error" : "default"}
-          href="/tasks"
+          href="/tasks?filter=overdue"
         />
-        <StatCard label="Waiting on others" value={waiting.length} href="/tasks" />
+        <StatCard label="Waiting on others" value={waiting.length} href="/tasks?filter=waiting" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Hours entered this week" value={hoursWeek.toFixed(2)} href="/time" />
-        <StatCard label="Draft time entries" value={draftTime} href="/time" />
-        <StatCard label="Submitted expenses" value={submittedExp} href="/expenses" />
+        <StatCard
+          label="Hours entered this week"
+          value={hoursWeek.toFixed(2)}
+          href={`/time?from=${weekStart}`}
+        />
+        <StatCard label="Draft time entries" value={draftTime} href="/time?status=Draft" />
+        <StatCard
+          label="Out-of-scope awaiting attorney"
+          value={oosPending}
+          tone={oosPending ? "warning" : "default"}
+          href="/time?status=Submitted&oos=1"
+        />
         <StatCard
           label="Rejected entries needing correction"
           value={rejected}
           tone={rejected ? "error" : "default"}
-          href="/time"
+          href="/time?status=Rejected"
         />
       </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Submitted expenses" value={submittedExp} href="/expenses?status=Submitted" />
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-2">
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <SectionHeader
+              title="Upcoming deadlines"
+              description="Your next five dates. Anything within three days is highlighted."
+              icon={<CalendarClock className="h-5 w-5" />}
+            />
+            {deadlines.length === 0 ? (
+              <EmptyState
+                title="No upcoming deadlines"
+                description="Deadlines added to your matters will appear here."
+              />
+            ) : (
+              <ul className="space-y-2 mt-2">
+                {deadlines.map((deadline) => (
+                  <DeadlineCard key={deadline.id} deadline={deadline} />
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
             <h2 className="card-title text-base">Assigned tasks</h2>
             <TaskMiniList tasks={open} />
           </div>
         </div>
+      </div>
+
+      <DeadlineCalendar
+        items={deadlineItems}
+        today={deadlineToday}
+        end={deadlineEnd}
+        title="Coming up — next 7–14 days"
+        emptyTitle="No due tasks, court dates, or filing deadlines in the next 14 days."
+      />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <WeeklyUtilizationCard
+          weekStart={weekStart}
+          availableHours={availableWeekly}
+          totalHours={hoursWeek}
+          billableHours={billableWeek}
+          timeHref={`/time?from=${weekStart}`}
+        />
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="card-title text-base">Hours by matter this week</h2>
+              <Link href={`/time?from=${weekStart}`} className="link text-sm">
+                View time
+              </Link>
+            </div>
+            <p className="text-xs opacity-60 -mt-1">
+              Week starting {formatDate(weekStart)} · {hoursWeek.toFixed(2)} hrs total
+            </p>
+            {hoursByMatter.length === 0 ? (
+              <EmptyState
+                title="No hours entered this week yet."
+                action={
+                  <Link href="/time/new" className="btn btn-primary btn-sm">
+                    Enter time
+                  </Link>
+                }
+              />
+            ) : (
+              <div className="table-wrap">
+                <table className="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Matter</th>
+                      <th className="text-right">Total hrs</th>
+                      <th className="text-right">Billable</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hoursByMatter.map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          <Link href={`/matters/${row.id}`} className="link link-hover text-sm">
+                            {row.matter_number} · {row.matter_name}
+                          </Link>
+                        </td>
+                        <td className="text-right font-medium">{row.hours.toFixed(2)}</td>
+                        <td className="text-right text-sm opacity-80">{row.billable.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
             <h2 className="card-title text-base">Assigned matters</h2>
-            {(matters || []).length === 0 ? (
+            {matterRows.length === 0 ? (
               <EmptyState title="You do not currently have any assigned matters." />
             ) : (
               <ul className="space-y-2">
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {(matters || []).map((m: any) => (
-                  <li key={m.id} className="flex justify-between text-sm">
+                {matterRows.map((m) => (
+                  <li key={m.id} className="flex justify-between gap-3 text-sm">
                     <Link href={`/matters/${m.id}`} className="link link-hover">
                       {m.matter_number} · {m.matter_name}
                     </Link>
@@ -1279,25 +1393,6 @@ async function BillingDashboard({
       </div>
     </>
   );
-}
-
-async function ClientDashboard({
-  supabase,
-  profile,
-}: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any;
-  profile: Profile;
-}) {
-  const { data: leads } = await supabase
-    .from("practice_area_leads")
-    .select(
-      "*, lead:profiles!practice_area_leads_lead_attorney_id_fkey(id, full_name, job_title)"
-    )
-    .eq("active_status", true)
-    .order("display_order");
-
-  return <ClientHomePage profile={profile} initialLeads={(leads || []) as never[]} />;
 }
 
 function countBy(values: string[]) {

@@ -2,7 +2,6 @@
 import { requireUser } from "@/lib/auth";
 import { canViewControls } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
-import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
 import { loadAnalyticsData } from "@/lib/analytics-data";
@@ -106,6 +105,33 @@ export default async function ControlsPage() {
     }
   }
 
+  // Duplicate invoice numbers (unique numbering control)
+  {
+    const byNumber = new Map<string, typeof raw.invoices>();
+    for (const inv of raw.invoices) {
+      const key = String(inv.invoice_number || "")
+        .trim()
+        .toUpperCase();
+      if (!key) continue;
+      const list = byNumber.get(key) || [];
+      list.push(inv);
+      byNumber.set(key, list);
+    }
+    for (const [, list] of byNumber) {
+      if (list.length < 2) continue;
+      const first = list[0];
+      rows.push({
+        risk: "High",
+        record: `Duplicate invoice number ${first.invoice_number} (${list.length} invoices)`,
+        href: `/invoices/${first.id}`,
+        user: pmap.get(first.created_by) || "—",
+        date: first.created_at,
+        status: "Control fail",
+        followUp: "Stop billing on duplicate numbers; void/cancel extras and keep one authoritative invoice",
+      });
+    }
+  }
+
   // Missing approval on finalized
   for (const inv of raw.invoices) {
     if (inv.finalized_at && !inv.approved_by && !inv.approved_at) {
@@ -117,6 +143,23 @@ export default async function ControlsPage() {
         date: inv.finalized_at,
         status: inv.invoice_status,
         followUp: "Review segregation of duties",
+      });
+    }
+  }
+
+  // Out-of-scope time awaiting attorney authorization (unauthorized work control)
+  for (const t of raw.time) {
+    if (t.out_of_scope && t.approval_status === "Submitted") {
+      rows.push({
+        risk: "High",
+        record: `Out-of-scope time awaiting attorney approval (${t.hours} hrs · ${t.work_date})`,
+        href: "/time/review",
+        user: pmap.get(t.employee_id) || "—",
+        date: t.created_at || t.work_date,
+        status: "Submitted",
+        followUp: t.out_of_scope_reason
+          ? `Authorize or reject before billing — ${t.out_of_scope_reason}`
+          : "Authorize or reject additional work before billing",
       });
     }
   }
@@ -187,9 +230,8 @@ export default async function ControlsPage() {
     <>
       <PageHeader
         title="Control Monitoring"
-        description="Exception list for segregation of duties, high-value adjustments, reversals, and lock gaps."
+        description="Exception list for segregation of duties, duplicate invoice numbers, high-value adjustments, reversals, and lock gaps."
       />
-      <AnalyticsNotice />
       <p className="text-sm opacity-70">
         Failed sign-in attempt telemetry is not stored in app tables; monitor via Supabase Auth logs. Generated{" "}
         {new Date().toLocaleString()}.

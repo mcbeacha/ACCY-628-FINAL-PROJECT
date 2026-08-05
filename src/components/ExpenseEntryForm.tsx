@@ -7,8 +7,10 @@ import {
   EXPENSE_TYPES,
 } from "@/lib/constants";
 import { formatCurrency } from "@/lib/format";
+import type { ExpenseEntry } from "@/lib/phase2-types";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
 type MatterOpt = { id: string; matter_number: string; matter_name: string };
@@ -27,14 +29,31 @@ const VENDOR_TYPES = new Set([
   "Postage",
 ]);
 
-export function ExpenseEntryForm({ userId }: { userId: string }) {
+export function ExpenseEntryForm({
+  userId,
+  editId,
+  defaultMatterId,
+}: {
+  userId: string;
+  editId?: string;
+  defaultMatterId?: string;
+}) {
+  const router = useRouter();
   const [matters, setMatters] = useState<MatterOpt[]>([]);
   const [expenseType, setExpenseType] = useState("Filing Fee");
   const [amount, setAmount] = useState("");
+  const [matterId, setMatterId] = useState(defaultMatterId || "");
+  const [expenseDate, setExpenseDate] = useState("");
+  const [vendor, setVendor] = useState("");
+  const [description, setDescription] = useState("");
+  const [receipt, setReceipt] = useState("");
+  const [reimbursable, setReimbursable] = useState(true);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(!editId);
 
   useEffect(() => {
     const supabase = createClient();
@@ -44,8 +63,38 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
         .select("id, matter_number, matter_name")
         .order("matter_number");
       setMatters((data || []) as MatterOpt[]);
+
+      if (editId) {
+        const { data: entry, error: loadErr } = await supabase
+          .from("expense_entries")
+          .select("*")
+          .eq("id", editId)
+          .eq("created_by", userId)
+          .maybeSingle();
+        if (loadErr || !entry) {
+          setError(loadErr?.message || "Expense not found or not editable.");
+          setReady(true);
+          return;
+        }
+        const row = entry as ExpenseEntry;
+        if (!["Draft", "Rejected"].includes(row.approval_status) || row.locked_status) {
+          setError("Only unlocked Draft or Rejected expenses can be edited.");
+          setReady(true);
+          return;
+        }
+        setMatterId(row.matter_id);
+        setExpenseDate(row.expense_date);
+        setExpenseType(row.expense_type);
+        setVendor(row.vendor_name || "");
+        setAmount(String(row.amount));
+        setDescription(row.description || "");
+        setReceipt(row.receipt_reference || "");
+        setReimbursable(row.client_reimbursable);
+        setRejectionReason(row.rejection_reason);
+      }
+      setReady(true);
     })();
-  }, []);
+  }, [editId, userId]);
 
   async function save(e: FormEvent<HTMLFormElement>, submit: boolean) {
     e.preventDefault();
@@ -53,13 +102,9 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
     setWarning(null);
     setMessage(null);
 
-    const fd = new FormData(e.currentTarget);
-    const matterId = String(fd.get("matter_id") || "");
-    const expenseDate = String(fd.get("expense_date") || "");
-    const vendor = String(fd.get("vendor_name") || "").trim();
-    const desc = String(fd.get("description") || "").trim();
-    const receipt = String(fd.get("receipt_reference") || "").trim();
-    const reimbursable = fd.get("client_reimbursable") === "on";
+    const desc = description.trim();
+    const vendorName = vendor.trim();
+    const receiptRef = receipt.trim();
     const amt = Number(amount);
 
     if (!matterId || !expenseDate) {
@@ -74,11 +119,11 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
       setError("Description is required.");
       return;
     }
-    if (VENDOR_TYPES.has(expenseType) && !vendor) {
+    if (VENDOR_TYPES.has(expenseType) && !vendorName) {
       setError("A vendor is required for this expense type.");
       return;
     }
-    if (amt >= EXPENSE_RECEIPT_THRESHOLD && !receipt) {
+    if (amt >= EXPENSE_RECEIPT_THRESHOLD && !receiptRef) {
       setError(`A receipt reference is required for expenses of $${EXPENSE_RECEIPT_THRESHOLD} or more.`);
       return;
     }
@@ -86,13 +131,15 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
     setLoading(true);
     const supabase = createClient();
 
-    const { data: dups } = await supabase
+    let dupQ = supabase
       .from("expense_entries")
       .select("id, description, vendor_name, amount")
       .eq("matter_id", matterId)
       .eq("expense_date", expenseDate)
       .eq("amount", amt);
+    if (editId) dupQ = dupQ.neq("id", editId);
 
+    const { data: dups } = await dupQ;
     if (dups?.length) {
       setWarning(
         "A possible duplicate expense was found (same matter, date, and amount). You can still submit if this entry is intentional."
@@ -111,52 +158,106 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
       matter_id: matterId,
       expense_date: expenseDate,
       expense_type: expenseType,
-      vendor_name: vendor || null,
+      vendor_name: vendorName || null,
       amount: amt,
       client_reimbursable: reimbursable,
       description: desc,
-      receipt_reference: receipt || null,
+      receipt_reference: receiptRef || null,
       approval_status: submit ? "Submitted" : "Draft",
       invoice_status: reimbursable ? "Unbilled" : "Nonreimbursable",
       locked_status: false,
+      needs_extra_review: amt >= EXPENSE_HIGH_VALUE_THRESHOLD,
+      rejection_reason: submit ? null : editId ? rejectionReason : null,
       created_by: userId,
     };
 
-    const { data, error: insErr } = await supabase
-      .from("expense_entries")
-      .insert(payload)
-      .select("id")
-      .single();
-
-    if (insErr) {
-      setError(insErr.message);
-      setLoading(false);
-      return;
+    let entryId = editId;
+    if (editId) {
+      const { error: upErr } = await supabase.from("expense_entries").update(payload).eq("id", editId);
+      if (upErr) {
+        setError(upErr.message);
+        setLoading(false);
+        return;
+      }
+    } else {
+      const { data, error: insErr } = await supabase
+        .from("expense_entries")
+        .insert(payload)
+        .select("id")
+        .single();
+      if (insErr) {
+        setError(insErr.message);
+        setLoading(false);
+        return;
+      }
+      entryId = data.id;
     }
 
     await supabase.from("financial_activity").insert({
-      action_type: submit ? "expense_submitted" : "expense_created",
+      action_type: editId
+        ? submit
+          ? "expense_resubmitted"
+          : "expense_updated"
+        : submit
+          ? "expense_submitted"
+          : "expense_created",
       record_type: "expense_entry",
-      record_id: data.id,
+      record_id: entryId,
       matter_id: matterId,
-      action_description: submit
-        ? "Expense submitted for approval."
-        : "Expense saved as draft.",
+      action_description: editId
+        ? submit
+          ? "Corrected expense resubmitted for approval."
+          : "Draft expense updated."
+        : submit
+          ? "Expense submitted for approval."
+          : "Expense saved as draft.",
       performed_by: userId,
     });
 
-    setMessage(submit ? "Expense submitted for approval." : "Draft expense saved.");
+    setMessage(
+      editId
+        ? submit
+          ? "Corrected expense resubmitted for approval."
+          : "Draft expense updated."
+        : submit
+          ? "Expense submitted for approval."
+          : "Draft expense saved."
+    );
     setLoading(false);
-    (e.target as HTMLFormElement).reset();
+
+    if (editId) {
+      router.push(submit ? "/expenses?status=Submitted" : "/expenses?status=Draft");
+      router.refresh();
+      return;
+    }
+
     setAmount("");
     setExpenseType("Filing Fee");
+    setMatterId("");
+    setExpenseDate("");
+    setVendor("");
+    setDescription("");
+    setReceipt("");
+    setReimbursable(true);
+  }
+
+  if (!ready) {
+    return (
+      <div className="flex justify-center py-20">
+        <span className="loading loading-spinner loading-lg" />
+      </div>
+    );
   }
 
   return (
     <>
       <PageHeader
-        title="Enter Expense"
-        description="Record matter-related costs. Mark whether the client should reimburse the firm later."
+        title={editId ? "Edit & Resubmit Expense" : "Enter Expense"}
+        description={
+          editId
+            ? "Correct a Draft or Rejected expense, then save or resubmit for approval."
+            : "Record matter-related costs. Mark whether the client should reimburse the firm later."
+        }
         actions={
           <Link href="/expenses" className="btn btn-ghost btn-sm">
             My Expenses
@@ -164,14 +265,32 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
         }
       />
 
-      <form className="card bg-base-100 border border-base-300 shadow-sm max-w-3xl" onSubmit={(e) => save(e, false)}>
+      {rejectionReason && (
+        <div className="alert alert-error text-sm max-w-3xl mb-4">
+          <span>
+            <strong>Rejection reason:</strong> {rejectionReason}
+          </span>
+        </div>
+      )}
+
+      <form
+        className="card bg-base-100 border border-base-300 shadow-sm max-w-3xl"
+        onSubmit={(e) => save(e, false)}
+      >
         <div className="card-body space-y-4">
           <div className="form-grid">
             <label className="label-cell" htmlFor="matter_id">
               Matter *
             </label>
             <div className="field-cell">
-              <select id="matter_id" name="matter_id" className="select select-bordered w-full" required defaultValue="">
+              <select
+                id="matter_id"
+                name="matter_id"
+                className="select select-bordered w-full"
+                required
+                value={matterId}
+                onChange={(e) => setMatterId(e.target.value)}
+              >
                 <option value="" disabled>
                   Select matter
                 </option>
@@ -187,7 +306,15 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
               Expense date *
             </label>
             <div className="field-cell">
-              <input id="expense_date" name="expense_date" type="date" className="input input-bordered w-full" required />
+              <input
+                id="expense_date"
+                name="expense_date"
+                type="date"
+                className="input input-bordered w-full"
+                required
+                value={expenseDate}
+                onChange={(e) => setExpenseDate(e.target.value)}
+              />
             </div>
 
             <label className="label-cell" htmlFor="expense_type">
@@ -210,7 +337,13 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
               Vendor {VENDOR_TYPES.has(expenseType) ? "*" : ""}
             </label>
             <div className="field-cell">
-              <input id="vendor_name" name="vendor_name" className="input input-bordered w-full" />
+              <input
+                id="vendor_name"
+                name="vendor_name"
+                className="input input-bordered w-full"
+                value={vendor}
+                onChange={(e) => setVendor(e.target.value)}
+              />
             </div>
 
             <label className="label-cell" htmlFor="amount">
@@ -236,7 +369,15 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
               Description *
             </label>
             <div className="field-cell">
-              <textarea id="description" name="description" className="textarea textarea-bordered w-full" rows={3} required />
+              <textarea
+                id="description"
+                name="description"
+                className="textarea textarea-bordered w-full"
+                rows={3}
+                required
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
             </div>
 
             <label className="label-cell" htmlFor="receipt_reference">
@@ -248,6 +389,8 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
                 name="receipt_reference"
                 className="input input-bordered w-full"
                 placeholder="RCPT-DEMO-0000 or fictional filename"
+                value={receipt}
+                onChange={(e) => setReceipt(e.target.value)}
               />
               <p className="text-xs opacity-60 mt-1">
                 Required at ${EXPENSE_RECEIPT_THRESHOLD}+. Document upload is not enabled in this phase.
@@ -257,7 +400,13 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
             <span className="label-cell">Reimbursable</span>
             <div className="field-cell">
               <label className="label cursor-pointer justify-start gap-2">
-                <input type="checkbox" name="client_reimbursable" className="checkbox checkbox-sm" defaultChecked />
+                <input
+                  type="checkbox"
+                  name="client_reimbursable"
+                  className="checkbox checkbox-sm"
+                  checked={reimbursable}
+                  onChange={(e) => setReimbursable(e.target.checked)}
+                />
                 <span className="label-text">Client reimbursable (for future billing)</span>
               </label>
             </div>
@@ -291,12 +440,16 @@ export function ExpenseEntryForm({ userId }: { userId: string }) {
                 const form = (ev.target as HTMLElement).closest("form");
                 if (form)
                   save(
-                    { preventDefault() {}, currentTarget: form, target: form } as unknown as FormEvent<HTMLFormElement>,
+                    {
+                      preventDefault() {},
+                      currentTarget: form,
+                      target: form,
+                    } as unknown as FormEvent<HTMLFormElement>,
                     true
                   );
               }}
             >
-              Submit for Approval
+              {editId ? "Resubmit for Approval" : "Submit for Approval"}
             </button>
           </div>
         </div>

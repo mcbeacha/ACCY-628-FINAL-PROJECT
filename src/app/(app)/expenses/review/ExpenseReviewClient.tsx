@@ -3,6 +3,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import { FilterField, FilterToolbar } from "@/components/FilterToolbar";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { ExpenseEntry } from "@/lib/phase2-types";
 import { createClient } from "@/lib/supabase/client";
@@ -83,13 +84,21 @@ export function ExpenseReviewClient({ userId }: { userId: string }) {
         title="Expense Review"
         description="Review submitted expenses, including high-value flags and reimbursable status."
       />
-      <select className="select select-bordered select-sm w-fit" value={status} onChange={(e) => setStatus(e.target.value)}>
-        {["Submitted", "Approved", "Rejected", "Draft", ""].map((s) => (
-          <option key={s || "all"} value={s}>
-            {s || "All"}
-          </option>
-        ))}
-      </select>
+      <FilterToolbar hint={status ? `Showing ${status.toLowerCase()} · ${rows.length}` : `${rows.length} shown`}>
+        <FilterField label="Status" className="w-full sm:w-44">
+          <select
+            className="select select-bordered select-sm"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            {["Submitted", "Approved", "Rejected", "Draft", ""].map((s) => (
+              <option key={s || "all"} value={s}>
+                {s || "All"}
+              </option>
+            ))}
+          </select>
+        </FilterField>
+      </FilterToolbar>
       {message && (
         <div className="alert alert-success text-sm">
           <span>{message}</span>

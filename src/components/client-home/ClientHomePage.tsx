@@ -16,6 +16,7 @@ import {
   practiceAreaIcon,
   type PracticeAreaLead,
 } from "@/lib/case-evaluations";
+import { SwitchDemoClientButton } from "@/components/client-portal/SwitchDemoClientButton";
 import { isDemoMode } from "@/lib/demo-config";
 import { emailLooksValid } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
@@ -411,22 +412,16 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
             Already a Rebel Law Group Client?
           </h2>
           <p className="mt-2 opacity-75">
-            Access your fictional client portal for matters, invoices, milestones, and retainer
-            summaries.
+            Open the Current Client portal to review matters, invoices, payments, retainers, and
+            milestones for your fictional account.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <Link href="/matters" className="btn btn-primary btn-sm">
-              View My Matters
-            </Link>
-            <Link href="/portal/billing" className="btn btn-outline btn-sm">
-              Review My Invoices
-            </Link>
-            <Link href="/portal" className="btn btn-outline btn-sm">
-              View Upcoming Milestones
-            </Link>
-            <Link href="/portal/billing" className="btn btn-outline btn-sm">
-              View Retainer Summary
-            </Link>
+            <SwitchDemoClientButton target="current_client" className="btn btn-primary btn-sm">
+              Already a Client? Open Client Portal
+            </SwitchDemoClientButton>
+            <SwitchDemoClientButton target="current_client" className="btn btn-outline btn-sm">
+              View Client Portal
+            </SwitchDemoClientButton>
           </div>
         </div>
       </section>
@@ -460,22 +455,12 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
             </ul>
           </div>
           <div>
-            <p className="font-semibold text-sm mb-2">Client portal</p>
+            <p className="font-semibold text-sm mb-2">Current clients</p>
             <ul className="text-sm space-y-1 opacity-75">
               <li>
-                <Link href="/portal" className="link link-hover">
-                  Milestones
-                </Link>
-              </li>
-              <li>
-                <Link href="/portal/billing" className="link link-hover">
-                  Invoices & payments
-                </Link>
-              </li>
-              <li>
-                <Link href="/matters" className="link link-hover">
-                  My matters
-                </Link>
+                <SwitchDemoClientButton target="current_client" className="link link-hover">
+                  Open Client Portal
+                </SwitchDemoClientButton>
               </li>
             </ul>
           </div>

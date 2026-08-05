@@ -60,6 +60,3 @@ export type Payment = {
   unapplied_amount: number;
   notes: string | null;
 };
-
-export const FINANCE_NOTICE =
-  "All financial activity is simulated for an academic project. No real payments or client funds are processed.";

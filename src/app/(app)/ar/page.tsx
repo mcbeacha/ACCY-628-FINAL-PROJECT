@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
-import { FINANCE_NOTICE } from "@/lib/billing-types";
+import { FilterField, FilterToolbar } from "@/components/FilterToolbar";
 import { formatCurrency, formatDate, clientDisplayName } from "@/lib/format";
 import type { Invoice } from "@/lib/billing-types";
 import Link from "next/link";
@@ -49,9 +49,14 @@ export default async function ARPage({
     bucket: arAgingBucket(r.due_date, Number(r.balance_due), r.invoice_status),
   }));
 
-  const filtered = sp.bucket
-    ? withBucket.filter((r) => r.bucket === sp.bucket)
-    : withBucket;
+  const PAST_DUE_BUCKETS = new Set(["1–30", "31–60", "61–90", "90+"]);
+  const pastDueFilter = sp.bucket === "past_due";
+
+  const filtered = pastDueFilter
+    ? withBucket.filter((r) => PAST_DUE_BUCKETS.has(r.bucket))
+    : sp.bucket
+      ? withBucket.filter((r) => r.bucket === sp.bucket)
+      : withBucket;
 
   const open = withBucket.filter((r) => Number(r.balance_due) > 0 && !["Written Off", "Canceled", "Paid"].includes(r.invoice_status));
   const sumBal = (list: typeof withBucket) =>
@@ -63,6 +68,7 @@ export default async function ARPage({
   const b2 = sumBal(open.filter((r) => r.bucket === "31–60"));
   const b3 = sumBal(open.filter((r) => r.bucket === "61–90"));
   const b4 = sumBal(open.filter((r) => r.bucket === "90+"));
+  const pastDueTotal = b1 + b2 + b3 + b4;
   const partial = open.filter((r) => r.invoice_status === "Partially Paid").length;
   const disputed = open.filter((r) => r.invoice_status === "Disputed" || r.dispute_status === "Raised").length;
   const writtenOffAmt = ((writeOffs || []) as { amount: number; approval_status: string }[])
@@ -77,33 +83,53 @@ export default async function ARPage({
     ...new Set(rows.map((r) => r.matters?.practice_area).filter(Boolean)),
   ] as string[];
 
+  const activeFilterCount = [sp.status, sp.bucket, sp.practice].filter(Boolean).length;
+
   return (
     <>
       <PageHeader
         title="Accounts Receivable"
         description="Outstanding balances, AR aging by due date, disputed and written-off invoices."
       />
-      <div className="alert alert-info text-sm">
-        <span>{FINANCE_NOTICE}</span>
-      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total outstanding AR" value={formatCurrency(totalAR)} />
-        <StatCard label="Current" value={formatCurrency(current)} />
-        <StatCard label="1–30 past due" value={formatCurrency(b1)} tone={b1 ? "warning" : "default"} />
-        <StatCard label="31–60 past due" value={formatCurrency(b2)} tone={b2 ? "warning" : "default"} />
-        <StatCard label="61–90 past due" value={formatCurrency(b3)} tone={b3 ? "error" : "default"} />
-        <StatCard label="90+ past due" value={formatCurrency(b4)} tone={b4 ? "error" : "default"} />
+        <StatCard
+          label="Past-due AR"
+          value={formatCurrency(pastDueTotal)}
+          tone={pastDueTotal ? "error" : "default"}
+          href="/ar?bucket=past_due"
+        />
+        <StatCard label="Total outstanding AR" value={formatCurrency(totalAR)} href="/ar" />
+        <StatCard label="Current" value={formatCurrency(current)} href="/ar?bucket=Current" />
+        <StatCard label="1–30 past due" value={formatCurrency(b1)} tone={b1 ? "warning" : "default"} href="/ar?bucket=1–30" />
+        <StatCard label="31–60 past due" value={formatCurrency(b2)} tone={b2 ? "warning" : "default"} href="/ar?bucket=31–60" />
+        <StatCard label="61–90 past due" value={formatCurrency(b3)} tone={b3 ? "error" : "default"} href="/ar?bucket=61–90" />
+        <StatCard label="90+ past due" value={formatCurrency(b4)} tone={b4 ? "error" : "default"} href="/ar?bucket=90+" />
         <StatCard label="Partially paid (open)" value={partial} />
         <StatCard label="Disputed (open)" value={disputed} tone={disputed ? "warning" : "default"} />
         <StatCard label="Approved write-offs" value={formatCurrency(writtenOffAmt)} />
         <StatCard label="Unapplied payments" value={formatCurrency(unapplied)} />
       </div>
 
-      <form className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body flex flex-wrap gap-3 items-end">
-          <label className="form-control">
-            <span className="label-text text-xs">Invoice status</span>
+      <form>
+        <FilterToolbar
+          actions={
+            <>
+              <button type="submit" className="btn btn-sm btn-primary">
+                Apply
+              </button>
+              <Link href="/ar" className="btn btn-sm btn-ghost">
+                Clear
+              </Link>
+            </>
+          }
+          hint={
+            activeFilterCount > 0
+              ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active · ${filtered.length} shown`
+              : undefined
+          }
+        >
+          <FilterField label="Status" className="w-full sm:w-40">
             <select name="status" className="select select-bordered select-sm" defaultValue={sp.status || ""}>
               <option value="">All</option>
               {["Finalized", "Partially Paid", "Past Due", "Disputed", "Paid", "Written Off"].map((s) => (
@@ -112,20 +138,19 @@ export default async function ARPage({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">Aging bucket</span>
+          </FilterField>
+          <FilterField label="Aging" className="w-full sm:w-36">
             <select name="bucket" className="select select-bordered select-sm" defaultValue={sp.bucket || ""}>
               <option value="">All</option>
+              <option value="past_due">All past due</option>
               {["Current", "1–30", "31–60", "61–90", "90+"].map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
               ))}
             </select>
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">Practice area</span>
+          </FilterField>
+          <FilterField label="Practice" className="w-full sm:w-44">
             <select name="practice" className="select select-bordered select-sm" defaultValue={sp.practice || ""}>
               <option value="">All</option>
               {practiceAreas.map((p) => (
@@ -134,31 +159,29 @@ export default async function ARPage({
                 </option>
               ))}
             </select>
-          </label>
-          <button type="submit" className="btn btn-sm btn-primary">
-            Filter
-          </button>
-          <Link href="/ar" className="btn btn-sm btn-ghost">
-            Clear
-          </Link>
-        </div>
+          </FilterField>
+        </FilterToolbar>
       </form>
 
       {filtered.length === 0 ? (
         <EmptyState title="No invoices match these filters." />
       ) : (
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="rounded-lg border border-base-300 bg-base-100 overflow-hidden">
+          <div className="px-3 py-2 border-b border-base-200 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Open &amp; finalized invoices</h2>
+            <span className="text-xs opacity-55 tabular-nums">{filtered.length} rows</span>
+          </div>
           <div className="table-wrap">
             <table className="table table-sm">
               <thead>
-                <tr>
+                <tr className="text-xs">
                   <th>Invoice</th>
                   <th>Client</th>
                   <th>Matter</th>
                   <th>Attorney</th>
                   <th>Due</th>
-                  <th>Total</th>
-                  <th>Balance</th>
+                  <th className="text-right">Total</th>
+                  <th className="text-right">Balance</th>
                   <th>Aging</th>
                   <th>Status</th>
                 </tr>
@@ -174,10 +197,14 @@ export default async function ARPage({
                     <td className="text-sm">{clientDisplayName(r.clients)}</td>
                     <td className="text-sm">{r.matters?.matter_number}</td>
                     <td className="text-sm">{r.matters?.responsible?.full_name || "—"}</td>
-                    <td>{formatDate(r.due_date)}</td>
-                    <td>{formatCurrency(Number(r.invoice_total))}</td>
-                    <td className="font-semibold">{formatCurrency(Number(r.balance_due))}</td>
-                    <td>{r.bucket}</td>
+                    <td className="text-sm whitespace-nowrap">{formatDate(r.due_date)}</td>
+                    <td className="text-sm text-right tabular-nums">
+                      {formatCurrency(Number(r.invoice_total))}
+                    </td>
+                    <td className="text-sm text-right font-semibold tabular-nums">
+                      {formatCurrency(Number(r.balance_due))}
+                    </td>
+                    <td className="text-sm whitespace-nowrap">{r.bucket}</td>
                     <td>
                       <StatusBadge status={r.invoice_status} />
                     </td>
