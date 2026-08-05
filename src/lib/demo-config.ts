@@ -17,19 +17,28 @@ export const DEMO_BANNER_DISMISS_KEY = "rebel-law-demo-banner-dismissed";
  */
 export const DEMO_PASSWORD = "RebelDemo2026!";
 
-export type DemoRoleKey = UserRole;
+/** Demo selector keys — Potential/Current Client share the client auth role but different UIs. */
+export type DemoRoleKey =
+  | UserRole
+  | "potential_client"
+  | "current_client";
 
 export type DemoIdentity = {
   key: DemoRoleKey;
+  /** Supabase profile role used for RLS / permissions. */
   role: UserRole;
   email: string;
-  /** Display name shown in the selector (matches seeded profile). */
+  /** Display name shown in the selector. */
   displayName: string;
   title: string;
   profileId: string;
   homePath: string;
   viewBadge: string;
 };
+
+/** Seeded Current Client portal user (Northvale Robotics / Nora Vale). */
+export const CURRENT_CLIENT_PROFILE_ID = "a1000000-0000-4000-8000-000000000006";
+export const CURRENT_CLIENT_EMAIL = "nvale@northvale.demo";
 
 /**
  * Fixed approved list of fictional demo identities.
@@ -77,14 +86,24 @@ export const DEMO_IDENTITIES: DemoIdentity[] = [
     viewBadge: "Billing View",
   },
   {
-    key: "client",
+    key: "potential_client",
     role: "client",
-    email: "nvale@northvale.demo",
+    email: CURRENT_CLIENT_EMAIL,
+    displayName: "Oxford Prospect",
+    title: "Potential Client",
+    profileId: CURRENT_CLIENT_PROFILE_ID,
+    homePath: "/potential-client",
+    viewBadge: "Potential Client",
+  },
+  {
+    key: "current_client",
+    role: "client",
+    email: CURRENT_CLIENT_EMAIL,
     displayName: "Nora Vale",
-    title: "Client (Northvale Robotics)",
-    profileId: "a1000000-0000-4000-8000-000000000006",
-    homePath: "/dashboard",
-    viewBadge: "Client View",
+    title: "Current Client (Northvale Robotics)",
+    profileId: CURRENT_CLIENT_PROFILE_ID,
+    homePath: "/client-portal",
+    viewBadge: "Current Client",
   },
 ];
 
@@ -93,31 +112,69 @@ export const DEFAULT_DEMO_ROLE: DemoRoleKey = "managing_partner";
 export const DEMO_MODE_NOTICE =
   "Demo Mode is active. This academic application uses fictional data and does not require authentication.";
 
+export const DEMO_CLIENT_NOTICE =
+  "Demo Mode is active. All client and financial information is fictional.";
+
 export function isDemoMode(): boolean {
   return process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 }
 
+export function isPotentialClientDemoKey(key: DemoRoleKey | string | null | undefined) {
+  return key === "potential_client";
+}
+
+export function isCurrentClientDemoKey(key: DemoRoleKey | string | null | undefined) {
+  return key === "current_client" || key === "client";
+}
+
+export function isClientExperienceDemoKey(key: DemoRoleKey | string | null | undefined) {
+  return isPotentialClientDemoKey(key) || isCurrentClientDemoKey(key);
+}
+
 export function getDemoIdentity(key: string | null | undefined): DemoIdentity {
+  // Legacy stored key "client" → Current Client portal
+  if (key === "client") {
+    return DEMO_IDENTITIES.find((d) => d.key === "current_client")!;
+  }
   const found = DEMO_IDENTITIES.find((d) => d.key === key);
   return found ?? DEMO_IDENTITIES.find((d) => d.key === DEFAULT_DEMO_ROLE)!;
 }
 
+/** Prefer Current Client when multiple identities share an email and no stored key. */
 export function getDemoIdentityByEmail(email: string | null | undefined): DemoIdentity | null {
   if (!email) return null;
-  return DEMO_IDENTITIES.find((d) => d.email.toLowerCase() === email.toLowerCase()) ?? null;
+  const matches = DEMO_IDENTITIES.filter(
+    (d) => d.email.toLowerCase() === email.toLowerCase()
+  );
+  if (!matches.length) return null;
+  return matches.find((d) => d.key === "current_client") ?? matches[0];
 }
 
 export function formatDemoOptionLabel(identity: DemoIdentity): string {
+  if (identity.key === "potential_client") {
+    return `Potential Client — ${identity.displayName}`;
+  }
+  if (identity.key === "current_client") {
+    return `Current Client — ${identity.displayName}`;
+  }
   return `${ROLE_LABELS[identity.role]} — ${identity.displayName}`;
 }
 
 export function roleSwitchMessage(identity: DemoIdentity): string {
+  if (identity.key === "potential_client") {
+    return "Now viewing the Potential Client marketing and intake experience.";
+  }
+  if (identity.key === "current_client") {
+    return "Now viewing the Current Client portal.";
+  }
   return `Now viewing the app as ${ROLE_LABELS[identity.role]}.`;
 }
 
 /** Parse a stored role key; invalid values fall back to Managing Partner. */
 export function parseStoredDemoRole(raw: string | null): DemoRoleKey {
-  if (raw && DEMO_IDENTITIES.some((d) => d.key === raw)) {
+  if (!raw) return DEFAULT_DEMO_ROLE;
+  if (raw === "client") return "current_client";
+  if (DEMO_IDENTITIES.some((d) => d.key === raw)) {
     return raw as DemoRoleKey;
   }
   return DEFAULT_DEMO_ROLE;

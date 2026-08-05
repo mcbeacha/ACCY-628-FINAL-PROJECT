@@ -25,9 +25,12 @@ export default async function InvoiceDetailPage({
     redirect("/invoices");
   }
 
-  // Clients only see finalized invoices
-  if (profile.role === "client" && !(inv as Invoice).finalized_at) {
-    redirect("/portal/billing");
+  // Clients only see finalized invoices — use Current Client portal routes
+  if (profile.role === "client") {
+    if (!(inv as Invoice).finalized_at) {
+      redirect("/client-portal/invoices");
+    }
+    redirect(`/client-portal/invoices/${id}`);
   }
 
   const [{ data: lines }, { data: adjs }, { data: wos }, { data: apps }, { data: ra }] =

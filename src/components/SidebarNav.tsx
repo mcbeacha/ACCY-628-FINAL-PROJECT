@@ -3,14 +3,15 @@
 import {
   DASHBOARD_ICON,
   INBOX_ICON,
-  buildNavSections,
+  buildNavSectionsForDemoKey,
   isNavLinkActive,
-  mattersSectionTitleForRole,
+  mattersSectionTitleForDemoKey,
   sectionIdForPath,
   type NavSectionId,
   type ResolvedNavSection,
 } from "@/lib/nav-config";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
+import type { DemoRoleKey } from "@/lib/demo-config";
 import type { UserRole } from "@/lib/types";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
@@ -34,25 +35,49 @@ function NavLinkRow({
   active,
   indented,
   onNavigate,
+  onDemoSwitch,
 }: {
   href: string;
   label: string;
   active: boolean;
   indented?: boolean;
   onNavigate?: () => void;
+  /** Demo Mode: switch Potential ↔ Current Client instead of a plain link. */
+  onDemoSwitch?: () => void;
 }) {
+  const className = [
+    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors w-full text-left",
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+    indented ? "ml-2 pl-4 border-l-2 border-base-300" : "",
+    active
+      ? "bg-primary/15 text-base-content font-semibold border-l-primary"
+      : "hover:bg-base-200 opacity-90",
+  ].join(" ");
+
+  if (onDemoSwitch) {
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={() => {
+          onNavigate?.();
+          onDemoSwitch();
+        }}
+        aria-current={active ? "page" : undefined}
+      >
+        {active && (
+          <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+        )}
+        <span className="truncate">{label}</span>
+      </button>
+    );
+  }
+
   return (
     <Link
       href={href}
       onClick={onNavigate}
-      className={[
-        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        indented ? "ml-2 pl-4 border-l-2 border-base-300" : "",
-        active
-          ? "bg-primary/15 text-base-content font-semibold border-l-primary"
-          : "hover:bg-base-200 opacity-90",
-      ].join(" ")}
+      className={className}
       aria-current={active ? "page" : undefined}
     >
       {active && (
@@ -71,6 +96,7 @@ function SidebarSection({
   pathname,
   onNavigate,
   titleLive,
+  onDemoExperienceLink,
 }: {
   section: ResolvedNavSection;
   open: boolean;
@@ -79,6 +105,7 @@ function SidebarSection({
   pathname: string;
   onNavigate?: () => void;
   titleLive?: boolean;
+  onDemoExperienceLink?: (href: string) => (() => void) | undefined;
 }) {
   const panelId = useId();
   const Icon = section.icon;
@@ -135,6 +162,7 @@ function SidebarSection({
                   indented
                   active={isNavLinkActive(pathname, link.href, allHrefs)}
                   onNavigate={onNavigate}
+                  onDemoSwitch={onDemoExperienceLink?.(link.href)}
                 />
               </li>
             ))}
@@ -149,21 +177,21 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
   const pathname = usePathname();
   const demo = useDemoRole();
   // Prefer demo context so the matters heading updates as soon as View App As changes.
-  const effectiveRole: UserRole = demo?.activeDemoRole ?? role;
+  const effectiveKey = (demo?.activeDemoRole ?? role) as DemoRoleKey | UserRole;
 
   const { dashboard, inbox, sections } = useMemo(
-    () => buildNavSections(effectiveRole),
-    [effectiveRole]
+    () => buildNavSectionsForDemoKey(effectiveKey),
+    [effectiveKey]
   );
 
   const sectionsWithTitle = useMemo(
     () =>
       sections.map((section) =>
         section.id === "partner_matters"
-          ? { ...section, label: mattersSectionTitleForRole(effectiveRole) }
+          ? { ...section, label: mattersSectionTitleForDemoKey(effectiveKey) }
           : section
       ),
-    [sections, effectiveRole]
+    [sections, effectiveKey]
   );
 
   const allHrefs = useMemo(
@@ -184,6 +212,18 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
 
   function onNavigate() {
     if (closeDrawerOnNavigate) closeMobileDrawer();
+  }
+
+  function onDemoExperienceLink(href: string) {
+    if (!demo) return undefined;
+    const base = href.split("#")[0];
+    if (base === "/client-portal" && effectiveKey === "potential_client") {
+      return () => void demo.setActiveDemoRole("current_client");
+    }
+    if (base === "/potential-client" && (effectiveKey === "current_client" || effectiveKey === "client")) {
+      return () => void demo.setActiveDemoRole("potential_client");
+    }
+    return undefined;
   }
 
   function toggleSection(id: NavSectionId) {
@@ -249,6 +289,7 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
           pathname={pathname}
           onNavigate={onNavigate}
           titleLive={section.id === "partner_matters"}
+          onDemoExperienceLink={onDemoExperienceLink}
         />
       ))}
     </nav>

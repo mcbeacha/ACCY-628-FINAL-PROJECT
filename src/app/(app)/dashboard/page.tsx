@@ -6,7 +6,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { DeadlineCalendar, buildDeadlineWindow } from "@/components/DeadlineCalendar";
 import { WeeklyUtilizationCard } from "@/components/WeeklyUtilizationCard";
 import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
-import { ClientHomePage } from "@/components/client-home/ClientHomePage";
 import { CaseEvaluationsMiniList } from "@/components/intake/CaseEvaluationDetailClient";
 import { ExecutiveCharts } from "./ExecutiveCharts";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
@@ -48,6 +47,7 @@ import {
   Timer,
 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 function startOfWeekISO() {
   const d = new Date();
@@ -73,7 +73,10 @@ export default async function DashboardPage() {
   if (profile.role === "billing_staff") {
     return <BillingDashboard supabase={supabase} profile={profile} />;
   }
-  return <ClientDashboard supabase={supabase} profile={profile} />;
+  // Client experiences live on dedicated routes (Potential vs Current).
+  // Default authenticated client home is the Current Client portal; Potential Client
+  // is opened via View App As → Potential Client (/potential-client).
+  redirect("/client-portal");
 }
 
 async function PartnerDashboard({
@@ -1430,25 +1433,6 @@ async function BillingDashboard({
       </div>
     </>
   );
-}
-
-async function ClientDashboard({
-  supabase,
-  profile,
-}: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any;
-  profile: Profile;
-}) {
-  const { data: leads } = await supabase
-    .from("practice_area_leads")
-    .select(
-      "*, lead:profiles!practice_area_leads_lead_attorney_id_fkey(id, full_name, job_title)"
-    )
-    .eq("active_status", true)
-    .order("display_order");
-
-  return <ClientHomePage profile={profile} initialLeads={(leads || []) as never[]} />;
 }
 
 function countBy(values: string[]) {

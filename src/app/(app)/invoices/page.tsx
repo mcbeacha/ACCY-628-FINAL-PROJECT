@@ -11,7 +11,10 @@ import { redirect } from "next/navigation";
 
 export default async function InvoicesPage() {
   const { profile, supabase } = await requireUser();
-  if (profile.role === "client" || profile.role === "paralegal") {
+  if (profile.role === "client") {
+    redirect("/client-portal/invoices");
+  }
+  if (profile.role === "paralegal") {
     redirect("/dashboard");
   }
 

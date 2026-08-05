@@ -208,8 +208,8 @@ export function ClientBillingClient({
                     {inv.dispute_reason ? ` — ${inv.dispute_reason}` : ""}
                   </p>
                 )}
-                <Link href="/portal" className="link text-sm mt-4 block">
-                  Back to portal home
+                <Link href="/client-portal" className="link text-sm mt-4 block">
+                  Back to client portal
                 </Link>
               </>
             )}

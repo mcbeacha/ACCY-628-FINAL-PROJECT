@@ -13,6 +13,7 @@ import {
   DemoRoleSelector,
 } from "@/components/demo/DemoRoleSelector";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
+import { isClientExperienceDemoKey } from "@/lib/demo-config";
 import { GlobalSearch } from "@/components/workspace/GlobalSearch";
 import { NotificationCenter } from "@/components/workspace/NotificationCenter";
 import { LogOut, Menu, Scale } from "lucide-react";
@@ -35,7 +36,7 @@ export function AppShell({
   const [busy, setBusy] = useState(false);
   const demo = useDemoRole();
   const viewBadge = demo?.activeIdentity.viewBadge;
-  const isStaff = (demo?.activeDemoRole ?? profile.role) !== "client";
+  const isStaff = !isClientExperienceDemoKey(demo?.activeDemoRole ?? profile.role);
 
   async function logout() {
     setBusy(true);

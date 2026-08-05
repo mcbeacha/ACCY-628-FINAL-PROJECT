@@ -5,7 +5,7 @@ import { MessagesClient } from "./MessagesClient";
 
 export default async function MessagesPage() {
   const { profile } = await requireUser();
-  if (profile.role === "client") redirect("/dashboard");
+  if (profile.role === "client") redirect("/client-portal");
 
   return (
     <>

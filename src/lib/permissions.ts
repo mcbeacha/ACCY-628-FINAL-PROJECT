@@ -269,16 +269,38 @@ export function navForRole(role: UserRole): NavItem[] {
       ];
     case "client":
       return [
-        { href: "/dashboard", label: "Home" },
-        { href: "/inbox", label: inboxNavLabel("client") },
-        { href: "/matters", label: "My Matters" },
-        { href: "/portal", label: "Milestones" },
-        { href: "/portal/billing", label: "My Invoices & Payments" },
-        { href: "/settings", label: "Settings" },
+        { href: "/client-portal", label: "Client Dashboard" },
+        { href: "/client-portal/matters", label: "My Matters" },
+        { href: "/client-portal/invoices", label: "My Invoices" },
+        { href: "/client-portal/pay", label: "Make a Payment" },
+        { href: "/client-portal/payments", label: "Payment History" },
+        { href: "/client-portal/retainers", label: "Retainer Summary" },
+        { href: "/client-portal/milestones", label: "Milestones" },
+        { href: "/client-portal/contact", label: "Contact My Legal Team" },
+        { href: "/potential-client", label: "Explore Rebel Law Group" },
       ];
     default:
       return [{ href: "/dashboard", label: "Dashboard" }];
   }
+}
+
+/** Navigation for Demo Mode selector keys (Potential vs Current Client). */
+export function navForDemoKey(key: string): NavItem[] {
+  if (key === "potential_client") {
+    return [
+      { href: "/potential-client", label: "Home" },
+      { href: "/potential-client#practice-areas", label: "Practice Areas" },
+      { href: "/potential-client#meet-attorneys", label: "Our Attorneys" },
+      { href: "/potential-client#oxford-community", label: "Oxford Community" },
+      { href: "/potential-client#attorneys-for-life", label: "Your Attorneys for Life" },
+      { href: "/potential-client#case-evaluation", label: "Free Case Evaluation" },
+      { href: "/client-portal", label: "Current Client Portal" },
+    ];
+  }
+  if (key === "current_client" || key === "client") {
+    return navForRole("client");
+  }
+  return navForRole(key as UserRole);
 }
 
 /** AR aging bucket from due date and balance */
