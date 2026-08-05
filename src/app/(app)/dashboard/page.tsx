@@ -19,7 +19,6 @@ import type { CaseEvaluation } from "@/lib/case-evaluations";
 import type { Client, Matter, MatterTask, Profile } from "@/lib/types";
 import { SectionHeader } from "@/components/workspace/SectionHeader";
 import { TodaysFocus } from "@/components/workspace/TodaysFocus";
-import { DeadlineCard } from "@/components/workspace/DeadlineCard";
 import { ActivityFeed } from "@/components/workspace/ActivityFeed";
 import { ActiveMattersPanel } from "@/components/workspace/ActiveMattersPanel";
 import { MyTasksPanel } from "@/components/workspace/MyTasksPanel";
@@ -30,7 +29,6 @@ import {
   FOCUS_ITEMS,
   TASKS as MOCK_TASKS,
   daysUntil,
-  upcomingDeadlines,
 } from "@/lib/workspace-mock";
 import {
   buildTimekeeping,
@@ -40,10 +38,10 @@ import {
   toWorkspaceTasks,
 } from "@/lib/workspace-adapters";
 import {
-  CalendarClock,
   History,
   LayoutGrid,
   ListChecks,
+  Receipt,
   Sparkles,
   Timer,
 } from "lucide-react";
@@ -492,6 +490,7 @@ async function AttorneyDashboard({
   const weekStart = startOfWeekISO();
   const inboxItems = await loadInboxItems(supabase, "attorney", profile.id);
   const inboxMeta = inboxMetaForRole("attorney");
+
   const { data: matters } = await supabase
     .from("matters")
     .select(
@@ -509,20 +508,28 @@ async function AttorneyDashboard({
 
   const [{ data: myTime }, { data: myExp }, { data: retainers }, { data: matterInvoices }, { data: oosQueue }] =
     await Promise.all([
-    supabase.from("time_entries").select("*").eq("employee_id", profile.id),
-    supabase.from("expense_entries").select("*").eq("created_by", profile.id).order("expense_date", { ascending: false }).limit(5),
-    supabase.from("retainer_accounts").select("*, matters(matter_number, matter_name)").in("account_status", ["Below Threshold", "Exhausted"]),
-    supabase
-      .from("invoices")
-      .select("id, invoice_number, invoice_status, balance_due, due_date, matter_id, finalized_at")
-      .order("due_date", { ascending: false })
-      .limit(30),
-    supabase
-      .from("time_entries")
-      .select("id")
-      .eq("out_of_scope", true)
-      .eq("approval_status", "Submitted"),
-  ]);
+      supabase.from("time_entries").select("*").eq("employee_id", profile.id),
+      supabase
+        .from("expense_entries")
+        .select("*")
+        .eq("created_by", profile.id)
+        .order("expense_date", { ascending: false })
+        .limit(5),
+      supabase
+        .from("retainer_accounts")
+        .select("*, matters(matter_number, matter_name)")
+        .in("account_status", ["Below Threshold", "Exhausted"]),
+      supabase
+        .from("invoices")
+        .select("id, invoice_number, invoice_status, balance_due, due_date, matter_id, finalized_at")
+        .order("due_date", { ascending: false })
+        .limit(30),
+      supabase
+        .from("time_entries")
+        .select("id")
+        .eq("out_of_scope", true)
+        .eq("approval_status", "Submitted"),
+    ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const timeRows = (myTime || []) as any[];
@@ -534,10 +541,17 @@ async function AttorneyDashboard({
   const draftTime = timeRows.filter((t) => t.approval_status === "Draft").length;
   const rejectedTime = timeRows.filter((t) => t.approval_status === "Rejected").length;
   const oosToAuthorize = (oosQueue || []).length;
-  const unsubmitted = timeRows.filter((t) => t.approval_status === "Draft").length;
   const unbilledMine = timeRows
-    .filter((t) => t.approval_status === "Approved" && t.invoice_status === "Unbilled" && t.billable_status === "Billable")
-    .reduce((s, t) => s + calcBillableAmount(Number(t.hours), Number(t.billing_rate), t.billable_status), 0);
+    .filter(
+      (t) =>
+        t.approval_status === "Approved" &&
+        t.invoice_status === "Unbilled" &&
+        t.billable_status === "Billable"
+    )
+    .reduce(
+      (s, t) => s + calcBillableAmount(Number(t.hours), Number(t.billing_rate), t.billable_status),
+      0
+    );
   const monthStart = new Date();
   monthStart.setDate(1);
   const monthIso = monthStart.toISOString().slice(0, 10);
@@ -549,7 +563,6 @@ async function AttorneyDashboard({
         t.billable_status === "Billable"
     )
     .reduce((s, t) => s + Number(t.hours), 0);
-  // utilization: this month billable / (available_weekly * weeks this month so far)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const avail = Number((profile as any).available_weekly_hours) || 40;
   const weeksM = weeksInRange(monthIso, new Date().toISOString().slice(0, 10));
@@ -562,8 +575,7 @@ async function AttorneyDashboard({
       i.finalized_at &&
       new Date(`${i.due_date}T00:00:00`) < new Date(new Date().toDateString())
   );
-  // budget warnings
-  const budgetWarnings = matterRows.filter((m) => m.matter_budget && Number(m.matter_budget) > 0);
+  const pastDueAmount = pastDueMine.reduce((s, i) => s + Number(i.balance_due), 0);
 
   const { data: activityRows } = await supabase
     .from("matter_activity")
@@ -573,8 +585,6 @@ async function AttorneyDashboard({
     .order("created_at", { ascending: false })
     .limit(8);
 
-  // The schema does not store deadlines, focus items, or an activity stream for
-  // every event type yet, so those fall back to the shared workspace fixtures.
   const matterCards = toMatterCards(
     matterRows.filter((m) => ["Active", "Closing", "On Hold"].includes(m.matter_status))
   ).slice(0, 6);
@@ -584,7 +594,6 @@ async function AttorneyDashboard({
   const activityEvents = realActivity.length > 0 ? realActivity : ACTIVITY;
   const liveFocus = focusFromTasks(workspaceTasks);
   const focusItems = liveFocus.length > 0 ? [...liveFocus, ...FOCUS_ITEMS].slice(0, 6) : FOCUS_ITEMS;
-  const deadlines = upcomingDeadlines(5);
   const timekeeping = buildTimekeeping(timeRows, avail);
   const dueTodayCount = myTasks.filter(
     (t) => t.lane !== "Completed" && daysUntil(t.dueDate) === 0
@@ -592,7 +601,6 @@ async function AttorneyDashboard({
   const overdueTaskCount = myTasks.filter(
     (t) => t.lane !== "Completed" && daysUntil(t.dueDate) < 0
   ).length;
-  const deadlinesThisWeek = deadlines.filter((d) => daysUntil(d.dueDate) <= 7).length;
 
   const active = matterRows.filter((m) => m.matter_status === "Active");
   const { items: deadlineItems, today: deadlineToday, end: deadlineEnd } = buildDeadlineWindow({
@@ -600,9 +608,10 @@ async function AttorneyDashboard({
     matters: matterRows,
     days: 14,
   });
-  const needsUpdate = matterRows.filter((m) =>
-    ["Draft", "Pending Approval", "Needs Review", "On Hold"].includes(m.matter_status) ||
-    m.approval_status === "Needs Review"
+  const needsUpdate = matterRows.filter(
+    (m) =>
+      ["Draft", "Pending Approval", "Needs Review", "On Hold"].includes(m.matter_status) ||
+      m.approval_status === "Needs Review"
   );
 
   const { data: referredEvals } = await supabase
@@ -618,26 +627,23 @@ async function AttorneyDashboard({
 
   return (
     <>
-      <PageHeader
-        title="Attorney Workspace"
-        description="Your day at a glance: deadlines, matters, tasks, documents, and timekeeping."
-        actions={
-          <>
-            <Link href="/inbox" className="btn btn-primary btn-sm">
-              {inboxMeta.title}
-              {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
-            </Link>
-            <Link href="/time/new" className="btn btn-outline btn-sm">
-              Log time
-            </Link>
-            <Link href="/calendar" className="btn btn-outline btn-sm">
-              Open calendar
-            </Link>
-          </>
-        }
-      />
-
-      <section className="space-y-3">
+      {/* Band 1 — Start */}
+      <section className="space-y-4 rounded-box border border-base-300 bg-base-200/40 p-4 sm:p-5">
+        <PageHeader
+          title="Attorney Workspace"
+          description="Your day at a glance: deadlines, matters, tasks, documents, and timekeeping."
+          actions={
+            <>
+              <Link href="/inbox" className="btn btn-primary btn-sm">
+                {inboxMeta.title}
+                {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+              </Link>
+              <Link href="/calendar" className="btn btn-outline btn-sm">
+                Open calendar
+              </Link>
+            </>
+          }
+        />
         <SectionHeader
           title="Quick actions"
           description="Start the work you do most often."
@@ -646,93 +652,76 @@ async function AttorneyDashboard({
         <QuickActions />
       </section>
 
-      <div className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="card-title text-base">Case evaluations referred to me</h2>
-            <Link href="/case-evaluations" className="btn btn-sm btn-outline">
-              Open intake queue
-            </Link>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard label="Referred to me" value={referred.length} href="/case-evaluations" />
-            <StatCard
-              label="Awaiting recommendation"
-              value={awaitingRec.length}
-              tone={awaitingRec.length ? "warning" : "default"}
-              href="/case-evaluations"
-            />
-            <StatCard
-              label="Recently converted matters"
-              value={recentlyConverted.length}
-              href="/case-evaluations"
-            />
-          </div>
-          <CaseEvaluationsMiniList
-            rows={referred.slice(0, 6) as never[]}
-            emptyTitle="No evaluations are currently referred to you."
-          />
-        </div>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Items needing attention"
-          value={inboxItems.length}
-          tone={inboxItems.length ? "warning" : "success"}
-          href="/inbox"
-        />
-        <StatCard label="Active matters" value={active.length} href="/matters" />
-        <StatCard
-          label="Tasks due today"
-          value={dueTodayCount}
-          tone={dueTodayCount ? "warning" : "default"}
-          href="/tasks"
-        />
-        <StatCard
-          label="Overdue tasks"
-          value={overdueTaskCount}
-          tone={overdueTaskCount ? "error" : "success"}
-          href="/tasks"
-        />
-        <StatCard
-          label="Deadlines within 7 days"
-          value={deadlinesThisWeek}
-          tone="warning"
-          href="/calendar"
-        />
-      </div>
-
-      <section className="space-y-3">
+      {/* Band 2 — Daily Priorities */}
+      <section className="space-y-4 rounded-box border border-base-300 bg-base-200/40 p-4 sm:p-5">
         <SectionHeader
-          title="Today's focus"
-          description="Everything that needs your attention before the day ends."
+          title="Daily Priorities"
+          description="Overview, intake referrals, focus list, deadlines, matters, and tasks."
           icon={<Sparkles className="h-5 w-5" />}
         />
-        <TodaysFocus items={focusItems} />
-      </section>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Items needing attention"
+            value={inboxItems.length}
+            tone={inboxItems.length ? "warning" : "success"}
+            href="/inbox"
+          />
+          <StatCard label="Active matters" value={active.length} href="/matters" />
+          <StatCard
+            label="Tasks due today"
+            value={dueTodayCount}
+            tone={dueTodayCount ? "warning" : "default"}
+            href="/tasks"
+          />
+          <StatCard
+            label="Overdue tasks"
+            value={overdueTaskCount}
+            tone={overdueTaskCount ? "error" : "success"}
+            href="/tasks"
+          />
+        </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
         <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body">
-            <SectionHeader
-              title="Upcoming deadlines"
-              description="Your next five dates. Anything within three days is highlighted."
-              icon={<CalendarClock className="h-5 w-5" />}
-            />
-            {deadlines.length === 0 ? (
-              <EmptyState
-                title="No upcoming deadlines"
-                description="Deadlines added to your matters will appear here."
+          <div className="card-body gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="card-title text-base">Case evaluations referred to me</h2>
+              <Link href="/case-evaluations" className="btn btn-sm btn-outline">
+                Open intake queue
+              </Link>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <StatCard label="Referred to me" value={referred.length} href="/case-evaluations" />
+              <StatCard
+                label="Awaiting recommendation"
+                value={awaitingRec.length}
+                tone={awaitingRec.length ? "warning" : "default"}
+                href="/case-evaluations"
               />
-            ) : (
-              <ul className="space-y-2 mt-2">
-                {deadlines.map((deadline) => (
-                  <DeadlineCard key={deadline.id} deadline={deadline} />
-                ))}
-              </ul>
-            )}
+              <StatCard
+                label="Recently converted matters"
+                value={recentlyConverted.length}
+                href="/case-evaluations"
+              />
+            </div>
+            <CaseEvaluationsMiniList
+              rows={referred.slice(0, 6) as never[]}
+              emptyTitle="No evaluations are currently referred to you."
+            />
           </div>
         </div>
+
+        <div className="space-y-3">
+          <h3 className="text-base font-semibold">Focus list</h3>
+          <TodaysFocus items={focusItems} />
+        </div>
+
+        <DeadlineCalendar
+          items={deadlineItems}
+          today={deadlineToday}
+          end={deadlineEnd}
+          title="Coming up — next 7–14 days"
+          emptyTitle="No due tasks, court dates, or filing deadlines in the next 14 days."
+        />
 
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
@@ -744,188 +733,184 @@ async function AttorneyDashboard({
             <ActivityFeed events={activityEvents} />
           </div>
         </div>
-      </div>
 
-      <section className="space-y-3">
+        <div className="space-y-3">
+          <SectionHeader
+            title="Matters"
+            description="Active work and matters waiting for an attorney update."
+            icon={<LayoutGrid className="h-5 w-5" />}
+            action={
+              <Link href="/matters" className="btn btn-outline btn-sm">
+                View all matters
+              </Link>
+            }
+          />
+          <ActiveMattersPanel matters={matterCards} />
+          {needsUpdate.length > 0 && (
+            <div className="card bg-base-100 border border-warning/40 shadow-sm">
+              <div className="card-body">
+                <h2 className="card-title text-base">Matters awaiting an attorney update</h2>
+                <ul className="space-y-2">
+                  {needsUpdate.map((m) => (
+                    <li key={m.id} className="flex justify-between gap-3 text-sm">
+                      <Link href={`/matters/${m.id}`} className="link link-hover">
+                        {m.matter_number} · {m.matter_name}
+                      </Link>
+                      <StatusBadge status={m.matter_status} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <SectionHeader
+              title="My tasks"
+              description="Filter by what is due, late, or waiting on someone else."
+              icon={<ListChecks className="h-5 w-5" />}
+              action={
+                <Link href="/tasks" className="btn btn-outline btn-sm">
+                  Open task board
+                </Link>
+              }
+            />
+            <div className="mt-2">
+              <MyTasksPanel tasks={myTasks} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Band 3 — Time */}
+      <section className="space-y-4 rounded-box border border-base-300 bg-base-200/40 p-4 sm:p-5">
         <SectionHeader
-          title="My active matters"
-          description="Pin the matters you return to most."
-          icon={<LayoutGrid className="h-5 w-5" />}
+          title="Time"
+          description="Hours logged, billable progress, and entries that need action."
+          icon={<Timer className="h-5 w-5" />}
           action={
-            <Link href="/matters" className="btn btn-outline btn-sm">
-              View all matters
+            <Link href="/time" className="btn btn-outline btn-sm">
+              View my time
             </Link>
           }
         />
-        <ActiveMattersPanel matters={matterCards} />
-      </section>
-
-      <div className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body">
-          <SectionHeader
-            title="My tasks"
-            description="Filter by what is due, late, or waiting on someone else."
-            icon={<ListChecks className="h-5 w-5" />}
-            action={
-              <Link href="/tasks" className="btn btn-outline btn-sm">
-                Open task board
-              </Link>
-            }
-          />
-          <div className="mt-2">
-            <MyTasksPanel tasks={myTasks} />
-          </div>
-        </div>
-      </div>
-
-      <div className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body">
-          <SectionHeader
-            title="Time and billing"
-            description="Hours logged, billable progress, and quick entry."
-            icon={<Timer className="h-5 w-5" />}
-            action={
-              <Link href="/time" className="btn btn-outline btn-sm">
-                View my time
-              </Link>
-            }
-          />
-          <div className="mt-2">
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
             <TimeBillingSummary summary={timekeeping} />
           </div>
         </div>
-      </div>
+        <WeeklyUtilizationCard
+          weekStart={weekStart}
+          availableHours={avail}
+          totalHours={hoursWeek}
+          billableHours={billableWeek}
+          timeHref={`/time?from=${weekStart}`}
+        />
+        <p className="text-xs opacity-60 -mt-2">
+          Month estimate ({utilEst == null ? "—" : `${utilEst.toFixed(1)}%`}): billable this month ÷
+          (available weekly × weeks elapsed). Same available-hours source as the weekly meter above.
+        </p>
+        <p className="text-sm font-semibold opacity-70">Open items</p>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Draft time"
+            value={draftTime}
+            tone={draftTime ? "warning" : "default"}
+            href="/time?status=Draft"
+          />
+          <StatCard
+            label="Rejected time"
+            value={rejectedTime}
+            tone={rejectedTime ? "error" : "default"}
+            href="/time?status=Rejected"
+          />
+          <StatCard label="Unbilled approved $" value={formatCurrency(unbilledMine)} href="/time" />
+          <StatCard
+            label="Past-due $"
+            value={formatCurrency(pastDueAmount)}
+            tone={pastDueAmount ? "warning" : "default"}
+            href="/invoices"
+          />
+          <StatCard
+            label="Out-of-scope to authorize"
+            value={oosToAuthorize}
+            tone={oosToAuthorize ? "warning" : "default"}
+            href="/time/review"
+          />
+        </div>
+      </section>
 
-      <SectionHeader
-        title="Practice metrics"
-        description="Detail behind the summary above, drawn from recorded time and billing data."
-      />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Hours entered this week" value={hoursWeek.toFixed(2)} href="/time" />
-        <StatCard label="Billable hours this week" value={billableWeek.toFixed(2)} href="/time" />
-        <StatCard label="Billable hours this month" value={billableMonth.toFixed(2)} href="/time" />
-        <StatCard
-          label="Utilization estimate (month)"
-          value={utilEst == null ? "—" : `${utilEst.toFixed(1)}%`}
-          href="/time"
+      {/* Band 4 — Billing Alerts */}
+      <section className="space-y-4 rounded-box border border-base-300 bg-base-200/40 p-4 sm:p-5">
+        <SectionHeader
+          title="Billing Alerts"
+          description="Assigned-matter invoices, retainers, and recent expenses."
+          icon={<Receipt className="h-5 w-5" />}
+          action={
+            <Link href="/invoices" className="btn btn-outline btn-sm">
+              View invoices
+            </Link>
+          }
         />
-        <StatCard label="Draft / unsubmitted time" value={unsubmitted} href="/time" />
-        <StatCard
-          label="Rejected time entries"
-          value={rejectedTime}
-          tone={rejectedTime ? "error" : "default"}
-          href="/time"
-        />
-        <StatCard label="My unbilled approved time" value={formatCurrency(unbilledMine)} href="/time" />
-        <StatCard label="Matter invoices (visible)" value={invMine.length} href="/invoices" />
-        <StatCard
-          label="Past-due balances (visible)"
-          value={pastDueMine.length}
-          tone={pastDueMine.length ? "error" : "default"}
-          href="/invoices"
-        />
-        <StatCard
-          label="Out-of-scope to authorize"
-          value={oosToAuthorize}
-          tone={oosToAuthorize ? "warning" : "default"}
-          href="/time/review"
-        />
-        <StatCard
-          label="Past-due $ (assigned matters)"
-          value={formatCurrency(pastDueMine.reduce((s, i) => s + Number(i.balance_due), 0))}
-          tone={pastDueMine.length ? "warning" : "default"}
-          href="/invoices"
-        />
-        <StatCard label="Matters with budgets set" value={budgetWarnings.length} href="/matters" />
-        <StatCard label="Draft time entries" value={draftTime} href="/time" />
-      </div>
-
-      <WeeklyUtilizationCard
-        weekStart={weekStart}
-        availableHours={avail}
-        totalHours={hoursWeek}
-        billableHours={billableWeek}
-        timeHref={`/time?from=${weekStart}`}
-      />
-      <p className="text-xs opacity-60 -mt-2">
-        Month estimate ({utilEst == null ? "—" : `${utilEst.toFixed(1)}%`}): billable this month ÷
-        (available weekly × weeks elapsed). Same available-hours source as the weekly meter above.
-      </p>
-
-      <DeadlineCalendar
-        items={deadlineItems}
-        today={deadlineToday}
-        end={deadlineEnd}
-        title="Coming up — next 7–14 days"
-        emptyTitle="No due tasks, court dates, or filing deadlines in the next 14 days."
-      />
-
-      {invMine.length > 0 && (
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body">
-            <div className="flex justify-between items-center">
+        {invMine.length > 0 ? (
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
+            <div className="card-body">
               <h2 className="card-title text-base">Billing status (assigned matters)</h2>
-              <Link href="/invoices" className="link text-sm">View invoices</Link>
+              <ul className="text-sm space-y-2">
+                {invMine.slice(0, 6).map((i) => (
+                  <li key={i.id} className="flex justify-between gap-2">
+                    <Link href={`/invoices/${i.id}`} className="link link-hover">
+                      {i.invoice_number}
+                    </Link>
+                    <span>
+                      <StatusBadge status={i.invoice_status} />{" "}
+                      {formatCurrency(Number(i.balance_due))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="text-sm space-y-2">
-              {invMine.slice(0, 6).map((i) => (
-                <li key={i.id} className="flex justify-between gap-2">
-                  <Link href={`/invoices/${i.id}`} className="link link-hover">
-                    {i.invoice_number}
-                  </Link>
-                  <span>
-                    <StatusBadge status={i.invoice_status} />{" "}
-                    {formatCurrency(Number(i.balance_due))}
-                  </span>
-                </li>
-              ))}
-            </ul>
           </div>
-        </div>
-      )}
-      {(retainers || []).length > 0 && (
-        <div className="alert alert-warning text-sm">
-          <span>
-            Low retainers on assigned matters:{" "}
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {(retainers || []).map((r: any) => r.matters?.matter_number).filter(Boolean).join(", ") || "see Retainers with finance"}
-          </span>
-        </div>
-      )}
-      {(myExp || []).length > 0 && (
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-base">Recent expenses</h2>
-            <ul className="space-y-2 text-sm">
+        ) : (
+          <EmptyState
+            title="No assigned-matter invoices to show"
+            description="Invoices for your matters will appear here."
+          />
+        )}
+        {(retainers || []).length > 0 && (
+          <div className="alert alert-warning text-sm">
+            <span>
+              Low retainers on assigned matters:{" "}
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {(myExp || []).map((e: any) => (
-                <li key={e.id} className="flex justify-between gap-2">
-                  <span>{formatDate(e.expense_date)} · {e.expense_type}</span>
-                  <span className="font-medium">{formatCurrency(Number(e.amount))}</span>
-                </li>
-              ))}
-            </ul>
-            <Link href="/expenses" className="link text-sm">View all expenses</Link>
+              {(retainers || []).map((r: any) => r.matters?.matter_number).filter(Boolean).join(", ") ||
+                "see Retainers with finance"}
+            </span>
           </div>
-        </div>
-      )}
-      {needsUpdate.length > 0 && (
-        <div className="card bg-base-100 border border-warning/40 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-base">Matters awaiting an attorney update</h2>
-            <ul className="space-y-2">
-              {needsUpdate.map((m) => (
-                <li key={m.id} className="flex justify-between gap-3 text-sm">
-                  <Link href={`/matters/${m.id}`} className="link link-hover">
-                    {m.matter_number} · {m.matter_name}
-                  </Link>
-                  <StatusBadge status={m.matter_status} />
-                </li>
-              ))}
-            </ul>
+        )}
+        {(myExp || []).length > 0 && (
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
+            <div className="card-body">
+              <h2 className="card-title text-base">Recent expenses</h2>
+              <ul className="space-y-2 text-sm">
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {(myExp || []).map((e: any) => (
+                  <li key={e.id} className="flex justify-between gap-2">
+                    <span>
+                      {formatDate(e.expense_date)} · {e.expense_type}
+                    </span>
+                    <span className="font-medium">{formatCurrency(Number(e.amount))}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/expenses" className="link text-sm">
+                View all expenses
+              </Link>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </section>
     </>
   );
 }
