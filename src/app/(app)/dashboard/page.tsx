@@ -11,6 +11,36 @@ import { calcBillableAmount } from "@/lib/phase2-types";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
 import { weeksInRange } from "@/lib/analytics";
 import type { Client, Matter, MatterTask, Profile } from "@/lib/types";
+import { SectionHeader } from "@/components/workspace/SectionHeader";
+import { TodaysFocus } from "@/components/workspace/TodaysFocus";
+import { DeadlineCard } from "@/components/workspace/DeadlineCard";
+import { ActivityFeed } from "@/components/workspace/ActivityFeed";
+import { ActiveMattersPanel } from "@/components/workspace/ActiveMattersPanel";
+import { MyTasksPanel } from "@/components/workspace/MyTasksPanel";
+import { TimeBillingSummary } from "@/components/workspace/TimeBillingSummary";
+import { QuickActions } from "@/components/workspace/QuickActions";
+import {
+  ACTIVITY,
+  FOCUS_ITEMS,
+  TASKS as MOCK_TASKS,
+  daysUntil,
+  upcomingDeadlines,
+} from "@/lib/workspace-mock";
+import {
+  buildTimekeeping,
+  focusFromTasks,
+  toActivityEvents,
+  toMatterCards,
+  toWorkspaceTasks,
+} from "@/lib/workspace-adapters";
+import {
+  CalendarClock,
+  History,
+  LayoutGrid,
+  ListChecks,
+  Sparkles,
+  Timer,
+} from "lucide-react";
 import Link from "next/link";
 
 function startOfWeekISO() {
@@ -336,7 +366,9 @@ async function AttorneyDashboard({
   const weekStart = startOfWeekISO();
   const { data: matters } = await supabase
     .from("matters")
-    .select("*, clients(*)")
+    .select(
+      "*, clients(*), responsible:profiles!matters_responsible_attorney_id_fkey(full_name)"
+    )
     .order("updated_at", { ascending: false });
   const matterRows = (matters || []) as Matter[];
 
@@ -398,16 +430,36 @@ async function AttorneyDashboard({
   // budget warnings
   const budgetWarnings = matterRows.filter((m) => m.matter_budget && Number(m.matter_budget) > 0);
 
+  const { data: activityRows } = await supabase
+    .from("matter_activity")
+    .select(
+      "*, performer:profiles!matter_activity_performed_by_fkey(full_name), matters(matter_number)"
+    )
+    .order("created_at", { ascending: false })
+    .limit(8);
+
+  // The schema does not store deadlines, focus items, or an activity stream for
+  // every event type yet, so those fall back to the shared workspace fixtures.
+  const matterCards = toMatterCards(
+    matterRows.filter((m) => ["Active", "Closing", "On Hold"].includes(m.matter_status))
+  ).slice(0, 6);
+  const workspaceTasks = toWorkspaceTasks(taskRows, profile.full_name);
+  const myTasks = workspaceTasks.length > 0 ? workspaceTasks : MOCK_TASKS;
+  const realActivity = toActivityEvents(activityRows || []);
+  const activityEvents = realActivity.length > 0 ? realActivity : ACTIVITY;
+  const liveFocus = focusFromTasks(workspaceTasks);
+  const focusItems = liveFocus.length > 0 ? [...liveFocus, ...FOCUS_ITEMS].slice(0, 6) : FOCUS_ITEMS;
+  const deadlines = upcomingDeadlines(5);
+  const timekeeping = buildTimekeeping(timeRows, avail);
+  const dueTodayCount = myTasks.filter(
+    (t) => t.lane !== "Completed" && daysUntil(t.dueDate) === 0
+  ).length;
+  const overdueTaskCount = myTasks.filter(
+    (t) => t.lane !== "Completed" && daysUntil(t.dueDate) < 0
+  ).length;
+  const deadlinesThisWeek = deadlines.filter((d) => daysUntil(d.dueDate) <= 7).length;
+
   const active = matterRows.filter((m) => m.matter_status === "Active");
-  const openTasks = taskRows.filter((t) => !["Completed", "Canceled"].includes(t.task_status));
-  const overdue = openTasks.filter((t) => isOverdue(t.due_date, t.task_status));
-  const upcoming = matterRows.filter((m) => {
-    if (!m.expected_end_date) return false;
-    const days =
-      (new Date(`${m.expected_end_date}T00:00:00`).getTime() - Date.now()) /
-      (1000 * 60 * 60 * 24);
-    return days >= 0 && days <= 21;
-  });
   const needsUpdate = matterRows.filter((m) =>
     ["Draft", "Pending Approval", "Needs Review", "On Hold"].includes(m.matter_status) ||
     m.approval_status === "Needs Review"
@@ -417,14 +469,137 @@ async function AttorneyDashboard({
     <>
       <PageHeader
         title="Attorney Workspace"
-        description="Assigned matters, open work, deadlines, and your timekeeping."
+        description="Your day at a glance: deadlines, matters, tasks, documents, and timekeeping."
+        actions={
+          <>
+            <Link href="/time/new" className="btn btn-primary btn-sm">
+              Log time
+            </Link>
+            <Link href="/calendar" className="btn btn-outline btn-sm">
+              Open calendar
+            </Link>
+          </>
+        }
       />
+
+      <section className="space-y-3">
+        <SectionHeader
+          title="Quick actions"
+          description="Start the work you do most often."
+          icon={<LayoutGrid className="h-5 w-5" />}
+        />
+        <QuickActions />
+      </section>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Assigned active matters" value={active.length} />
-        <StatCard label="Open tasks" value={openTasks.length} />
-        <StatCard label="Overdue tasks" value={overdue.length} tone={overdue.length ? "error" : "success"} />
-        <StatCard label="Upcoming deadlines" value={upcoming.length} tone="warning" />
+        <StatCard label="Active matters" value={active.length} />
+        <StatCard label="Tasks due today" value={dueTodayCount} tone={dueTodayCount ? "warning" : "default"} />
+        <StatCard
+          label="Overdue tasks"
+          value={overdueTaskCount}
+          tone={overdueTaskCount ? "error" : "success"}
+        />
+        <StatCard label="Deadlines within 7 days" value={deadlinesThisWeek} tone="warning" />
       </div>
+
+      <section className="space-y-3">
+        <SectionHeader
+          title="Today's focus"
+          description="Everything that needs your attention before the day ends."
+          icon={<Sparkles className="h-5 w-5" />}
+        />
+        <TodaysFocus items={focusItems} />
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <SectionHeader
+              title="Upcoming deadlines"
+              description="Your next five dates. Anything within three days is highlighted."
+              icon={<CalendarClock className="h-5 w-5" />}
+            />
+            {deadlines.length === 0 ? (
+              <EmptyState
+                title="No upcoming deadlines"
+                description="Deadlines added to your matters will appear here."
+              />
+            ) : (
+              <ul className="space-y-2 mt-2">
+                {deadlines.map((deadline) => (
+                  <DeadlineCard key={deadline.id} deadline={deadline} />
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <SectionHeader
+              title="Recent activity"
+              description="What changed across your matters."
+              icon={<History className="h-5 w-5" />}
+            />
+            <ActivityFeed events={activityEvents} />
+          </div>
+        </div>
+      </div>
+
+      <section className="space-y-3">
+        <SectionHeader
+          title="My active matters"
+          description="Pin the matters you return to most."
+          icon={<LayoutGrid className="h-5 w-5" />}
+          action={
+            <Link href="/matters" className="btn btn-outline btn-sm">
+              View all matters
+            </Link>
+          }
+        />
+        <ActiveMattersPanel matters={matterCards} />
+      </section>
+
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body">
+          <SectionHeader
+            title="My tasks"
+            description="Filter by what is due, late, or waiting on someone else."
+            icon={<ListChecks className="h-5 w-5" />}
+            action={
+              <Link href="/tasks" className="btn btn-outline btn-sm">
+                Open task board
+              </Link>
+            }
+          />
+          <div className="mt-2">
+            <MyTasksPanel tasks={myTasks} />
+          </div>
+        </div>
+      </div>
+
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body">
+          <SectionHeader
+            title="Time and billing"
+            description="Hours logged, billable progress, and quick entry."
+            icon={<Timer className="h-5 w-5" />}
+            action={
+              <Link href="/time" className="btn btn-outline btn-sm">
+                View my time
+              </Link>
+            }
+          />
+          <div className="mt-2">
+            <TimeBillingSummary summary={timekeeping} />
+          </div>
+        </div>
+      </div>
+
+      <SectionHeader
+        title="Practice metrics"
+        description="Detail behind the summary above, drawn from recorded time and billing data."
+      />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Hours entered this week" value={hoursWeek.toFixed(2)} />
         <StatCard label="Billable hours this week" value={billableWeek.toFixed(2)} />
@@ -498,50 +673,6 @@ async function AttorneyDashboard({
           </div>
         </div>
       )}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-base">Assigned matters</h2>
-            {matterRows.length === 0 ? (
-              <EmptyState title="You do not currently have any assigned matters." />
-            ) : (
-              <div className="table-wrap">
-                <table className="table table-sm">
-                  <thead>
-                    <tr>
-                      <th>Matter</th>
-                      <th>Client</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {matterRows.slice(0, 8).map((m) => (
-                      <tr key={m.id}>
-                        <td>
-                          <Link className="link link-hover font-medium" href={`/matters/${m.id}`}>
-                            {m.matter_number}
-                          </Link>
-                          <div className="text-xs opacity-60">{m.matter_name}</div>
-                        </td>
-                        <td className="text-sm">{clientDisplayName(m.clients as Client)}</td>
-                        <td>
-                          <StatusBadge status={m.matter_status} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-base">Open tasks</h2>
-            <TaskMiniList tasks={openTasks.slice(0, 8)} />
-          </div>
-        </div>
-      </div>
       {needsUpdate.length > 0 && (
         <div className="card bg-base-100 border border-warning/40 shadow-sm">
           <div className="card-body">

@@ -15,6 +15,11 @@ import type {
   Profile,
   UserRole,
 } from "@/lib/types";
+import {
+  MOCK_MATTER_TABS,
+  MatterCaseDetails,
+  MatterWorkspaceTabs,
+} from "./MatterWorkspaceTabs";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -416,11 +421,21 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
       ]
     : [
         { id: "overview", label: "Overview" },
+        { id: "documents", label: "Documents" },
+        { id: "timeline", label: "Timeline" },
+        { id: "tasks", label: "Tasks" },
+        { id: "calendar", label: "Calendar" },
+        { id: "billing", label: "Billing" },
+        { id: "notes", label: "Notes" },
+        { id: "research", label: "Research" },
+        { id: "emails", label: "Emails" },
+        { id: "contacts", label: "Contacts" },
+        { id: "filings", label: "Court Filings" },
         { id: "engagement", label: "Engagement Terms" },
         { id: "team", label: "Team" },
-        { id: "tasks", label: "Tasks" },
         { id: "activity", label: "Activity" },
       ];
+  const mockTabIds = MOCK_MATTER_TABS.map((t) => t.id) as string[];
 
   return (
     <>
@@ -613,8 +628,11 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
               </div>
             </div>
           )}
+          {!isClient && <MatterCaseDetails />}
         </div>
       )}
+
+      {!isClient && mockTabIds.includes(tab) && <MatterWorkspaceTabs tab={tab} />}
 
       {tab === "engagement" && !isClient && (
         <div className="space-y-4">

@@ -2,7 +2,7 @@
 
 import { ACADEMIC_NOTICE, APP_NAME, APP_SUBTITLE, ROLE_LABELS } from "@/lib/constants";
 import type { Profile } from "@/lib/types";
-import type { NavItem } from "@/lib/permissions";
+import type { NavIcon, NavItem } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/client";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import { DemoModeBanner } from "@/components/demo/DemoModeBanner";
@@ -12,10 +12,90 @@ import {
   DemoRoleSelector,
 } from "@/components/demo/DemoRoleSelector";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
-import { LogOut, Menu, Scale } from "lucide-react";
+import { GlobalSearch } from "@/components/workspace/GlobalSearch";
+import { NotificationCenter } from "@/components/workspace/NotificationCenter";
+import {
+  Activity,
+  Banknote,
+  BarChart3,
+  BookOpen,
+  BookText,
+  Briefcase,
+  Calendar,
+  ClipboardCheck,
+  Clock,
+  CreditCard,
+  FileCheck,
+  FileSpreadsheet,
+  FileText,
+  Hourglass,
+  Landmark,
+  LayoutDashboard,
+  Library,
+  ListChecks,
+  LogOut,
+  Menu,
+  MessageSquare,
+  Receipt,
+  Scale,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  TrendingUp,
+  Users,
+  Wallet,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+
+const NAV_ICONS: Record<NavIcon, React.ComponentType<{ className?: string }>> = {
+  dashboard: LayoutDashboard,
+  matters: Briefcase,
+  clients: Users,
+  calendar: Calendar,
+  tasks: ListChecks,
+  documents: FileText,
+  time: Clock,
+  expenses: Receipt,
+  messages: MessageSquare,
+  research: BookOpen,
+  reports: BarChart3,
+  directory: Users,
+  resources: Library,
+  settings: Settings,
+  profitability: TrendingUp,
+  productivity: Activity,
+  quality: ShieldCheck,
+  controls: ShieldAlert,
+  billing: FileCheck,
+  invoices: FileSpreadsheet,
+  payments: CreditCard,
+  receivables: Banknote,
+  retainers: Wallet,
+  trust: Landmark,
+  journal: BookText,
+  unbilled: Hourglass,
+  review: ClipboardCheck,
+};
+
+function NavIconGlyph({ icon }: { icon?: NavIcon }) {
+  if (!icon) return null;
+  const Glyph = NAV_ICONS[icon];
+  return <Glyph className="h-4 w-4 shrink-0 opacity-80" />;
+}
+
+/** Preserves the order of `nav` while splitting it into sidebar groups. */
+function groupNav(nav: NavItem[]): [string, NavItem[]][] {
+  const groups: [string, NavItem[]][] = [];
+  for (const item of nav) {
+    const key = item.group ?? "";
+    const last = groups[groups.length - 1];
+    if (last && last[0] === key) last[1].push(item);
+    else groups.push([key, [item]]);
+  }
+  return groups;
+}
 
 export function AppShell({
   profile,
@@ -33,6 +113,8 @@ export function AppShell({
   const [busy, setBusy] = useState(false);
   const demo = useDemoRole();
   const viewBadge = demo?.activeIdentity.viewBadge;
+  const isStaff = profile.role !== "client";
+  const navGroups = groupNav(nav);
 
   async function logout() {
     setBusy(true);
@@ -62,6 +144,7 @@ export function AppShell({
                     href={item.href}
                     className={pathname.startsWith(item.href) ? "active" : ""}
                   >
+                    <NavIconGlyph icon={item.icon} />
                     {item.label}
                   </Link>
                 </li>
@@ -70,7 +153,7 @@ export function AppShell({
           </div>
         </div>
 
-        <div className="flex-1 gap-2 sm:gap-3 min-w-0">
+        <div className="flex-1 gap-2 sm:gap-3 min-w-0 flex items-center">
           <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
             <span className="btn btn-square btn-primary btn-sm pointer-events-none">
               <Scale className="h-4 w-4" />
@@ -79,14 +162,20 @@ export function AppShell({
               <span className="font-display text-base sm:text-lg font-semibold block truncate">
                 {APP_NAME}
               </span>
-              <span className="text-xs opacity-60 hidden md:block truncate">
+              <span className="text-xs opacity-60 hidden lg:block truncate">
                 {APP_SUBTITLE}
               </span>
             </span>
           </Link>
+          {isStaff && (
+            <div className="ml-2 xl:ml-6">
+              <GlobalSearch />
+            </div>
+          )}
         </div>
 
         <div className="flex-none items-center gap-1 sm:gap-2 flex min-w-0">
+          {isStaff && <NotificationCenter />}
           {demoMode ? (
             <DemoRoleSelector />
           ) : (
@@ -149,26 +238,31 @@ export function AppShell({
         <div className="drawer-side is-drawer-close:overflow-visible z-20">
           <label htmlFor="app-drawer" className="drawer-overlay lg:hidden" />
           <aside className="bg-base-100 border-r border-base-300 min-h-full w-64 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide opacity-50 mb-3 px-2">
-              Navigation
-            </p>
-            <ul className="menu gap-1">
-              {nav.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={
-                      pathname === item.href ||
-                      (item.href !== "/dashboard" && pathname.startsWith(item.href))
-                        ? "active font-semibold"
-                        : ""
-                    }
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            {navGroups.map(([group, items], index) => (
+              <div key={group || `group-${index}`} className={index === 0 ? "" : "mt-4"}>
+                <p className="text-xs font-semibold uppercase tracking-wide opacity-50 mb-2 px-2">
+                  {group || "Navigation"}
+                </p>
+                <ul className="menu gap-1 p-0">
+                  {items.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={
+                          pathname === item.href ||
+                          (item.href !== "/dashboard" && pathname.startsWith(item.href))
+                            ? "active font-semibold"
+                            : ""
+                        }
+                      >
+                        <NavIconGlyph icon={item.icon} />
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
             <div className="mt-8 p-3 rounded-lg bg-base-200 text-xs opacity-70">
               {demoMode ? (
                 <>
