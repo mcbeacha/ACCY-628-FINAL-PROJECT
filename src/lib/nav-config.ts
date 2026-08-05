@@ -42,7 +42,7 @@ export type NavSectionDef = {
 export const NAV_SECTIONS: NavSectionDef[] = [
   {
     id: "partner_matters",
-    label: "Partner Matters",
+    label: "Matters & Clients",
     icon: Briefcase,
     links: [
       { href: "/clients", label: "Clients" },
@@ -51,15 +51,11 @@ export const NAV_SECTIONS: NavSectionDef[] = [
       { href: "/tasks", label: "Tasks" },
       { href: "/calendar", label: "Calendar" },
       { href: "/documents", label: "Documents" },
-      { href: "/profitability/practice-areas", label: "Practice Areas" },
-      { href: "/productivity", label: "Attorney Productivity" },
-      { href: "/data-quality", label: "Data Quality" },
-      { href: "/controls", label: "Control Monitor" },
     ],
   },
   {
     id: "contracts",
-    label: "Contracts",
+    label: "Costs & Vendors",
     icon: FileText,
     links: [
       { href: "/vendors", label: "Vendors" },
@@ -72,7 +68,7 @@ export const NAV_SECTIONS: NavSectionDef[] = [
   },
   {
     id: "billing",
-    label: "Billing",
+    label: "Billing & Collections",
     icon: Receipt,
     links: [
       { href: "/billing-readiness", label: "Billing Readiness" },
@@ -92,12 +88,16 @@ export const NAV_SECTIONS: NavSectionDef[] = [
   },
   {
     id: "financial_analysis",
-    label: "Financial Analysis",
+    label: "Insights & Controls",
     icon: ChartColumn,
     links: [
       { href: "/profitability/matters", label: "Matter Profitability" },
       { href: "/profitability/clients", label: "Client Profitability" },
+      { href: "/profitability/practice-areas", label: "Practice Areas" },
+      { href: "/productivity", label: "Attorney Productivity" },
       { href: "/reports", label: "Reports" },
+      { href: "/data-quality", label: "Data Quality" },
+      { href: "/controls", label: "Control Monitor" },
     ],
   },
   {
@@ -129,7 +129,7 @@ export const INBOX_ICON = Inbox;
 export function mattersSectionTitleForRole(role: UserRole): string {
   switch (role) {
     case "managing_partner":
-      return "Partner Matters";
+      return "Matters & Clients";
     case "attorney":
       return "Attorney Matters";
     case "paralegal":
@@ -139,7 +139,7 @@ export function mattersSectionTitleForRole(role: UserRole): string {
     case "client":
       return "My Client Portal";
     default:
-      return "Partner Matters";
+      return "Matters & Clients";
   }
 }
 
@@ -147,6 +147,17 @@ export function mattersSectionTitleForDemoKey(key: DemoRoleKey | UserRole): stri
   if (key === "potential_client") return "Explore Rebel Law Group";
   if (key === "current_client" || key === "client") return "My Client Portal";
   return mattersSectionTitleForRole(key as UserRole);
+}
+
+function sectionLabelForRole(role: UserRole, section: NavSectionDef): string {
+  if (section.id === "partner_matters") return mattersSectionTitleForRole(role);
+  if (role !== "managing_partner") {
+    if (section.id === "contracts") return "Contracts";
+    if (section.id === "billing") return "Billing";
+    if (section.id === "financial_analysis") return "Financial Analysis";
+    return section.label;
+  }
+  return section.label;
 }
 
 export type ResolvedNavSection = {
@@ -159,7 +170,8 @@ export type ResolvedNavSection = {
 function buildFromAllowed(
   allowed: NavItem[],
   sectionTitle: string,
-  orphanLabel: string
+  orphanLabel: string,
+  role?: UserRole
 ): {
   dashboard: NavItem | null;
   inbox: NavItem | null;
@@ -185,9 +197,14 @@ function buildFromAllowed(
       .map((link) => byHref.get(link.href)!);
     links.forEach((l) => placed.add(l.href));
     if (links.length > 0) {
+      const label = role
+        ? sectionLabelForRole(role, section)
+        : section.id === "partner_matters"
+          ? sectionTitle
+          : section.label;
       sections.push({
         id: section.id,
-        label: section.id === "partner_matters" ? sectionTitle : section.label,
+        label,
         icon: section.icon,
         links,
       });
@@ -216,7 +233,8 @@ export function buildNavSections(role: UserRole): {
   return buildFromAllowed(
     navForRole(role),
     mattersSectionTitleForRole(role),
-    role === "client" ? "My Client Portal" : "My Work"
+    role === "client" ? "My Client Portal" : "My Work",
+    role
   );
 }
 

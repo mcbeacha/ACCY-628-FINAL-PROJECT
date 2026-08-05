@@ -50,15 +50,21 @@ export function InboxClient({
   meta,
   userId,
   role,
+  initialKind,
 }: {
   initialItems: InboxItem[];
   meta: InboxMeta;
   userId: string;
   role: UserRole;
+  initialKind?: string;
 }) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
-  const [kindFilter, setKindFilter] = useState<InboxKind | "all">("all");
+  const validInitial =
+    initialKind && KIND_FILTER_ORDER.includes(initialKind as InboxKind)
+      ? (initialKind as InboxKind)
+      : "all";
+  const [kindFilter, setKindFilter] = useState<InboxKind | "all">(validInitial);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);

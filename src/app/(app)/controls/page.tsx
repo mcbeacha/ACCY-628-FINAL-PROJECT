@@ -2,7 +2,6 @@
 import { requireUser } from "@/lib/auth";
 import { canViewControls } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
-import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
 import { loadAnalyticsData } from "@/lib/analytics-data";
@@ -206,7 +205,6 @@ export default async function ControlsPage() {
         title="Control Monitoring"
         description="Exception list for segregation of duties, high-value adjustments, reversals, and lock gaps."
       />
-      <AnalyticsNotice />
       <p className="text-sm opacity-70">
         Failed sign-in attempt telemetry is not stored in app tables; monitor via Supabase Auth logs. Generated{" "}
         {new Date().toLocaleString()}.

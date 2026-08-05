@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { canViewProfitability } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
-import { AnalyticsNotice, FormulaHelp } from "@/components/analytics/AnalyticsNotice";
+import { FormulaHelp } from "@/components/analytics/AnalyticsNotice";
 import { StatusBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
@@ -67,14 +67,13 @@ export default async function MatterProfitabilityPage({
     <>
       <PageHeader
         title="Matter Profitability"
-        description="Accrual-style revenue vs labor cost and expenses by matter. Generated for management simulation."
+        description="Accrual-style revenue vs labor cost and expenses by matter."
         actions={
           <a className="btn btn-sm btn-outline" href={csvHref(csv)} download="matter-profitability.csv">
             Export CSV
           </a>
         }
       />
-      <AnalyticsNotice />
       <div className="flex flex-wrap gap-2 text-xs opacity-80">
         <FormulaHelp formulaKey="matterRevenue" label="Revenue" />
         <FormulaHelp formulaKey="collectedRevenue" label="Collected" />

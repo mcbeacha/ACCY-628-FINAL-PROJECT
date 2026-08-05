@@ -1,7 +1,6 @@
 "use client";
 
 import { StatusBadge } from "@/components/Badges";
-import { FINANCE_NOTICE } from "@/lib/billing-types";
 import type { Invoice, InvoiceLine } from "@/lib/billing-types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
@@ -318,9 +317,6 @@ export function InvoiceDetailClient(props: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="alert alert-info text-sm">
-        <span>{FINANCE_NOTICE}</span>
-      </div>
       {message && (
         <div className="alert alert-success text-sm">
           <span>{message}</span>

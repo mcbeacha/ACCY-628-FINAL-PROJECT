@@ -4,7 +4,6 @@ import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { FINANCE_NOTICE } from "@/lib/billing-types";
 import type { Invoice } from "@/lib/billing-types";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -46,9 +45,6 @@ export default async function InvoicesPage() {
           ) : null
         }
       />
-      <div className="alert alert-info text-sm">
-        <span>{FINANCE_NOTICE}</span>
-      </div>
       {rows.length === 0 ? (
         <EmptyState title="No invoices found." />
       ) : (

@@ -2,7 +2,6 @@
 import { requireUser } from "@/lib/auth";
 import { canViewReports } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
-import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
 import { EmptyState } from "@/components/EmptyState";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
 import { arBucket, n } from "@/lib/analytics";
@@ -447,7 +446,6 @@ export default async function ReportDetailPage({
           </div>
         }
       />
-      <AnalyticsNotice />
       <form className="flex flex-wrap gap-2 items-end mb-2">
         <input type="date" name="from" className="input input-bordered input-sm" defaultValue={from || ""} />
         <input type="date" name="to" className="input input-bordered input-sm" defaultValue={to || ""} />

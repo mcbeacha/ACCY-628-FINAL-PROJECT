@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { canViewProductivity } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
-import { AnalyticsNotice, FormulaHelp } from "@/components/analytics/AnalyticsNotice";
+import { FormulaHelp } from "@/components/analytics/AnalyticsNotice";
 import { EmptyState } from "@/components/EmptyState";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
 import { formatCurrency } from "@/lib/format";
@@ -49,14 +49,13 @@ export default async function ProductivityPage({
     <>
       <PageHeader
         title="Attorney & Timekeeper Productivity"
-        description="Hours, utilization estimate, and value metrics. Not a performance ranker — every metric is labeled."
+        description="Hours, utilization, and value metrics. Not a performance ranker — every metric is labeled."
         actions={
           <a className="btn btn-sm btn-outline" href={csvHref(csv)} download="attorney-productivity.csv">
             Export CSV
           </a>
         }
       />
-      <AnalyticsNotice />
       <div className="flex flex-wrap gap-2">
         <FormulaHelp formulaKey="utilization" />
         <FormulaHelp formulaKey="billingRealization" />
@@ -70,7 +69,7 @@ export default async function ProductivityPage({
         </button>
       </form>
       <p className="text-xs opacity-70 max-w-3xl">
-        Utilization uses each employee&apos;s available weekly hours (default 40, management estimate) × weeks in the
+        Utilization uses each employee&apos;s available weekly hours (default 40) × weeks in the
         selected period (or 4 weeks if no dates). Invoiced/collected value for attorneys attributes fee metrics of
         matters they lead as responsible attorney. Generated {new Date().toLocaleString()}.
       </p>

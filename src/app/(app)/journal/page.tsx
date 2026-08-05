@@ -3,7 +3,6 @@ import { canViewJournal } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
-import { FINANCE_NOTICE } from "@/lib/billing-types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -90,9 +89,6 @@ export default async function JournalPage({
         title="Simulated Journal Entries"
         description="Read-only report of balanced simulated GL postings from financial events."
       />
-      <div className="alert alert-info text-sm">
-        <span>{FINANCE_NOTICE}</span>
-      </div>
 
       <form className="card bg-base-100 border border-base-300">
         <div className="card-body flex flex-wrap gap-3 items-end">

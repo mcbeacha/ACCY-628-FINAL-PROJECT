@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { canViewProfitability } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
-import { AnalyticsNotice, FormulaHelp } from "@/components/analytics/AnalyticsNotice";
+import { FormulaHelp } from "@/components/analytics/AnalyticsNotice";
 import { EmptyState } from "@/components/EmptyState";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
 import { formatMargin } from "@/lib/analytics";
@@ -51,7 +51,6 @@ export default async function PracticeProfitabilityPage({
           </a>
         }
       />
-      <AnalyticsNotice />
       <div className="flex gap-2">
         <FormulaHelp formulaKey="grossProfit" />
         <FormulaHelp formulaKey="collectionRate" />
