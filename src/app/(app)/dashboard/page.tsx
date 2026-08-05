@@ -10,6 +10,7 @@ import { evaluateBillingReadiness } from "@/lib/billing-readiness";
 import { calcBillableAmount } from "@/lib/phase2-types";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
 import { weeksInRange } from "@/lib/analytics";
+import { inboxMetaForRole, loadInboxItems } from "@/lib/inbox";
 import type { Client, Matter, MatterTask, Profile } from "@/lib/types";
 import Link from "next/link";
 
@@ -26,7 +27,7 @@ export default async function DashboardPage() {
   const { supabase, profile } = await requireUser();
 
   if (profile.role === "managing_partner") {
-    return <PartnerDashboard supabase={supabase} />;
+    return <PartnerDashboard supabase={supabase} profile={profile} />;
   }
   if (profile.role === "attorney") {
     return <AttorneyDashboard supabase={supabase} profile={profile} />;
@@ -35,19 +36,23 @@ export default async function DashboardPage() {
     return <StaffDashboard supabase={supabase} profile={profile} />;
   }
   if (profile.role === "billing_staff") {
-    return <BillingDashboard supabase={supabase} />;
+    return <BillingDashboard supabase={supabase} profile={profile} />;
   }
   return <ClientDashboard supabase={supabase} profile={profile} />;
 }
 
 async function PartnerDashboard({
   supabase,
+  profile,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any;
+  profile: Profile;
 }) {
   const raw = await loadAnalyticsData(supabase);
   const bundle = computeAnalytics(raw);
+  const inboxItems = await loadInboxItems(supabase, "managing_partner", profile.id);
+  const inboxMeta = inboxMetaForRole("managing_partner");
 
   const [{ data: clients }, { data: matters }, { data: tasks }, { data: activity }] =
     await Promise.all([
@@ -169,9 +174,21 @@ async function PartnerDashboard({
       <PageHeader
         title="Executive Dashboard"
         description="Actionable firm metrics from saved operational data (fictional academic simulation)."
+        actions={
+          <Link href="/inbox" className="btn btn-primary btn-sm">
+            {inboxMeta.title}
+            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+          </Link>
+        }
       />
       <AnalyticsNotice />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Items needing your approval"
+          value={inboxItems.length}
+          tone={inboxItems.length ? "warning" : "success"}
+          href="/inbox"
+        />
         <StatCard label="Invoiced revenue" value={formatCurrency(totalInvoiced)} href="/invoices" />
         <StatCard label="Collected revenue" value={formatCurrency(totalCollected)} href="/ar" />
         <StatCard
@@ -215,12 +232,15 @@ async function PartnerDashboard({
           label="Invoices awaiting approval"
           value={invAwaiting}
           tone={invAwaiting ? "warning" : "default"}
-          href="/invoices"
+          href="/inbox"
         />
         <StatCard label="Active matters" value={activeMatters} href="/matters" />
       </div>
       <div className="flex flex-wrap gap-2">
-        <Link href="/costs" className="btn btn-sm btn-primary">
+        <Link href="/inbox" className="btn btn-sm btn-primary">
+          {inboxMeta.title}
+        </Link>
+        <Link href="/costs" className="btn btn-sm btn-outline">
           Cost &amp; resources
         </Link>
         <Link href="/profitability/matters" className="btn btn-sm btn-outline">
@@ -248,7 +268,7 @@ async function PartnerDashboard({
           label="Matters awaiting approval"
           value={awaiting.length}
           tone={awaiting.length ? "warning" : "default"}
-          href="/matters"
+          href="/inbox"
         />
         <StatCard
           label="Missing lead attorney"
@@ -260,7 +280,7 @@ async function PartnerDashboard({
           label="Submitted time to review"
           value={submittedTime}
           tone={submittedTime ? "warning" : "default"}
-          href="/time/review"
+          href="/inbox"
         />
         <StatCard
           label="Disputed invoices"
@@ -361,6 +381,8 @@ async function AttorneyDashboard({
   profile: Profile;
 }) {
   const weekStart = startOfWeekISO();
+  const inboxItems = await loadInboxItems(supabase, "attorney", profile.id);
+  const inboxMeta = inboxMetaForRole("attorney");
   const { data: matters } = await supabase
     .from("matters")
     .select("*, clients(*)")
@@ -445,8 +467,20 @@ async function AttorneyDashboard({
       <PageHeader
         title="Attorney Workspace"
         description="Assigned matters, open work, deadlines, and your timekeeping."
+        actions={
+          <Link href="/inbox" className="btn btn-primary btn-sm">
+            {inboxMeta.title}
+            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+          </Link>
+        }
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Items needing attention"
+          value={inboxItems.length}
+          tone={inboxItems.length ? "warning" : "success"}
+          href="/inbox"
+        />
         <StatCard label="Assigned active matters" value={active.length} href="/matters" />
         <StatCard label="Open tasks" value={openTasks.length} href="/tasks" />
         <StatCard
@@ -616,6 +650,8 @@ async function StaffDashboard({
   profile: Profile;
 }) {
   const weekStart = startOfWeekISO();
+  const inboxItems = await loadInboxItems(supabase, "paralegal", profile.id);
+  const inboxMeta = inboxMetaForRole("paralegal");
   const { data: tasks } = await supabase
     .from("matter_tasks")
     .select("*, matters(id, matter_name, matter_number)")
@@ -654,8 +690,20 @@ async function StaffDashboard({
       <PageHeader
         title="Staff Workspace"
         description="Your assigned tasks, due dates, matter support work, and timekeeping."
+        actions={
+          <Link href="/inbox" className="btn btn-primary btn-sm">
+            {inboxMeta.title}
+            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+          </Link>
+        }
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Items needing attention"
+          value={inboxItems.length}
+          tone={inboxItems.length ? "warning" : "success"}
+          href="/inbox"
+        />
         <StatCard label="Assigned tasks" value={open.length} href="/tasks" />
         <StatCard label="Due soon" value={dueSoon.length} tone="warning" href="/tasks" />
         <StatCard
@@ -711,10 +759,14 @@ async function StaffDashboard({
 
 async function BillingDashboard({
   supabase,
+  profile,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any;
+  profile: Profile;
 }) {
+  const inboxItems = await loadInboxItems(supabase, "billing_staff", profile.id);
+  const inboxMeta = inboxMetaForRole("billing_staff");
   const { data: matters } = await supabase
     .from("matters")
     .select("*, clients(*)")
@@ -792,8 +844,20 @@ async function BillingDashboard({
       <PageHeader
         title="Billing & Collections Dashboard"
         description="Unbilled work, draft invoices, AR aging cues, payments, and retainers."
+        actions={
+          <Link href="/inbox" className="btn btn-primary btn-sm">
+            {inboxMeta.title}
+            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+          </Link>
+        }
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Items needing attention"
+          value={inboxItems.length}
+          tone={inboxItems.length ? "warning" : "success"}
+          href="/inbox"
+        />
         <StatCard label="Approved matters" value={rows.length} href="/matters" />
         <StatCard label="Billing ready" value={ready.length} tone="success" href="/billing-readiness" />
         <StatCard
@@ -918,6 +982,8 @@ async function ClientDashboard({
   supabase: any;
   profile: Profile;
 }) {
+  const inboxItems = await loadInboxItems(supabase, "client", profile.id);
+  const inboxMeta = inboxMetaForRole("client");
   const { data: client } = await supabase
     .from("clients")
     .select("*")
@@ -963,6 +1029,12 @@ async function ClientDashboard({
       <PageHeader
         title="Client Workspace"
         description="A simplified view of your matters, invoices, and important dates. This system contains fictional project data only."
+        actions={
+          <Link href="/inbox" className="btn btn-primary btn-sm">
+            {inboxMeta.title}
+            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+          </Link>
+        }
       />
       <div className="alert alert-info text-sm">
         <span>
