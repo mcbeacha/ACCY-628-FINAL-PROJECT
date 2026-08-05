@@ -21,7 +21,7 @@ export const FORMULAS = {
   cashProfit:
     "Collected Revenue − Direct Labor Cost − Direct Matter Expense (cash contribution, not accrual gross profit).",
   utilization:
-    "Billable Hours ÷ (Available Weekly Hours × Weeks in period) × 100. Available hours default to 40/week (management estimate from employee profile).",
+    "Billable Hours ÷ (Available Weekly Hours × Weeks in period) × 100. Available hours default to 40/week (management estimate from employee profile). Unfiltered views use a 4-week window.",
   billingRealization:
     "Invoiced legal fees (Time + Fixed Fee lines on finalized invoices, net write-downs) ÷ Standard Billable Value × 100. Standard Billable Value = approved billable hours × preserved billing_rate. Excludes reimbursable expenses.",
   collectionRealization: "Collected fees allocated to invoices ÷ Invoiced fees × 100",
@@ -75,7 +75,9 @@ export function n(v: unknown): number {
 }
 
 export function weeksInRange(from: string | null, to: string | null): number {
-  if (!from || !to) return 12; // default ~quarter for utilization estimate
+  // Unfiltered views use a ~month window so utilization stays interpretable for demo datasets
+  // that span many months but concentrate productive hours.
+  if (!from || !to) return 4;
   const a = new Date(`${from}T00:00:00`).getTime();
   const b = new Date(`${to}T00:00:00`).getTime();
   if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return 1;

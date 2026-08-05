@@ -71,7 +71,7 @@ export default async function ProductivityPage({
       </form>
       <p className="text-xs opacity-70 max-w-3xl">
         Utilization uses each employee&apos;s available weekly hours (default 40, management estimate) × weeks in the
-        selected period (or 12 weeks if no dates). Invoiced/collected value for attorneys attributes fee metrics of
+        selected period (or 4 weeks if no dates). Invoiced/collected value for attorneys attributes fee metrics of
         matters they lead as responsible attorney. Generated {new Date().toLocaleString()}.
       </p>
       {rows.length === 0 ? (
