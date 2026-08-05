@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { FormulaHelp } from "@/components/analytics/AnalyticsNotice";
 import { StatusBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
+import { FilterField, FilterToolbar } from "@/components/FilterToolbar";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
 import { formatMargin } from "@/lib/analytics";
 import { formatCurrency } from "@/lib/format";
@@ -62,6 +63,15 @@ export default async function MatterProfitabilityPage({
   const practices = [...new Set(bundle.matters.map((m) => m.practiceArea))];
   const methods = [...new Set(bundle.matters.map((m) => m.billingMethod))];
   const attys = bundle.attorneys.filter((a) => a.role === "attorney" || a.role === "managing_partner");
+  const activeFilterCount = [
+    sp.from,
+    sp.to,
+    sp.practice,
+    sp.method,
+    sp.attorney,
+    sp.profit,
+    sp.status,
+  ].filter(Boolean).length;
 
   return (
     <>
@@ -84,18 +94,41 @@ export default async function MatterProfitabilityPage({
         <FormulaHelp formulaKey="budgetVariance" label="Budget" />
       </div>
 
-      <form className="card bg-base-100 border border-base-300">
-        <div className="card-body flex flex-wrap gap-2 items-end p-4">
-          <label className="form-control">
-            <span className="label-text text-xs">From (invoice/work date)</span>
-            <input type="date" name="from" className="input input-bordered input-sm" defaultValue={sp.from || ""} />
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">To</span>
-            <input type="date" name="to" className="input input-bordered input-sm" defaultValue={sp.to || ""} />
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">Practice area</span>
+      <form>
+        <FilterToolbar
+          actions={
+            <>
+              <button className="btn btn-sm btn-primary" type="submit">
+                Apply
+              </button>
+              <Link href="/profitability/matters" className="btn btn-sm btn-ghost">
+                Clear
+              </Link>
+            </>
+          }
+          hint={
+            activeFilterCount > 0
+              ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active · ${rows.length} shown`
+              : undefined
+          }
+        >
+          <FilterField label="From" className="w-full sm:w-40">
+            <input
+              type="date"
+              name="from"
+              className="input input-bordered input-sm"
+              defaultValue={sp.from || ""}
+            />
+          </FilterField>
+          <FilterField label="To" className="w-full sm:w-40">
+            <input
+              type="date"
+              name="to"
+              className="input input-bordered input-sm"
+              defaultValue={sp.to || ""}
+            />
+          </FilterField>
+          <FilterField label="Practice" className="w-full sm:w-44">
             <select name="practice" className="select select-bordered select-sm" defaultValue={sp.practice || ""}>
               <option value="">All</option>
               {practices.map((p) => (
@@ -104,9 +137,8 @@ export default async function MatterProfitabilityPage({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">Billing method</span>
+          </FilterField>
+          <FilterField label="Billing method" className="w-full sm:w-40">
             <select name="method" className="select select-bordered select-sm" defaultValue={sp.method || ""}>
               <option value="">All</option>
               {methods.map((p) => (
@@ -115,9 +147,8 @@ export default async function MatterProfitabilityPage({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">Attorney</span>
+          </FilterField>
+          <FilterField label="Attorney" className="w-full sm:w-44">
             <select name="attorney" className="select select-bordered select-sm" defaultValue={sp.attorney || ""}>
               <option value="">All</option>
               {attys.map((a) => (
@@ -126,9 +157,8 @@ export default async function MatterProfitabilityPage({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">Profit status</span>
+          </FilterField>
+          <FilterField label="Profit status" className="w-full sm:w-40">
             <select name="profit" className="select select-bordered select-sm" defaultValue={sp.profit || ""}>
               <option value="">All</option>
               {["Strong", "Acceptable", "Low Margin", "Loss", "Insufficient Data"].map((p) => (
@@ -137,18 +167,16 @@ export default async function MatterProfitabilityPage({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">Matter status</span>
-            <input name="status" className="input input-bordered input-sm" defaultValue={sp.status || ""} placeholder="Active" />
-          </label>
-          <button className="btn btn-sm btn-primary" type="submit">
-            Apply filters
-          </button>
-          <Link href="/profitability/matters" className="btn btn-sm btn-ghost">
-            Clear
-          </Link>
-        </div>
+          </FilterField>
+          <FilterField label="Matter status" className="w-full sm:w-36">
+            <input
+              name="status"
+              className="input input-bordered input-sm"
+              defaultValue={sp.status || ""}
+              placeholder="Active"
+            />
+          </FilterField>
+        </FilterToolbar>
       </form>
 
       <p className="text-xs opacity-60">

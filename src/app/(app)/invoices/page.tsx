@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Invoice } from "@/lib/billing-types";
+import { findDuplicateInvoiceNumbers } from "@/lib/invoice-controls";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -32,6 +33,10 @@ export default async function InvoicesPage() {
     clients?: { organization_name?: string | null; first_name?: string | null; last_name?: string | null } | null;
   })[];
 
+  const duplicateNumbers = canPrepareInvoices(profile.role)
+    ? findDuplicateInvoiceNumbers(rows)
+    : [];
+
   return (
     <>
       <PageHeader
@@ -45,6 +50,20 @@ export default async function InvoicesPage() {
           ) : null
         }
       />
+      {duplicateNumbers.length > 0 && (
+        <div className="alert alert-error text-sm">
+          <span>
+            Control: duplicate invoice number
+            {duplicateNumbers.length === 1 ? "" : "s"} detected (
+            {duplicateNumbers.map((d) => `${d.invoice_number} ×${d.count}`).join(", ")}
+            ). Billing with the same invoice number is not allowed — review in{" "}
+            <Link href="/controls" className="link font-medium">
+              Control Monitoring
+            </Link>
+            .
+          </span>
+        </div>
+      )}
       {rows.length === 0 ? (
         <EmptyState title="No invoices found." />
       ) : (
@@ -61,10 +80,16 @@ export default async function InvoicesPage() {
                   <th>Balance</th>
                   <th>Status</th>
                   <th>Approval</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {rows.map((r) => {
+                  const canEdit =
+                    canPrepareInvoices(profile.role) &&
+                    !r.finalized_at &&
+                    r.approval_status === "Draft";
+                  return (
                   <tr key={r.id} className="hover">
                     <td>
                       <Link href={`/invoices/${r.id}`} className="link link-hover font-medium">
@@ -82,8 +107,17 @@ export default async function InvoicesPage() {
                     <td>
                       <StatusBadge status={r.approval_status} />
                     </td>
+                    <td>
+                      <Link
+                        href={`/invoices/${r.id}`}
+                        className={`btn btn-xs ${canEdit ? "btn-primary" : "btn-ghost"}`}
+                      >
+                        {canEdit ? "Edit" : "Open"}
+                      </Link>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

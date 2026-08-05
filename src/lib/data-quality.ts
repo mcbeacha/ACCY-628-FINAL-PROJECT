@@ -210,6 +210,28 @@ export function buildDataQualityExceptions(
     }
   }
 
+  {
+    const byNumber = new Map<string, { id: string; invoice_number: string }[]>();
+    for (const inv of raw.invoices) {
+      const key = String(inv.invoice_number || "")
+        .trim()
+        .toUpperCase();
+      if (!key) continue;
+      const list = byNumber.get(key) || [];
+      list.push({ id: inv.id, invoice_number: inv.invoice_number });
+      byNumber.set(key, list);
+    }
+    for (const [, list] of byNumber) {
+      if (list.length < 2) continue;
+      exceptions.push({
+        severity: "high",
+        category: "Duplicate",
+        message: `Duplicate invoice number ${list[0].invoice_number} used on ${list.length} invoices`,
+        href: `/invoices/${list[0].id}`,
+      });
+    }
+  }
+
   const byJe = new Map<string, { d: number; c: number; status: string; num: string }>();
   for (const j of raw.journalEntries) {
     byJe.set(j.id, { d: 0, c: 0, status: j.posting_status, num: j.journal_entry_number });

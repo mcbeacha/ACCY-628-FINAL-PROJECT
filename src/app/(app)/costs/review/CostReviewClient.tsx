@@ -35,6 +35,14 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
   }, [status]);
 
   async function decide(row: MatterCostEntry, decision: "Approved" | "Rejected") {
+    if (decision === "Approved" && row.created_by === userId) {
+      setError(
+        "You cannot approve a cost you submitted. Another reviewer must approve it."
+      );
+      setMessage(null);
+      return;
+    }
+
     let notes: string | null = null;
     if (decision === "Rejected") {
       notes = window.prompt("Rejection reason (required):");
@@ -47,8 +55,6 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
       if (!window.confirm("Approve this cost entry?")) return;
     }
 
-    const selfApproval = decision === "Approved" && row.created_by === userId;
-
     setBusy(true);
     setError(null);
     const supabase = createClient();
@@ -60,7 +66,7 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
         approved_at: decision === "Approved" ? new Date().toISOString() : null,
         approval_notes: decision === "Approved" ? notes || null : null,
         rejection_reason: decision === "Rejected" ? notes : null,
-        self_approval_flag: selfApproval,
+        self_approval_flag: false,
       })
       .eq("id", row.id);
 
@@ -78,7 +84,7 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
       client_id: row.client_id,
       action_description:
         decision === "Approved"
-          ? `Cost approved for ${formatCurrency(Number(row.total_cost))}${selfApproval ? " (self-approval flagged)" : ""}.`
+          ? `Cost approved for ${formatCurrency(Number(row.total_cost))}.`
           : `Cost rejected: ${notes}`,
       performed_by: userId,
     });
@@ -92,7 +98,7 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
     <>
       <PageHeader
         title="Cost Approval"
-        description="Review submitted matter cost entries. Self-approvals are flagged when approver equals creator."
+        description="Review submitted matter cost entries. You cannot approve a cost you submitted; another Billing Staff or Managing Partner must approve it."
       />
 
       <select
@@ -139,68 +145,73 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className={r.self_approval_flag ? "bg-warning/5" : ""}>
-                    <td className="text-sm">{formatDate(r.cost_date)}</td>
-                    <td className="text-sm">
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {(r as any).matters?.matter_number}
-                    </td>
-                    <td className="text-sm">{r.cost_source}</td>
-                    <td className="text-sm">{r.cost_categories?.category_name || "—"}</td>
-                    <td className="text-sm max-w-[12rem]">
-                      {r.description}
-                      {r.vendors?.vendor_name && (
-                        <div className="text-xs opacity-60">{r.vendors.vendor_name}</div>
-                      )}
-                      {r.is_closing_adjustment && (
-                        <span className="badge badge-outline badge-xs ml-1">Closing adj.</span>
-                      )}
-                    </td>
-                    <td>
-                      {formatCurrency(Number(r.total_cost))}
-                      {Number(r.total_cost) >= HIGH_VALUE_COST_THRESHOLD && (
-                        <span className="badge badge-warning badge-sm ml-1">High value</span>
-                      )}
-                    </td>
-                    <td className="text-sm">{r.client_reimbursable ? "Yes" : "No"}</td>
-                    <td className="text-sm">
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {(r as any).creator?.full_name || "—"}
-                      {r.approval_status === "Submitted" && r.created_by === userId && (
-                        <div className="text-xs text-warning">Would be self-approval</div>
-                      )}
-                    </td>
-                    <td>
-                      <StatusBadge status={r.approval_status} />
-                      {r.self_approval_flag && (
-                        <span className="badge badge-warning badge-xs ml-1">Self</span>
-                      )}
-                    </td>
-                    <td>
-                      {r.approval_status === "Submitted" && (
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            className="btn btn-success btn-xs"
-                            disabled={busy}
-                            onClick={() => decide(r, "Approved")}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-error btn-xs"
-                            disabled={busy}
-                            onClick={() => decide(r, "Rejected")}
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((r) => {
+                  const isOwnSubmission = r.created_by === userId;
+                  return (
+                    <tr key={r.id} className={r.self_approval_flag ? "bg-warning/5" : ""}>
+                      <td className="text-sm">{formatDate(r.cost_date)}</td>
+                      <td className="text-sm">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        {(r as any).matters?.matter_number}
+                      </td>
+                      <td className="text-sm">{r.cost_source}</td>
+                      <td className="text-sm">{r.cost_categories?.category_name || "—"}</td>
+                      <td className="text-sm max-w-[12rem]">
+                        {r.description}
+                        {r.vendors?.vendor_name && (
+                          <div className="text-xs opacity-60">{r.vendors.vendor_name}</div>
+                        )}
+                        {r.is_closing_adjustment && (
+                          <span className="badge badge-outline badge-xs ml-1">Closing adj.</span>
+                        )}
+                      </td>
+                      <td>
+                        {formatCurrency(Number(r.total_cost))}
+                        {Number(r.total_cost) >= HIGH_VALUE_COST_THRESHOLD && (
+                          <span className="badge badge-warning badge-sm ml-1">High value</span>
+                        )}
+                      </td>
+                      <td className="text-sm">{r.client_reimbursable ? "Yes" : "No"}</td>
+                      <td className="text-sm">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        {(r as any).creator?.full_name || "—"}
+                        {r.approval_status === "Submitted" && isOwnSubmission && (
+                          <div className="text-xs text-warning">Awaiting another approver</div>
+                        )}
+                      </td>
+                      <td>
+                        <StatusBadge status={r.approval_status} />
+                        {r.self_approval_flag && (
+                          <span className="badge badge-warning badge-xs ml-1">Self</span>
+                        )}
+                      </td>
+                      <td>
+                        {r.approval_status === "Submitted" && (
+                          <div className="flex flex-wrap gap-1 items-center">
+                            {!isOwnSubmission && (
+                              <button
+                                type="button"
+                                className="btn btn-success btn-xs"
+                                disabled={busy}
+                                onClick={() => decide(r, "Approved")}
+                              >
+                                Approve
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn-error btn-xs"
+                              disabled={busy}
+                              onClick={() => decide(r, "Rejected")}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
