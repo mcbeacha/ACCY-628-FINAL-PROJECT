@@ -1,7 +1,6 @@
 "use client";
 
 import { StatusBadge } from "@/components/Badges";
-import { FINANCE_NOTICE } from "@/lib/billing-types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
@@ -96,9 +95,6 @@ export function ClientBillingClient({
 
   return (
     <div className="space-y-4">
-      <div className="alert alert-info text-sm">
-        <span>{FINANCE_NOTICE}</span>
-      </div>
       {msg && (
         <div className="alert alert-success text-sm">
           <span>{msg}</span>
@@ -208,8 +204,8 @@ export function ClientBillingClient({
                     {inv.dispute_reason ? ` — ${inv.dispute_reason}` : ""}
                   </p>
                 )}
-                <Link href="/portal" className="link text-sm mt-4 block">
-                  Back to portal home
+                <Link href="/client-portal" className="link text-sm mt-4 block">
+                  Back to client portal
                 </Link>
               </>
             )}

@@ -3,7 +3,6 @@
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
-import { FINANCE_NOTICE } from "@/lib/billing-types";
 import { formatCurrency, formatDate, clientDisplayName } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { Client } from "@/lib/types";
@@ -208,9 +207,6 @@ export function PaymentsClient({ userId }: { userId: string }) {
         title="Simulated Payments"
         description="Record fictional customer payments and apply them to open invoices."
       />
-      <div className="alert alert-info text-sm">
-        <span>{FINANCE_NOTICE}</span>
-      </div>
       {message && (
         <div className="alert alert-success text-sm">
           <span>{message}</span>

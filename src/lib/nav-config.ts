@@ -1,5 +1,6 @@
 import type { NavItem } from "@/lib/permissions";
-import { navForRole } from "@/lib/permissions";
+import { navForDemoKey, navForRole } from "@/lib/permissions";
+import type { DemoRoleKey } from "@/lib/demo-config";
 import type { UserRole } from "@/lib/types";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -10,6 +11,7 @@ import {
   LayoutDashboard,
   Library,
   Receipt,
+  Scale,
 } from "lucide-react";
 
 export type NavSectionId =
@@ -40,7 +42,7 @@ export type NavSectionDef = {
 export const NAV_SECTIONS: NavSectionDef[] = [
   {
     id: "partner_matters",
-    label: "Partner Matters",
+    label: "Matters & Clients",
     icon: Briefcase,
     links: [
       { href: "/clients", label: "Clients" },
@@ -49,15 +51,11 @@ export const NAV_SECTIONS: NavSectionDef[] = [
       { href: "/tasks", label: "Tasks" },
       { href: "/calendar", label: "Calendar" },
       { href: "/documents", label: "Documents" },
-      { href: "/profitability/practice-areas", label: "Practice Areas" },
-      { href: "/productivity", label: "Attorney Productivity" },
-      { href: "/data-quality", label: "Data Quality" },
-      { href: "/controls", label: "Control Monitor" },
     ],
   },
   {
     id: "contracts",
-    label: "Contracts",
+    label: "Costs & Vendors",
     icon: FileText,
     links: [
       { href: "/vendors", label: "Vendors" },
@@ -70,11 +68,11 @@ export const NAV_SECTIONS: NavSectionDef[] = [
   },
   {
     id: "billing",
-    label: "Billing",
+    label: "Billing & Collections",
     icon: Receipt,
     links: [
       { href: "/billing-readiness", label: "Billing Readiness" },
-      { href: "/time/review", label: "Time Review" },
+      { href: "/time/review", label: "Time Review/Out-of-Scope" },
       { href: "/expenses/review", label: "Expense Review" },
       { href: "/unbilled", label: "Unbilled Activity" },
       { href: "/invoices", label: "Invoices" },
@@ -90,12 +88,16 @@ export const NAV_SECTIONS: NavSectionDef[] = [
   },
   {
     id: "financial_analysis",
-    label: "Financial Analysis",
+    label: "Insights & Controls",
     icon: ChartColumn,
     links: [
       { href: "/profitability/matters", label: "Matter Profitability" },
       { href: "/profitability/clients", label: "Client Profitability" },
+      { href: "/profitability/practice-areas", label: "Practice Areas" },
+      { href: "/productivity", label: "Attorney Productivity" },
       { href: "/reports", label: "Reports" },
+      { href: "/data-quality", label: "Data Quality" },
+      { href: "/controls", label: "Control Monitor" },
     ],
   },
   {
@@ -127,7 +129,7 @@ export const INBOX_ICON = Inbox;
 export function mattersSectionTitleForRole(role: UserRole): string {
   switch (role) {
     case "managing_partner":
-      return "Partner Matters";
+      return "Matters & Clients";
     case "attorney":
       return "Attorney Matters";
     case "paralegal":
@@ -135,10 +137,27 @@ export function mattersSectionTitleForRole(role: UserRole): string {
     case "billing_staff":
       return "Billing Matters";
     case "client":
-      return "My Matters";
+      return "My Client Portal";
     default:
-      return "Partner Matters";
+      return "Matters & Clients";
   }
+}
+
+export function mattersSectionTitleForDemoKey(key: DemoRoleKey | UserRole): string {
+  if (key === "potential_client") return "Explore Rebel Law Group";
+  if (key === "current_client" || key === "client") return "My Client Portal";
+  return mattersSectionTitleForRole(key as UserRole);
+}
+
+function sectionLabelForRole(role: UserRole, section: NavSectionDef): string {
+  if (section.id === "partner_matters") return mattersSectionTitleForRole(role);
+  if (role !== "managing_partner") {
+    if (section.id === "contracts") return "Contracts";
+    if (section.id === "billing") return "Billing";
+    if (section.id === "financial_analysis") return "Financial Analysis";
+    return section.label;
+  }
+  return section.label;
 }
 
 export type ResolvedNavSection = {
@@ -148,19 +167,28 @@ export type ResolvedNavSection = {
   links: NavItem[];
 };
 
-/** Build role-filtered sections from navForRole (preserves existing permission lists). */
-export function buildNavSections(role: UserRole): {
+function buildFromAllowed(
+  allowed: NavItem[],
+  sectionTitle: string,
+  orphanLabel: string,
+  role?: UserRole
+): {
   dashboard: NavItem | null;
   inbox: NavItem | null;
   sections: ResolvedNavSection[];
 } {
-  const allowed = navForRole(role);
   const byHref = new Map(allowed.map((item) => [item.href, item]));
 
-  const dashboard = byHref.get("/dashboard") ?? null;
+  const dashboard =
+    byHref.get("/dashboard") ??
+    byHref.get("/potential-client") ??
+    byHref.get("/client-portal") ??
+    null;
   const inbox = byHref.get("/inbox") ?? null;
 
-  const placed = new Set<string>(["/dashboard", "/inbox"]);
+  const placed = new Set<string>();
+  if (dashboard) placed.add(dashboard.href);
+  if (inbox) placed.add(inbox.href);
   const sections: ResolvedNavSection[] = [];
 
   for (const section of NAV_SECTIONS) {
@@ -169,12 +197,14 @@ export function buildNavSections(role: UserRole): {
       .map((link) => byHref.get(link.href)!);
     links.forEach((l) => placed.add(l.href));
     if (links.length > 0) {
+      const label = role
+        ? sectionLabelForRole(role, section)
+        : section.id === "partner_matters"
+          ? sectionTitle
+          : section.label;
       sections.push({
         id: section.id,
-        label:
-          section.id === "partner_matters"
-            ? mattersSectionTitleForRole(role)
-            : section.label,
+        label,
         icon: section.icon,
         links,
       });
@@ -185,7 +215,7 @@ export function buildNavSections(role: UserRole): {
   if (orphans.length > 0) {
     sections.push({
       id: "more",
-      label: role === "client" ? "Client Portal" : "My Work",
+      label: orphanLabel,
       icon: Briefcase,
       links: orphans,
     });
@@ -194,13 +224,78 @@ export function buildNavSections(role: UserRole): {
   return { dashboard, inbox, sections };
 }
 
+/** Build role-filtered sections from navForRole (preserves existing permission lists). */
+export function buildNavSections(role: UserRole): {
+  dashboard: NavItem | null;
+  inbox: NavItem | null;
+  sections: ResolvedNavSection[];
+} {
+  return buildFromAllowed(
+    navForRole(role),
+    mattersSectionTitleForRole(role),
+    role === "client" ? "My Client Portal" : "My Work",
+    role
+  );
+}
+
+/** Demo Mode: Potential Client vs Current Client get distinct menus. */
+export function buildNavSectionsForDemoKey(key: DemoRoleKey | UserRole): {
+  dashboard: NavItem | null;
+  inbox: NavItem | null;
+  sections: ResolvedNavSection[];
+} {
+  if (key === "potential_client") {
+    const allowed = navForDemoKey(key);
+    const home = allowed.find((i) => i.href === "/potential-client") ?? null;
+    const rest = allowed.filter((i) => i.href !== "/potential-client");
+    return {
+      dashboard: home ? { href: home.href, label: "Home" } : null,
+      inbox: null,
+      sections: [
+        {
+          id: "more",
+          label: "Explore Rebel Law Group",
+          icon: Scale,
+          links: rest,
+        },
+      ],
+    };
+  }
+  if (key === "current_client" || key === "client") {
+    const allowed = navForDemoKey("current_client");
+    const home = allowed.find((i) => i.href === "/client-portal") ?? null;
+    const rest = allowed.filter(
+      (i) => i.href !== "/client-portal" && i.href !== "/potential-client"
+    );
+    const explore = allowed.find((i) => i.href === "/potential-client");
+    return {
+      dashboard: home ? { href: home.href, label: "Client Dashboard" } : null,
+      inbox: null,
+      sections: [
+        {
+          id: "more",
+          label: "My Client Portal",
+          icon: Briefcase,
+          links: [
+            ...rest,
+            ...(explore ? [explore] : []),
+          ],
+        },
+      ],
+    };
+  }
+  return buildNavSections(key as UserRole);
+}
+
 /** Prefer the longest matching href so /costs/new wins over /costs. */
 export function isNavLinkActive(pathname: string, href: string, allHrefs: string[]): boolean {
-  if (pathname === href) return true;
+  const base = href.split("#")[0];
+  if (pathname === base) return true;
   const prefixMatches = allHrefs
+    .map((h) => h.split("#")[0])
     .filter((h) => pathname === h || pathname.startsWith(`${h}/`))
     .sort((a, b) => b.length - a.length);
-  return prefixMatches[0] === href;
+  return prefixMatches[0] === base;
 }
 
 export function sectionIdForPath(

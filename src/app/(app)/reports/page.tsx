@@ -1,7 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { canViewReports } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
-import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -45,7 +44,6 @@ export default async function ReportsHubPage() {
           ) : null
         }
       />
-      <AnalyticsNotice />
       {isAttorney && (
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body p-4 gap-2">

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 
 export default async function CalendarPage() {
   const { profile } = await requireUser();
-  if (profile.role === "client") redirect("/dashboard");
+  if (profile.role === "client") redirect("/client-portal");
 
   const events =
     profile.role === "attorney" ? attorneyCalendarEvents() : CALENDAR_EVENTS;

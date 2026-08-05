@@ -29,13 +29,14 @@ export default async function MyTimePage({
   const { profile, supabase } = await requireUser();
   if (!canEnterTime(profile.role)) redirect("/dashboard");
   const params = await searchParams;
+  const firmWide = profile.role === "managing_partner";
 
   let query = supabase
     .from("time_entries")
     .select("*, matters(id, matter_number, matter_name)")
     .order("work_date", { ascending: false });
 
-  if (profile.role !== "managing_partner") {
+  if (!firmWide) {
     query = query.eq("employee_id", profile.id);
   }
   if (params.status) query = query.eq("approval_status", params.status);
@@ -103,11 +104,13 @@ export default async function MyTimePage({
   return (
     <>
       <PageHeader
-        title="My Time"
+        title={firmWide ? "Time Entries" : "My Time"}
         description={
           filterNote
             ? `Filtered view — ${filterNote}`
-            : "Your time entries by matter, date, billing activity, and approval status."
+            : firmWide
+              ? "Firm-wide time entries by matter, date, billing activity, and approval status."
+              : "Your time entries by matter, date, billing activity, and approval status."
         }
         actions={
           <div className="flex flex-wrap gap-2">

@@ -3,9 +3,6 @@
  * Formulas are documented for academic transparency (fictional data only).
  */
 
-export const ANALYTICS_NOTICE =
-  "All financial and operational results in this application are based on fictional data created for an academic project.";
-
 export const FORMULAS = {
   matterRevenue:
     "Sum of finalized invoice totals (invoice_total) for the matter, excluding Draft and Canceled invoices. Pre-billing write-downs are already reflected in invoice lines. Payments and unapplied retainers are not revenue.",
@@ -21,7 +18,7 @@ export const FORMULAS = {
   cashProfit:
     "Collected Revenue − Direct Labor Cost − Direct Matter Expense (cash contribution, not accrual gross profit).",
   utilization:
-    "Billable Hours ÷ (Available Weekly Hours × Weeks in period) × 100. Available hours default to 40/week (management estimate from employee profile). Unfiltered views use a 4-week window.",
+    "Billable Hours ÷ (Available Weekly Hours × Weeks in period) × 100. Available hours default to 40/week (from employee profile). Unfiltered views use a 4-week window.",
   billingRealization:
     "Invoiced legal fees (Time + Fixed Fee lines on finalized invoices, net write-downs) ÷ Standard Billable Value × 100. Standard Billable Value = approved billable hours × preserved billing_rate. Excludes reimbursable expenses.",
   collectionRealization: "Collected fees allocated to invoices ÷ Invoiced fees × 100",

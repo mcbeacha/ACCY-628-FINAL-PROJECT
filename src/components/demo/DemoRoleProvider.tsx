@@ -9,6 +9,7 @@ import {
   DEFAULT_DEMO_ROLE,
   formatDemoOptionLabel,
   getDemoIdentity,
+  getDemoIdentityByEmail,
   parseStoredDemoRole,
   roleSwitchMessage,
   type DemoIdentity,
@@ -101,10 +102,10 @@ export function DemoRoleProvider({
   const syncingRef = useRef(false);
   const [switching, setSwitching] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // SSR-safe: do not read localStorage during useState init (causes hydration mismatch).
+  // localStorage preference is applied in the sync effect below after mount.
   const [activeKey, setActiveKey] = useState<DemoRoleKey>(() => {
-    const byEmail = DEMO_IDENTITIES.find(
-      (d) => d.email.toLowerCase() === profile.email.toLowerCase()
-    );
+    const byEmail = getDemoIdentityByEmail(profile.email);
     return byEmail?.key ?? DEFAULT_DEMO_ROLE;
   });
 
@@ -143,19 +144,27 @@ export function DemoRoleProvider({
 
         // Full navigation clears prior-role UI. Leave the page only if the new role may open it.
         if (options?.home !== false) {
-          const { navForRole } = await import("@/lib/permissions");
-          const allowed = navForRole(identity.role);
+          const { navForDemoKey } = await import("@/lib/permissions");
+          const allowed = navForDemoKey(identity.key);
           const current = window.location.pathname;
-          const stillAllowed = allowed.some(
-            (item) =>
-              current === item.href ||
-              (item.href !== "/dashboard" && current.startsWith(`${item.href}/`))
-          );
-          const dest = stillAllowed
-            ? current
-            : identity.role === "client"
-              ? identity.homePath
-              : "/dashboard";
+          const stillAllowed = allowed.some((item) => {
+            const base = item.href.split("#")[0];
+            return (
+              current === base ||
+              (base !== "/dashboard" &&
+                base !== "/potential-client" &&
+                base !== "/client-portal" &&
+                current.startsWith(`${base}/`)) ||
+              (base === "/client-portal" && current.startsWith("/client-portal")) ||
+              (base === "/potential-client" && current.startsWith("/potential-client"))
+            );
+          });
+          // Potential vs Current Client are separate windows — never stay on the other experience.
+          const crossExperience =
+            (identity.key === "current_client" && current.startsWith("/potential-client")) ||
+            (identity.key === "potential_client" && current.startsWith("/client-portal"));
+          const dest =
+            crossExperience || !stillAllowed ? identity.homePath : current;
           window.location.assign(dest);
           return;
         }

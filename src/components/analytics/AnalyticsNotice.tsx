@@ -13,15 +13,3 @@ export function FormulaHelp({
     </div>
   );
 }
-
-export function AnalyticsNotice() {
-  return (
-    <div className="alert alert-info text-sm">
-      <span>
-        All financial and operational results in this application are based on fictional data
-        created for an academic project. Values are management estimates for simulation, not audited
-        financial statements.
-      </span>
-    </div>
-  );
-}

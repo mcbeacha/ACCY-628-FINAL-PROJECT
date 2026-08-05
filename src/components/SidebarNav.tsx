@@ -3,14 +3,17 @@
 import {
   DASHBOARD_ICON,
   INBOX_ICON,
-  buildNavSections,
+  buildNavSectionsForDemoKey,
   isNavLinkActive,
-  mattersSectionTitleForRole,
+  mattersSectionTitleForDemoKey,
   sectionIdForPath,
   type NavSectionId,
   type ResolvedNavSection,
 } from "@/lib/nav-config";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
+import type { DemoRoleKey } from "@/lib/demo-config";
+import { canApproveExpenses, canApproveMatterCosts } from "@/lib/permissions";
+import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
@@ -28,37 +31,82 @@ function closeMobileDrawer() {
   if (toggle?.checked) toggle.checked = false;
 }
 
+function permissionRoleForDemoKey(key: DemoRoleKey | UserRole): UserRole {
+  if (key === "potential_client" || key === "current_client") return "client";
+  return key as UserRole;
+}
+
 function NavLinkRow({
   href,
   label,
   active,
   indented,
   onNavigate,
+  onDemoSwitch,
+  badgeCount,
 }: {
   href: string;
   label: string;
   active: boolean;
   indented?: boolean;
   onNavigate?: () => void;
+  /** Demo Mode: switch Potential ↔ Current Client instead of a plain link. */
+  onDemoSwitch?: () => void;
+  badgeCount?: number;
 }) {
+  const showBadge = typeof badgeCount === "number" && badgeCount > 0;
+  const ariaLabel = showBadge ? `${label}, ${badgeCount} pending` : undefined;
+  const className = [
+    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors w-full text-left",
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+    indented ? "ml-2 pl-4 border-l-2 border-base-300" : "",
+    active
+      ? "bg-primary/15 text-base-content font-semibold border-l-primary"
+      : "hover:bg-base-200 opacity-90",
+  ].join(" ");
+
+  if (onDemoSwitch) {
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={() => {
+          onNavigate?.();
+          onDemoSwitch();
+        }}
+        aria-current={active ? "page" : undefined}
+        aria-label={ariaLabel}
+      >
+        {active && (
+          <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+        )}
+        <span className="truncate flex-1">{label}</span>
+        {showBadge && (
+          <span className="badge badge-warning badge-sm shrink-0" aria-hidden>
+            {badgeCount}
+          </span>
+        )}
+      </button>
+    );
+  }
+
   return (
     <Link
       href={href}
       onClick={onNavigate}
-      className={[
-        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        indented ? "ml-2 pl-4 border-l-2 border-base-300" : "",
-        active
-          ? "bg-primary/15 text-base-content font-semibold border-l-primary"
-          : "hover:bg-base-200 opacity-90",
-      ].join(" ")}
+      className={className}
       aria-current={active ? "page" : undefined}
+      aria-label={ariaLabel}
     >
       {active && (
         <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
       )}
-      <span className="truncate">{label}</span>
+      <span className="truncate flex-1">{label}</span>
+      {showBadge && (
+        <span className="badge badge-warning badge-sm shrink-0" aria-hidden>
+          {badgeCount}
+        </span>
+      )}
     </Link>
   );
 }
@@ -71,6 +119,8 @@ function SidebarSection({
   pathname,
   onNavigate,
   titleLive,
+  onDemoExperienceLink,
+  badgeCounts,
 }: {
   section: ResolvedNavSection;
   open: boolean;
@@ -79,6 +129,8 @@ function SidebarSection({
   pathname: string;
   onNavigate?: () => void;
   titleLive?: boolean;
+  onDemoExperienceLink?: (href: string) => (() => void) | undefined;
+  badgeCounts?: Record<string, number>;
 }) {
   const panelId = useId();
   const Icon = section.icon;
@@ -135,6 +187,8 @@ function SidebarSection({
                   indented
                   active={isNavLinkActive(pathname, link.href, allHrefs)}
                   onNavigate={onNavigate}
+                  onDemoSwitch={onDemoExperienceLink?.(link.href)}
+                  badgeCount={badgeCounts?.[link.href]}
                 />
               </li>
             ))}
@@ -149,21 +203,22 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
   const pathname = usePathname();
   const demo = useDemoRole();
   // Prefer demo context so the matters heading updates as soon as View App As changes.
-  const effectiveRole: UserRole = demo?.activeDemoRole ?? role;
+  const effectiveKey = (demo?.activeDemoRole ?? role) as DemoRoleKey | UserRole;
+  const effectiveRole = permissionRoleForDemoKey(effectiveKey);
 
   const { dashboard, inbox, sections } = useMemo(
-    () => buildNavSections(effectiveRole),
-    [effectiveRole]
+    () => buildNavSectionsForDemoKey(effectiveKey),
+    [effectiveKey]
   );
 
   const sectionsWithTitle = useMemo(
     () =>
       sections.map((section) =>
         section.id === "partner_matters"
-          ? { ...section, label: mattersSectionTitleForRole(effectiveRole) }
+          ? { ...section, label: mattersSectionTitleForDemoKey(effectiveKey) }
           : section
       ),
-    [sections, effectiveRole]
+    [sections, effectiveKey]
   );
 
   const allHrefs = useMemo(
@@ -177,13 +232,61 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
 
   const routeSection = sectionIdForPath(pathname, sectionsWithTitle);
   const [openSection, setOpenSection] = useState<NavSectionId | null>(routeSection);
+  const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
+
+  const canSeeExpenseReview = canApproveExpenses(effectiveRole);
+  const canSeeCostApproval = canApproveMatterCosts(effectiveRole);
 
   useEffect(() => {
     setOpenSection(routeSection);
   }, [routeSection]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPendingBadges() {
+      const next: Record<string, number> = {};
+      const supabase = createClient();
+
+      if (canSeeExpenseReview) {
+        const { count, error } = await supabase
+          .from("expense_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("approval_status", "Submitted");
+        if (!error) next["/expenses/review"] = count ?? 0;
+      }
+
+      if (canSeeCostApproval) {
+        const { count, error } = await supabase
+          .from("matter_cost_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("approval_status", "Submitted");
+        if (!error) next["/costs/review"] = count ?? 0;
+      }
+
+      if (!cancelled) setBadgeCounts(next);
+    }
+
+    void loadPendingBadges();
+    return () => {
+      cancelled = true;
+    };
+  }, [canSeeExpenseReview, canSeeCostApproval, pathname, effectiveRole]);
+
   function onNavigate() {
     if (closeDrawerOnNavigate) closeMobileDrawer();
+  }
+
+  function onDemoExperienceLink(href: string) {
+    if (!demo) return undefined;
+    const base = href.split("#")[0];
+    if (base === "/client-portal" && effectiveKey === "potential_client") {
+      return () => void demo.setActiveDemoRole("current_client");
+    }
+    if (base === "/potential-client" && (effectiveKey === "current_client" || effectiveKey === "client")) {
+      return () => void demo.setActiveDemoRole("potential_client");
+    }
+    return undefined;
   }
 
   function toggleSection(id: NavSectionId) {
@@ -249,6 +352,8 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
           pathname={pathname}
           onNavigate={onNavigate}
           titleLive={section.id === "partner_matters"}
+          onDemoExperienceLink={onDemoExperienceLink}
+          badgeCounts={badgeCounts}
         />
       ))}
     </nav>

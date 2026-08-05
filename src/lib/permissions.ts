@@ -189,7 +189,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/data-quality", label: "Data Quality" },
         { href: "/controls", label: "Control Monitor" },
         { href: "/billing-readiness", label: "Billing Readiness" },
-        { href: "/time/review", label: "Time Review / Out-of-Scope" },
+        { href: "/time/review", label: "Time Review/Out-of-Scope" },
         { href: "/expenses/review", label: "Expense Review" },
         { href: "/unbilled", label: "Unbilled Activity" },
         { href: "/invoices", label: "Invoices" },
@@ -211,11 +211,11 @@ export function navForRole(role: UserRole): NavItem[] {
         ...STAFF_WORKSPACE,
         { href: "/time", label: "My Time" },
         { href: "/time/new", label: "Enter Time" },
-        { href: "/time/review", label: "Review Time / Out-of-Scope" },
+        { href: "/time/review", label: "Time Review/Out-of-Scope" },
         { href: "/expenses", label: "My Expenses" },
         { href: "/expenses/new", label: "Enter Expense" },
         { href: "/costs/new", label: "Cost Entry" },
-        { href: "/costs/vendor-charge", label: "Request Vendor Charge" },
+        { href: "/costs/vendor-charge", label: "Vendor Charge" },
         { href: "/invoices", label: "Assigned Matter Billing Status" },
         { href: "/reports", label: "Reports" },
         ...STAFF_FIRM,
@@ -251,7 +251,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/profitability/matters", label: "Matter Profitability" },
         { href: "/profitability/clients", label: "Client Profitability" },
         { href: "/profitability/practice-areas", label: "Practice Areas" },
-        { href: "/productivity", label: "Productivity" },
+        { href: "/productivity", label: "Attorney Productivity" },
         { href: "/reports", label: "Reports" },
         { href: "/data-quality", label: "Data Quality" },
         { href: "/controls", label: "Control Monitor" },
@@ -269,16 +269,38 @@ export function navForRole(role: UserRole): NavItem[] {
       ];
     case "client":
       return [
-        { href: "/dashboard", label: "Home" },
-        { href: "/inbox", label: inboxNavLabel("client") },
-        { href: "/matters", label: "My Matters" },
-        { href: "/portal", label: "Milestones" },
-        { href: "/portal/billing", label: "My Invoices & Payments" },
-        { href: "/settings", label: "Settings" },
+        { href: "/client-portal", label: "Client Dashboard" },
+        { href: "/client-portal/matters", label: "My Matters" },
+        { href: "/client-portal/invoices", label: "My Invoices" },
+        { href: "/client-portal/pay", label: "Make a Payment" },
+        { href: "/client-portal/payments", label: "Payment History" },
+        { href: "/client-portal/retainers", label: "Retainer Summary" },
+        { href: "/client-portal/milestones", label: "Milestones" },
+        { href: "/client-portal/contact", label: "Contact My Legal Team" },
+        { href: "/potential-client", label: "Explore Rebel Law Group" },
       ];
     default:
       return [{ href: "/dashboard", label: "Home" }];
   }
+}
+
+/** Navigation for Demo Mode selector keys (Potential vs Current Client). */
+export function navForDemoKey(key: string): NavItem[] {
+  if (key === "potential_client") {
+    return [
+      { href: "/potential-client", label: "Home" },
+      { href: "/potential-client#practice-areas", label: "Practice Areas" },
+      { href: "/potential-client#meet-attorneys", label: "Our Attorneys" },
+      { href: "/potential-client#oxford-community", label: "Oxford Community" },
+      { href: "/potential-client#attorneys-for-life", label: "Your Attorneys for Life" },
+      { href: "/potential-client#case-evaluation", label: "Free Case Evaluation" },
+      { href: "/client-portal", label: "Current Client Portal" },
+    ];
+  }
+  if (key === "current_client" || key === "client") {
+    return navForRole("client");
+  }
+  return navForRole(key as UserRole);
 }
 
 /** AR aging bucket from due date and balance */
