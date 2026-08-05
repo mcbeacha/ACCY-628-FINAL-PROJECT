@@ -45,6 +45,7 @@ export const NAV_SECTIONS: NavSectionDef[] = [
       { href: "/clients", label: "Clients" },
       { href: "/matters", label: "Matters" },
       { href: "/case-evaluations", label: "Case Evaluations" },
+      { href: "/document-requests", label: "Document Requests" },
       { href: "/tasks", label: "Tasks" },
       { href: "/calendar", label: "Calendar" },
       { href: "/documents", label: "Documents" },

@@ -1243,6 +1243,17 @@ function countBy(values: string[]) {
   return [...map.entries()].sort((a, b) => b[1] - a[1]);
 }
 
+/** Stable fictional US-style phone for demo attorney contact (555 exchange). */
+function demoAttorneyPhone(attorneyKey: string) {
+  let hash = 0;
+  for (let i = 0; i < attorneyKey.length; i++) {
+    hash = (hash * 31 + attorneyKey.charCodeAt(i)) >>> 0;
+  }
+  const mid = String(100 + (hash % 900)).padStart(3, "0");
+  const last = String(1000 + ((hash >>> 9) % 9000)).padStart(4, "0");
+  return `(555) ${mid}-${last}`;
+}
+
 function StatusList({ items }: { items: [string, number][] }) {
   if (!items.length) return <p className="text-sm opacity-60">No data yet.</p>;
   return (
