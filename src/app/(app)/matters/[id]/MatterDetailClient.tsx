@@ -4,6 +4,10 @@ import { StatusBadge, PriorityBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
 import { MatterCostTab } from "@/components/MatterCostTab";
 import { PageHeader } from "@/components/PageHeader";
+import {
+  TaskCompletionModal,
+  type TaskCompletionResult,
+} from "@/components/TaskCompletionModal";
 import { ASSIGNMENT_ROLES, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
@@ -33,6 +37,8 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
   const canEditTasks =
     role === "managing_partner" || role === "attorney" || role === "paralegal";
   const canAssign = role === "managing_partner" || role === "attorney";
+  const canLogTimeExpense =
+    role === "managing_partner" || role === "attorney" || role === "paralegal";
 
   const [tab, setTab] = useState("overview");
   const [matter, setMatter] = useState<Matter | null>(null);
@@ -45,6 +51,7 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pendingComplete, setPendingComplete] = useState<MatterTask | null>(null);
 
   async function load() {
     const supabase = createClient();
@@ -251,17 +258,18 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
   }
 
   async function updateTask(task: MatterTask, patch: Partial<MatterTask>) {
+    if (patch.task_status === "Completed") {
+      setPendingComplete(task);
+      return;
+    }
+
     setBusy(true);
     setError(null);
     const supabase = createClient();
-    if (patch.task_status === "Completed" && !patch.completion_notes && !task.completion_notes) {
-      const notes = window.prompt("Add a short completion note:");
-      if (!notes?.trim()) {
-        setError("Completion notes are recommended. Please add a short note.");
-        setBusy(false);
-        return;
-      }
-      patch.completion_notes = notes.trim();
+    if (patch.task_status && patch.task_status !== "Completed") {
+      patch.completed_at = null;
+      patch.exception_notes = null;
+      patch.out_of_scope = false;
     }
     const { error: upErr } = await supabase
       .from("matter_tasks")
@@ -272,9 +280,42 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
       setBusy(false);
       return;
     }
-    if (patch.task_status === "Completed") {
-      await logActivity("task_completed", `Task completed: ${task.task_title}`);
+    setBusy(false);
+    await load();
+  }
+
+  async function confirmCompleteTask(result: TaskCompletionResult) {
+    if (!pendingComplete) return;
+    const task = pendingComplete;
+    setPendingComplete(null);
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const patch = {
+      task_status: "Completed",
+      completion_notes: result.completion_notes,
+      exception_notes: result.exception_notes,
+      out_of_scope: result.out_of_scope,
+      completed_at: new Date().toISOString(),
+    };
+    const { error: upErr } = await supabase
+      .from("matter_tasks")
+      .update(patch)
+      .eq("id", task.id);
+    if (upErr) {
+      setError(upErr.message);
+      setBusy(false);
+      return;
     }
+    await logActivity(
+      "task_completed",
+      result.out_of_scope
+        ? `Out-of-scope task completed: ${task.task_title}. Work: ${result.completion_notes}. ${result.exception_notes || ""}`
+        : result.exception_notes
+          ? `Task completed with exception: ${task.task_title}. Work: ${result.completion_notes}. Exception: ${result.exception_notes}`
+          : `Task completed: ${task.task_title}. Work documented: ${result.completion_notes}`
+    );
+    setMessage(`Completed “${task.task_title}” with work documentation.`);
     setBusy(false);
     await load();
   }
@@ -427,12 +468,34 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
 
   return (
     <>
+      <TaskCompletionModal
+        open={!!pendingComplete}
+        taskTitle={pendingComplete?.task_title || ""}
+        onCancel={() => setPendingComplete(null)}
+        onConfirm={confirmCompleteTask}
+      />
       <PageHeader
         title={matter.matter_name}
         description={`${matter.matter_number}${client ? ` · ${clientDisplayName(client)}` : ""}`}
         actions={
           <div className="flex flex-wrap gap-2">
-            {!isClient && client && (
+            {canLogTimeExpense && (
+              <>
+                <Link
+                  href={`/time/new?matter=${matterId}`}
+                  className="btn btn-primary btn-sm"
+                >
+                  Log time
+                </Link>
+                <Link
+                  href={`/expenses/new?matter=${matterId}`}
+                  className="btn btn-outline btn-sm"
+                >
+                  Log expense
+                </Link>
+              </>
+            )}
+            {!isClient && client && role !== "paralegal" && (
               <Link href={`/clients/${client.id}`} className="btn btn-ghost btn-sm">
                 View client
               </Link>
@@ -550,6 +613,18 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
                 {!isClient && (
                   <>
                     <div>
+                      <dt className="opacity-60">Next court date</dt>
+                      <dd className="font-medium">{formatDate(matter.next_court_date)}</dd>
+                    </div>
+                    <div>
+                      <dt className="opacity-60">Next filing deadline</dt>
+                      <dd className="font-medium">{formatDate(matter.next_filing_deadline)}</dd>
+                    </div>
+                  </>
+                )}
+                {!isClient && (
+                  <>
+                    <div>
                       <dt className="opacity-60">Billing method</dt>
                       <dd className="font-medium">{matter.billing_method || "—"}</dd>
                     </div>
@@ -575,6 +650,52 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
               )}
             </div>
           </div>
+
+          {role === "paralegal" && client && (
+            <div className="card bg-base-100 border border-base-300 shadow-sm">
+              <div className="card-body">
+                <h2 className="card-title text-base">Client contact</h2>
+                <p className="text-xs opacity-60 -mt-1 mb-2">
+                  Read-only contact details for case work. Full client file is not available to this role.
+                </p>
+                <dl className="grid sm:grid-cols-2 gap-3 text-sm">
+                  <div className="sm:col-span-2">
+                    <dt className="opacity-60">Name</dt>
+                    <dd className="font-medium">{clientDisplayName(client)}</dd>
+                  </div>
+                  <div>
+                    <dt className="opacity-60">Primary contact</dt>
+                    <dd className="font-medium">{client.primary_contact_name || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="opacity-60">Status</dt>
+                    <dd className="font-medium">{client.client_status || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="opacity-60">Email</dt>
+                    <dd className="font-medium break-all">{client.email || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="opacity-60">Phone</dt>
+                    <dd className="font-medium">{client.phone || "—"}</dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="opacity-60">Address</dt>
+                    <dd className="font-medium">
+                      {[
+                        client.address_line_1,
+                        client.address_line_2,
+                        [client.city, client.state, client.postal_code].filter(Boolean).join(", "),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+          )}
+
           {!isClient && (
             <div className="card bg-base-100 border border-base-300 shadow-sm">
               <div className="card-body">
@@ -869,7 +990,17 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
                               )}
                               {t.completion_notes && (
                                 <div className="text-xs opacity-70 mt-1">
-                                  Completion: {t.completion_notes}
+                                  Work: {t.completion_notes}
+                                </div>
+                              )}
+                              {t.exception_notes && (
+                                <div className="text-xs text-warning mt-1">
+                                  Exception: {t.exception_notes}
+                                </div>
+                              )}
+                              {t.out_of_scope && (
+                                <div className="mt-1">
+                                  <span className="badge badge-warning badge-sm">Out of scope</span>
                                 </div>
                               )}
                             </td>

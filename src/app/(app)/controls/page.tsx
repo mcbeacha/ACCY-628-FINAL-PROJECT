@@ -121,6 +121,23 @@ export default async function ControlsPage() {
     }
   }
 
+  // Out-of-scope time awaiting attorney authorization (unauthorized work control)
+  for (const t of raw.time) {
+    if (t.out_of_scope && t.approval_status === "Submitted") {
+      rows.push({
+        risk: "High",
+        record: `Out-of-scope time awaiting attorney approval (${t.hours} hrs · ${t.work_date})`,
+        href: "/time/review",
+        user: pmap.get(t.employee_id) || "—",
+        date: t.created_at || t.work_date,
+        status: "Submitted",
+        followUp: t.out_of_scope_reason
+          ? `Authorize or reject before billing — ${t.out_of_scope_reason}`
+          : "Authorize or reject additional work before billing",
+      });
+    }
+  }
+
   // Billed entries still not locked
   for (const t of raw.time) {
     if (t.invoice_status === "Billed" && t.locked_status === false) {

@@ -127,9 +127,14 @@ export function buildNavSections(role: UserRole): {
       .map((link) => byHref.get(link.href)!);
     links.forEach((l) => placed.add(l.href));
     if (links.length > 0) {
+      let label = section.label;
+      if (section.id === "partner_matters") {
+        if (role === "paralegal") label = "Paralegal/Legal Staff Tasks";
+        else if (role === "attorney") label = "Attorney Matters";
+      }
       sections.push({
         id: section.id,
-        label: section.label,
+        label,
         icon: section.icon,
         links,
       });

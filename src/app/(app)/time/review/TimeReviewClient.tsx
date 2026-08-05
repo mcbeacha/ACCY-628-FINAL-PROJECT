@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 export function TimeReviewClient({ userId }: { userId: string }) {
   const [rows, setRows] = useState<TimeEntry[]>([]);
   const [status, setStatus] = useState("Submitted");
+  const [scopeFilter, setScopeFilter] = useState<"all" | "oos" | "in">("all");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,6 +23,8 @@ export function TimeReviewClient({ userId }: { userId: string }) {
       .select("*, matters(id, matter_number, matter_name), employee:profiles!time_entries_employee_id_fkey(full_name)")
       .order("work_date", { ascending: false });
     if (status) q = q.eq("approval_status", status);
+    if (scopeFilter === "oos") q = q.eq("out_of_scope", true);
+    if (scopeFilter === "in") q = q.eq("out_of_scope", false);
     const { data } = await q;
     setRows((data || []) as TimeEntry[]);
   }
@@ -29,7 +32,7 @@ export function TimeReviewClient({ userId }: { userId: string }) {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [status, scopeFilter]);
 
   async function decide(row: TimeEntry, decision: "Approved" | "Rejected") {
     let reason: string | null = null;
@@ -37,6 +40,14 @@ export function TimeReviewClient({ userId }: { userId: string }) {
       reason = window.prompt("Rejection reason (required):");
       if (!reason?.trim()) {
         setError("A rejection reason is required.");
+        return;
+      }
+    } else if (row.out_of_scope) {
+      if (
+        !window.confirm(
+          "Authorize this additional / out-of-scope work for billing?\n\nApproving confirms attorney authorization that the work was not in the original assignment but may be billed."
+        )
+      ) {
         return;
       }
     } else if (!window.confirm("Approve this time entry?")) {
@@ -67,12 +78,18 @@ export function TimeReviewClient({ userId }: { userId: string }) {
       matter_id: row.matter_id,
       action_description:
         decision === "Approved"
-          ? `Time entry approved (${row.hours} hrs).`
+          ? row.out_of_scope
+            ? `Out-of-scope time authorized for billing (${row.hours} hrs). Reason: ${row.out_of_scope_reason || "—"}`
+            : `Time entry approved (${row.hours} hrs).`
           : `Time entry rejected: ${reason}`,
       performed_by: userId,
     });
 
-    setMessage(`Entry ${decision.toLowerCase()}.`);
+    setMessage(
+      decision === "Approved" && row.out_of_scope
+        ? "Out-of-scope work authorized for billing."
+        : `Entry ${decision.toLowerCase()}.`
+    );
     setBusy(false);
     await load();
   }
@@ -81,15 +98,24 @@ export function TimeReviewClient({ userId }: { userId: string }) {
     <>
       <PageHeader
         title="Time Review"
-        description="Approve or reject submitted time entries. Approver and timestamp are recorded automatically."
+        description="Approve or reject submitted time. Out-of-scope / ad hoc work requires explicit attorney authorization before billing."
       />
       <div className="flex flex-wrap gap-2 items-center">
         <select className="select select-bordered select-sm" value={status} onChange={(e) => setStatus(e.target.value)}>
           {["Submitted", "Approved", "Rejected", "Draft", ""].map((s) => (
             <option key={s || "all"} value={s}>
-              {s || "All"}
+              {s || "All statuses"}
             </option>
           ))}
+        </select>
+        <select
+          className="select select-bordered select-sm"
+          value={scopeFilter}
+          onChange={(e) => setScopeFilter(e.target.value as "all" | "oos" | "in")}
+        >
+          <option value="all">All scope</option>
+          <option value="oos">Out-of-scope only</option>
+          <option value="in">In-scope only</option>
         </select>
       </div>
       {message && (
@@ -123,7 +149,7 @@ export function TimeReviewClient({ userId }: { userId: string }) {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id}>
+                  <tr key={r.id} className={r.out_of_scope ? "bg-warning/10" : undefined}>
                     <td className="text-sm">{formatDate(r.work_date)}</td>
                     <td className="text-sm">
                       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -138,10 +164,22 @@ export function TimeReviewClient({ userId }: { userId: string }) {
                       {formatCurrency(calcLaborCost(Number(r.hours), Number(r.internal_cost_rate)))}
                     </td>
                     <td>
-                      <StatusBadge status={r.approval_status} />
+                      <div className="flex flex-col gap-1 items-start">
+                        <StatusBadge status={r.approval_status} />
+                        {r.out_of_scope && (
+                          <span className="badge badge-warning badge-sm whitespace-nowrap">
+                            Out of scope
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="text-sm max-w-[14rem]">
+                    <td className="text-sm max-w-[16rem]">
                       {r.billing_description}
+                      {r.out_of_scope && r.out_of_scope_reason && (
+                        <div className="text-xs mt-1 opacity-80">
+                          <span className="font-semibold">Ad hoc reason:</span> {r.out_of_scope_reason}
+                        </div>
+                      )}
                       {r.rejection_reason && (
                         <div className="text-xs text-error mt-1">{r.rejection_reason}</div>
                       )}
@@ -151,11 +189,11 @@ export function TimeReviewClient({ userId }: { userId: string }) {
                         <div className="flex gap-1">
                           <button
                             type="button"
-                            className="btn btn-success btn-xs"
+                            className={`btn btn-xs ${r.out_of_scope ? "btn-warning" : "btn-success"}`}
                             disabled={busy}
                             onClick={() => decide(r, "Approved")}
                           >
-                            Approve
+                            {r.out_of_scope ? "Authorize" : "Approve"}
                           </button>
                           <button
                             type="button"

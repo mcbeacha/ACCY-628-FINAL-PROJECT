@@ -31,6 +31,8 @@ export type TimeEntry = {
   invoice_status: string;
   invoice_id: string | null;
   locked_status: boolean;
+  out_of_scope?: boolean;
+  out_of_scope_reason?: string | null;
   created_by: string | null;
   created_at: string;
   // joined
