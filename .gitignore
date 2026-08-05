@@ -41,6 +41,9 @@ debug-*.log
 # vercel
 .vercel
 
+# local supabase CLI checkout (not part of shared app deploy)
+/supabase/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
