@@ -4,10 +4,12 @@ import {
   DASHBOARD_ICON,
   buildNavSections,
   isNavLinkActive,
+  mattersSectionTitleForRole,
   sectionIdForPath,
   type NavSectionId,
   type ResolvedNavSection,
 } from "@/lib/nav-config";
+import { useDemoRole } from "@/components/demo/DemoRoleProvider";
 import type { UserRole } from "@/lib/types";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
@@ -67,6 +69,7 @@ function SidebarSection({
   allHrefs,
   pathname,
   onNavigate,
+  titleLive,
 }: {
   section: ResolvedNavSection;
   open: boolean;
@@ -74,6 +77,7 @@ function SidebarSection({
   allHrefs: string[];
   pathname: string;
   onNavigate?: () => void;
+  titleLive?: boolean;
 }) {
   const panelId = useId();
   const Icon = section.icon;
@@ -93,10 +97,16 @@ function SidebarSection({
         ].join(" ")}
         aria-expanded={open}
         aria-controls={panelId}
+        aria-label={`${section.label} section`}
         onClick={onToggle}
       >
         <Icon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
-        <span className="flex-1 text-left truncate">{section.label}</span>
+        <span
+          className="flex-1 text-left truncate transition-opacity duration-200"
+          aria-live={titleLive ? "polite" : undefined}
+        >
+          {section.label}
+        </span>
         <ChevronDown
           className={[
             "h-4 w-4 shrink-0 opacity-60 transition-transform duration-200",
@@ -136,21 +146,39 @@ function SidebarSection({
 
 export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
   const pathname = usePathname();
-  const { dashboard, sections } = useMemo(() => buildNavSections(role), [role]);
+  const demo = useDemoRole();
+  // Prefer demo context so the matters heading updates as soon as View App As changes.
+  const effectiveRole: UserRole = demo?.activeDemoRole ?? role;
+
+  const { dashboard, sections } = useMemo(
+    () => buildNavSections(effectiveRole),
+    [effectiveRole]
+  );
+
+  const sectionsWithTitle = useMemo(
+    () =>
+      sections.map((section) =>
+        section.id === "partner_matters"
+          ? { ...section, label: mattersSectionTitleForRole(effectiveRole) }
+          : section
+      ),
+    [sections, effectiveRole]
+  );
+
   const allHrefs = useMemo(
     () => [
       ...(dashboard ? [dashboard.href] : []),
-      ...sections.flatMap((s) => s.links.map((l) => l.href)),
+      ...sectionsWithTitle.flatMap((s) => s.links.map((l) => l.href)),
     ],
-    [dashboard, sections]
+    [dashboard, sectionsWithTitle]
   );
 
-  const routeSection = sectionIdForPath(pathname, sections);
+  const routeSection = sectionIdForPath(pathname, sectionsWithTitle);
   const [openSection, setOpenSection] = useState<NavSectionId | null>(routeSection);
 
   useEffect(() => {
     setOpenSection(routeSection);
-  }, [routeSection, role]);
+  }, [routeSection]);
 
   function onNavigate() {
     if (closeDrawerOnNavigate) closeMobileDrawer();
@@ -186,7 +214,7 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
         </div>
       )}
 
-      {sections.map((section) => (
+      {sectionsWithTitle.map((section) => (
         <SidebarSection
           key={section.id}
           section={section}
@@ -195,6 +223,7 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
           allHrefs={allHrefs}
           pathname={pathname}
           onNavigate={onNavigate}
+          titleLive={section.id === "partner_matters"}
         />
       ))}
     </nav>

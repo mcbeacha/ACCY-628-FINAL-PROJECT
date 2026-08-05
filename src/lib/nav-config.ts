@@ -101,6 +101,27 @@ export const DASHBOARD_LINK: NavLinkDef = {
 
 export const DASHBOARD_ICON = LayoutDashboard;
 
+/**
+ * First sidebar section title by active role.
+ * Only the heading changes — child links stay role-filtered via navForRole.
+ */
+export function mattersSectionTitleForRole(role: UserRole): string {
+  switch (role) {
+    case "managing_partner":
+      return "Partner Matters";
+    case "attorney":
+      return "Attorney Matters";
+    case "paralegal":
+      return "Staff Matters";
+    case "billing_staff":
+      return "Billing Matters";
+    case "client":
+      return "My Matters";
+    default:
+      return "Partner Matters";
+  }
+}
+
 export type ResolvedNavSection = {
   id: NavSectionId;
   label: string;
@@ -129,7 +150,10 @@ export function buildNavSections(role: UserRole): {
     if (links.length > 0) {
       sections.push({
         id: section.id,
-        label: section.label,
+        label:
+          section.id === "partner_matters"
+            ? mattersSectionTitleForRole(role)
+            : section.label,
         icon: section.icon,
         links,
       });
