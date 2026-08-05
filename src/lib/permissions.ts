@@ -1,4 +1,9 @@
+import { inboxNavLabel } from "./inbox";
 import type { UserRole } from "./types";
+
+export function canViewInbox(_role: UserRole) {
+  return true;
+}
 
 export function canViewAllClients(role: UserRole) {
   return role === "managing_partner" || role === "billing_staff";
@@ -164,6 +169,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "managing_partner":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/inbox", label: inboxNavLabel("managing_partner") },
         { href: "/case-evaluations", label: "Case Evaluations" },
         { href: "/costs", label: "Cost & Resources" },
         { href: "/vendors", label: "Vendors" },
@@ -197,6 +203,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "attorney":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/inbox", label: inboxNavLabel("attorney") },
         { href: "/clients", label: "Clients" },
         { href: "/case-evaluations", label: "Case Evaluations" },
         { href: "/matters", label: "My Matters" },
@@ -216,6 +223,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "paralegal":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/inbox", label: inboxNavLabel("paralegal") },
         { href: "/case-evaluations", label: "Case Evaluations" },
         { href: "/matters", label: "My Matters" },
         { href: "/tasks", label: "My Tasks" },
@@ -230,6 +238,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "billing_staff":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/inbox", label: inboxNavLabel("billing_staff") },
         { href: "/costs", label: "Cost & Resources" },
         { href: "/vendors", label: "Vendors" },
         { href: "/costs/new", label: "Cost Entry" },
@@ -261,6 +270,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "client":
       return [
         { href: "/dashboard", label: "Home" },
+        { href: "/inbox", label: inboxNavLabel("client") },
         { href: "/matters", label: "My Matters" },
         { href: "/portal", label: "Milestones" },
         { href: "/portal/billing", label: "My Invoices & Payments" },

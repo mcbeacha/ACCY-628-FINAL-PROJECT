@@ -2,6 +2,7 @@
 
 import {
   DASHBOARD_ICON,
+  INBOX_ICON,
   buildNavSections,
   isNavLinkActive,
   mattersSectionTitleForRole,
@@ -150,7 +151,7 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
   // Prefer demo context so the matters heading updates as soon as View App As changes.
   const effectiveRole: UserRole = demo?.activeDemoRole ?? role;
 
-  const { dashboard, sections } = useMemo(
+  const { dashboard, inbox, sections } = useMemo(
     () => buildNavSections(effectiveRole),
     [effectiveRole]
   );
@@ -168,9 +169,10 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
   const allHrefs = useMemo(
     () => [
       ...(dashboard ? [dashboard.href] : []),
+      ...(inbox ? [inbox.href] : []),
       ...sectionsWithTitle.flatMap((s) => s.links.map((l) => l.href)),
     ],
-    [dashboard, sectionsWithTitle]
+    [dashboard, inbox, sectionsWithTitle]
   );
 
   const routeSection = sectionIdForPath(pathname, sectionsWithTitle);
@@ -189,11 +191,12 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
   }
 
   const DashIcon = DASHBOARD_ICON;
+  const InboxIcon = INBOX_ICON;
 
   return (
     <nav className="flex flex-col gap-1" aria-label="Main">
       {dashboard && (
-        <div className="mb-2">
+        <div className="mb-1">
           <Link
             href={dashboard.href}
             onClick={onNavigate}
@@ -210,6 +213,28 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
           >
             <DashIcon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
             <span>{dashboard.label}</span>
+          </Link>
+        </div>
+      )}
+
+      {inbox && (
+        <div className="mb-2">
+          <Link
+            href={inbox.href}
+            onClick={onNavigate}
+            className={[
+              "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+              isNavLinkActive(pathname, inbox.href, allHrefs)
+                ? "bg-primary/15 text-base-content"
+                : "hover:bg-base-200",
+            ].join(" ")}
+            aria-current={
+              isNavLinkActive(pathname, inbox.href, allHrefs) ? "page" : undefined
+            }
+          >
+            <InboxIcon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+            <span>{inbox.label}</span>
           </Link>
         </div>
       )}
