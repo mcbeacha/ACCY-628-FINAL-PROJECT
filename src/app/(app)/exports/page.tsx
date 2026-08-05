@@ -1,6 +1,5 @@
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
-import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
 import { TaxExportsClient } from "./TaxExportsClient";
 import { buildTaxExportGroups } from "@/lib/tax-exports";
 import { redirect } from "next/navigation";
@@ -43,7 +42,6 @@ export default async function TaxExportsPage() {
         title="Tax year-end Exports"
         description="Compile common groupings for Tax CPA filing support — income, meals vs entertainment, travel, dues, insurance, and operating expenses."
       />
-      <AnalyticsNotice />
       <TaxExportsClient
         taxYear={taxYear}
         groups={groups}
