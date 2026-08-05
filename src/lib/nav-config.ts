@@ -105,7 +105,6 @@ export const NAV_SECTIONS: NavSectionDef[] = [
     label: "Firm & Resources",
     icon: Library,
     links: [
-      { href: "/messages", label: "Messages" },
       { href: "/research", label: "Legal Research" },
       { href: "/directory", label: "Firm Directory" },
       { href: "/resources", label: "Resources" },
@@ -113,6 +112,12 @@ export const NAV_SECTIONS: NavSectionDef[] = [
     ],
   },
 ];
+
+/**
+ * Routes that stay permitted in navForRole but are opened from the header
+ * instead of the sidebar (Messages uses the header messaging icon).
+ */
+export const HEADER_ONLY_HREFS = new Set<string>(["/messages"]);
 
 export const DASHBOARD_LINK: NavLinkDef = {
   href: "/dashboard",
@@ -168,7 +173,7 @@ export type ResolvedNavSection = {
 };
 
 function buildFromAllowed(
-  allowed: NavItem[],
+  allowedItems: NavItem[],
   sectionTitle: string,
   orphanLabel: string,
   role?: UserRole
@@ -177,6 +182,7 @@ function buildFromAllowed(
   inbox: NavItem | null;
   sections: ResolvedNavSection[];
 } {
+  const allowed = allowedItems.filter((item) => !HEADER_ONLY_HREFS.has(item.href));
   const byHref = new Map(allowed.map((item) => [item.href, item]));
 
   const dashboard =
@@ -245,7 +251,9 @@ export function buildNavSectionsForDemoKey(key: DemoRoleKey | UserRole): {
   sections: ResolvedNavSection[];
 } {
   if (key === "potential_client") {
-    const allowed = navForDemoKey(key);
+    const allowed = navForDemoKey(key).filter(
+      (item) => !HEADER_ONLY_HREFS.has(item.href)
+    );
     const home = allowed.find((i) => i.href === "/potential-client") ?? null;
     const rest = allowed.filter((i) => i.href !== "/potential-client");
     return {
@@ -262,7 +270,9 @@ export function buildNavSectionsForDemoKey(key: DemoRoleKey | UserRole): {
     };
   }
   if (key === "current_client" || key === "client") {
-    const allowed = navForDemoKey("current_client");
+    const allowed = navForDemoKey("current_client").filter(
+      (item) => !HEADER_ONLY_HREFS.has(item.href)
+    );
     const home = allowed.find((i) => i.href === "/client-portal") ?? null;
     const rest = allowed.filter(
       (i) => i.href !== "/client-portal" && i.href !== "/potential-client"

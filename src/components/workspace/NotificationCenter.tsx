@@ -1,10 +1,19 @@
 "use client";
 
+import { useDemoRole } from "@/components/demo/DemoRoleProvider";
 import {
-  NOTIFICATIONS,
-  relativeTime,
-  type NotificationKind,
-} from "@/lib/workspace-mock";
+  conversationLabel,
+  getMessageSnapshot,
+  getServerMessageSnapshot,
+  lastMessage,
+  readStore,
+  resolveMessagingViewer,
+  subscribeToMessages,
+  unreadConversationsFor,
+} from "@/lib/messaging-store";
+import type { MessagingPerson } from "@/lib/messaging";
+import { notificationsForRole, type PersonNotification } from "@/lib/notifications";
+import { relativeTime, type NotificationKind } from "@/lib/workspace-mock";
 import {
   Bell,
   CalendarClock,
@@ -16,7 +25,8 @@ import {
   Timer,
   UserPlus,
 } from "lucide-react";
-import { useState } from "react";
+import Link from "next/link";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
 const ICONS: Record<NotificationKind, React.ComponentType<{ className?: string }>> = {
   deadline: CalendarClock,
@@ -29,21 +39,64 @@ const ICONS: Record<NotificationKind, React.ComponentType<{ className?: string }
   announcement: Megaphone,
 };
 
-export function NotificationCenter() {
-  const [readIds, setReadIds] = useState<string[]>([]);
+export function NotificationCenter({ viewer: fallbackViewer }: { viewer: MessagingPerson }) {
+  const demo = useDemoRole();
+  const viewer = resolveMessagingViewer(
+    fallbackViewer,
+    demo?.activeIdentity.profileId ?? null
+  );
+  // Read state is tracked per person so switching identities does not carry
+  // one person's dismissed alerts into another person's bell.
+  const [readByViewer, setReadByViewer] = useState<Record<string, string[]>>({});
+  const rawStore = useSyncExternalStore(
+    subscribeToMessages,
+    getMessageSnapshot,
+    getServerMessageSnapshot
+  );
 
-  const items = NOTIFICATIONS.map((n) => ({
-    ...n,
-    unread: n.unread && !readIds.includes(n.id),
+  const notifications = useMemo(() => {
+    const store = readStore(rawStore);
+    const messageAlerts: PersonNotification[] = unreadConversationsFor(
+      store,
+      viewer.id
+    ).map((conversation) => {
+      const latest = lastMessage(conversation);
+      return {
+        id: `msg-${conversation.id}-${latest.id}`,
+        kind: "client_message",
+        title: `New message from ${conversationLabel(conversation, viewer)}`,
+        detail: `${conversation.subject} — ${latest.body}`,
+        minutesAgo: latest.minutesAgo,
+        unread: true,
+        href: "/messages",
+      };
+    });
+
+    return [...messageAlerts, ...notificationsForRole(viewer.role)].sort(
+      (a, b) => a.minutesAgo - b.minutesAgo
+    );
+  }, [rawStore, viewer]);
+
+  const readIds = readByViewer[viewer.id] ?? [];
+  const items = notifications.map((notification) => ({
+    ...notification,
+    unread: notification.unread && !readIds.includes(notification.id),
   }));
-  const unreadCount = items.filter((n) => n.unread).length;
+  const unreadCount = items.filter((item) => item.unread).length;
 
   function markRead(id: string) {
-    setReadIds((current) => (current.includes(id) ? current : [...current, id]));
+    setReadByViewer((current) => {
+      const existing = current[viewer.id] ?? [];
+      if (existing.includes(id)) return current;
+      return { ...current, [viewer.id]: [...existing, id] };
+    });
   }
 
   function markAllRead() {
-    setReadIds(NOTIFICATIONS.map((n) => n.id));
+    setReadByViewer((current) => ({
+      ...current,
+      [viewer.id]: notifications.map((notification) => notification.id),
+    }));
   }
 
   return (
@@ -52,7 +105,9 @@ export function NotificationCenter() {
         tabIndex={0}
         role="button"
         className="btn btn-ghost btn-square btn-sm"
-        aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+        aria-label={`Notifications for ${viewer.name}${
+          unreadCount ? `, ${unreadCount} unread` : ""
+        }`}
       >
         <div className="indicator">
           <Bell className="h-5 w-5" />
@@ -67,7 +122,10 @@ export function NotificationCenter() {
         className="dropdown-content z-50 mt-3 w-80 sm:w-96 rounded-box border border-base-300 bg-base-100 shadow"
       >
         <div className="flex items-center justify-between border-b border-base-300 px-4 py-2.5">
-          <p className="font-semibold text-sm">Notifications</p>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm">Notifications</p>
+            <p className="truncate text-xs opacity-60">{viewer.name}</p>
+          </div>
           <button
             type="button"
             className="btn btn-ghost btn-xs gap-1"
@@ -84,8 +142,8 @@ export function NotificationCenter() {
             const Icon = ICONS[item.kind];
             return (
               <li key={item.id}>
-                <button
-                  type="button"
+                <Link
+                  href={item.href}
                   onClick={() => markRead(item.id)}
                   className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-base-200 ${
                     item.unread ? "bg-primary/5" : ""
@@ -101,12 +159,14 @@ export function NotificationCenter() {
                         <span className="badge badge-primary badge-xs shrink-0">New</span>
                       )}
                     </span>
-                    <span className="block text-xs opacity-70 mt-0.5">{item.detail}</span>
+                    <span className="block text-xs opacity-70 mt-0.5 line-clamp-2">
+                      {item.detail}
+                    </span>
                     <span className="block text-xs opacity-50 mt-0.5">
                       {relativeTime(item.minutesAgo)}
                     </span>
                   </span>
-                </button>
+                </Link>
               </li>
             );
           })}

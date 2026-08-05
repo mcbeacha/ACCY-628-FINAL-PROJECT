@@ -155,7 +155,11 @@ const STAFF_WORKSPACE: NavItem[] = [
   { href: "/documents", label: "Documents" },
 ];
 
-/** Firm-wide references available to every staff role. */
+/**
+ * Firm-wide references available to every staff role.
+ * /messages stays permitted here but is opened from the header messaging icon;
+ * HEADER_ONLY_HREFS in nav-config keeps it out of the sidebar.
+ */
 const STAFF_FIRM: NavItem[] = [
   { href: "/messages", label: "Messages" },
   { href: "/research", label: "Legal Research" },
@@ -277,6 +281,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/client-portal/retainers", label: "Retainer Summary" },
         { href: "/client-portal/milestones", label: "Milestones" },
         { href: "/client-portal/contact", label: "Contact My Legal Team" },
+        { href: "/messages", label: "Messages" },
         { href: "/potential-client", label: "Explore Rebel Law Group" },
       ];
     default:
