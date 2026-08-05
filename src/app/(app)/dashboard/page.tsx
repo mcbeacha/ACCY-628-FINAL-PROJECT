@@ -30,6 +30,7 @@ import {
   ATTORNEY_FOCUS_ITEMS,
   ATTORNEY_TASKS,
   daysUntil,
+  upcomingDeadlines,
 } from "@/lib/workspace-mock";
 import {
   buildTimekeeping,
