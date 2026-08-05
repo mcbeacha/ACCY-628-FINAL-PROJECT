@@ -26,13 +26,43 @@ export default async function ReportsHubPage() {
   const { profile } = await requireUser();
   if (!canViewReports(profile.role)) redirect("/dashboard");
 
+  const isAttorney = profile.role === "attorney";
+
   return (
     <>
       <PageHeader
         title="Reports"
         description="Filterable operational and financial reports with CSV export. Exports only include records allowed by your login (RLS)."
+        actions={
+          isAttorney ? (
+            <a
+              href="/api/attorney/metrics-export"
+              className="btn btn-primary btn-sm"
+              title="Download a multi-sheet Excel workbook of your assigned-matter metrics and time"
+            >
+              Export metrics to Excel
+            </a>
+          ) : null
+        }
       />
       <AnalyticsNotice />
+      {isAttorney && (
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body p-4 gap-2">
+            <h2 className="font-semibold text-sm">Attorney metrics workbook</h2>
+            <p className="text-sm opacity-70">
+              One Excel file with separate sheets for invoiced revenue, collected revenue, outstanding
+              AR, past-due AR, gross profit, gross margin, my time, unbilled time, and past-due
+              invoices. Includes only records your login can access.
+            </p>
+            <div>
+              <a href="/api/attorney/metrics-export" className="btn btn-outline btn-sm">
+                Download attorney-metrics.xlsx
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {REPORTS.map((r) => (
           <Link
