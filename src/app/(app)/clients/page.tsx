@@ -44,17 +44,30 @@ export default async function ClientsPage({
     });
   }
 
+  const isAttorney = profile.role === "attorney";
+
   return (
     <>
       <PageHeader
         title="Clients"
         description="Fictional client records used for engagement and matter setup."
         actions={
-          canCreateClients(profile.role) ? (
-            <Link href="/clients/new" className="btn btn-primary btn-sm">
-              New client
-            </Link>
-          ) : null
+          <>
+            {isAttorney ? (
+              <a
+                href="/api/attorney/clients-export"
+                className="btn btn-outline btn-sm"
+                title="Export all clients you can access to Excel"
+              >
+                Export to Excel
+              </a>
+            ) : null}
+            {canCreateClients(profile.role) ? (
+              <Link href="/clients/new" className="btn btn-primary btn-sm">
+                New client
+              </Link>
+            ) : null}
+          </>
         }
       />
 
