@@ -1,0 +1,2 @@
+-- See applied remote migrations: cost_resource_schema, cost_resource_view_and_rls, cost_resource_seed, cost_resource_seed_activity
+-- View matter_costs_unified unions time_entries, expense_entries, matter_cost_entries WITH (security_invoker=true)

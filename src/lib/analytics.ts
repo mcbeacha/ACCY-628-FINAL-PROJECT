@@ -29,7 +29,7 @@ export const FORMULAS = {
     "Collected Amount (payments applied + retainer applied) ÷ Finalized Invoice Amount × 100. Default basis: invoice_date range filter.",
   avgDaysToPay:
     "For fully Paid invoices: average of (last payment date − invoice date). Partially paid invoices use the latest posted payment date when included.",
-  budgetConsumed: "Direct labor cost + direct matter expenses",
+  budgetConsumed: "Direct labor cost + direct matter expenses + approved vendor costs + allocated costs",
   budgetRemaining: "Matter budget − budget consumed",
   budgetVariance: "Matter budget − actual cost (positive = under budget)",
 } as const;

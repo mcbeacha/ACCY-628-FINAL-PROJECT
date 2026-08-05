@@ -87,6 +87,7 @@ Public signups receive the **Client** role only.
 2. **Phase 2A** — Time, expenses, rates, retainers, trust ledger, unbilled  
 3. **Phase 2B** — Invoices, payments, AR, write-downs/write-offs, journal entries, client portal billing  
 4. **Phase 2C** — Profitability, utilization, realization, dashboards, reports, data quality, controls  
+5. **Cost & Resource Tracking** — Vendors, matter resources, unified costs, allocations, budgets/warnings, Cost & Resources dashboard  
 
 ## Vercel deployment
 

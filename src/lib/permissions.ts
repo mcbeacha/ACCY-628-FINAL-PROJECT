@@ -92,6 +92,39 @@ export function canViewControls(role: UserRole) {
   return role === "managing_partner" || role === "billing_staff";
 }
 
+export function canManageVendors(role: UserRole) {
+  return role === "managing_partner" || role === "billing_staff";
+}
+
+export function canApproveVendors(role: UserRole) {
+  return role === "managing_partner";
+}
+
+export function canEnterMatterCosts(role: UserRole) {
+  return (
+    role === "managing_partner" ||
+    role === "billing_staff" ||
+    role === "attorney" ||
+    role === "paralegal"
+  );
+}
+
+export function canApproveMatterCosts(role: UserRole) {
+  return role === "managing_partner" || role === "billing_staff";
+}
+
+export function canManageAllocations(role: UserRole) {
+  return role === "managing_partner" || role === "billing_staff";
+}
+
+export function canViewCostDashboard(role: UserRole) {
+  return role === "managing_partner" || role === "billing_staff";
+}
+
+export function canViewMatterCosts(role: UserRole) {
+  return role !== "client";
+}
+
 export function canViewInternalCost(role: UserRole) {
   return (
     role === "managing_partner" ||
@@ -116,6 +149,12 @@ export function navForRole(role: UserRole): NavItem[] {
     case "managing_partner":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/costs", label: "Cost & Resources" },
+        { href: "/vendors", label: "Vendors" },
+        { href: "/costs/new", label: "Cost Entry" },
+        { href: "/costs/vendor-charge", label: "Vendor Charge" },
+        { href: "/costs/allocations", label: "Cost Allocations" },
+        { href: "/costs/review", label: "Cost Approval" },
         { href: "/clients", label: "Clients" },
         { href: "/matters", label: "Matters" },
         { href: "/tasks", label: "Tasks" },
@@ -146,6 +185,8 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/time/new", label: "Enter Time" },
         { href: "/expenses", label: "My Expenses" },
         { href: "/expenses/new", label: "Enter Expense" },
+        { href: "/costs/new", label: "Cost Entry" },
+        { href: "/costs/vendor-charge", label: "Request Vendor Charge" },
         { href: "/invoices", label: "Assigned Matter Billing Status" },
       ];
     case "paralegal":
@@ -157,10 +198,17 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/time/new", label: "Enter Time" },
         { href: "/expenses", label: "My Expenses" },
         { href: "/expenses/new", label: "Enter Expense" },
+        { href: "/costs/new", label: "Cost Entry" },
       ];
     case "billing_staff":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/costs", label: "Cost & Resources" },
+        { href: "/vendors", label: "Vendors" },
+        { href: "/costs/new", label: "Cost Entry" },
+        { href: "/costs/vendor-charge", label: "Vendor Charge" },
+        { href: "/costs/allocations", label: "Cost Allocations" },
+        { href: "/costs/review", label: "Cost Approval" },
         { href: "/clients", label: "Clients" },
         { href: "/matters", label: "Matters" },
         { href: "/profitability/matters", label: "Matter Profitability" },

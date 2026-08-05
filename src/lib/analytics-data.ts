@@ -88,6 +88,7 @@ export function computeAnalytics(
     journalLines?: any[];
     financialActivity?: any[];
     invoiceLines?: any[];
+    matterCostEntries?: any[];
   },
   filters: AnalyticsFilters = {}
 ): AnalyticsBundle {
@@ -104,6 +105,9 @@ export function computeAnalytics(
   const timeF = data.time.filter((t) => inDate(t.work_date, from, to));
   const expF = data.expenses.filter((e) => inDate(e.expense_date, from, to));
   const invF = data.invoices.filter((i) => inDate(i.invoice_date, from, to));
+  const costF = (data.matterCostEntries || []).filter((c) =>
+    inDate(c.cost_date, from, to)
+  );
   const woF = data.writeOffs.filter((w) => inDate(w.write_off_date || w.created_at?.slice(0, 10), from, to));
 
   // Payment applications for days-to-pay (use all for paid samples when payment in range)
@@ -130,7 +134,16 @@ export function computeAnalytics(
     const nonreimbursableExpense = mExp
       .filter((e) => !e.client_reimbursable)
       .reduce((s, e) => s + n(e.amount), 0);
-    const directExpense = reimbursableExpense + nonreimbursableExpense;
+    const mCosts = costF.filter(
+      (c) => c.matter_id === m.id && c.approval_status === "Approved"
+    );
+    const vendorAndOtherCost = mCosts
+      .filter((c) => c.cost_source !== "Allocation")
+      .reduce((s, c) => s + n(c.total_cost), 0);
+    const allocatedCost = mCosts
+      .filter((c) => c.cost_source === "Allocation")
+      .reduce((s, c) => s + n(c.total_cost), 0);
+    const directExpense = reimbursableExpense + nonreimbursableExpense + vendorAndOtherCost;
 
     const mInv = invF.filter((i) => i.matter_id === m.id && isFinalInvoice(i));
     let invoicedRevenue = 0;
@@ -178,8 +191,8 @@ export function computeAnalytics(
       )
       .reduce((s, t) => s + n(t.hours), 0);
 
-    const grossProfit = invoicedRevenue - laborCost - directExpense;
-    const cashProfit = collectedRevenue - laborCost - directExpense;
+    const grossProfit = invoicedRevenue - laborCost - directExpense - allocatedCost;
+    const cashProfit = collectedRevenue - laborCost - directExpense - allocatedCost;
     const gMargin = marginPct(grossProfit, invoicedRevenue);
     const hasActivity =
       approvedHours > 0 ||
@@ -187,7 +200,7 @@ export function computeAnalytics(
       invoicedRevenue > 0 ||
       m.matter_status === "Active";
     const budget = m.matter_budget != null ? n(m.matter_budget) : null;
-    const budgetConsumed = laborCost + directExpense;
+    const budgetConsumed = laborCost + directExpense + allocatedCost;
     const expectBudget = ["Hourly", "Retainer-Funded Hourly", "Fixed Fee"].includes(
       m.billing_method || ""
     );
@@ -543,6 +556,7 @@ export async function loadAnalyticsData(supabase: any) {
     { data: journalEntries },
     { data: journalLines },
     { data: financialActivity },
+    { data: matterCostEntries },
   ] = await Promise.all([
     supabase.from("matters").select("*").order("matter_number"),
     supabase.from("clients").select("*"),
@@ -559,6 +573,7 @@ export async function loadAnalyticsData(supabase: any) {
     supabase.from("journal_entries").select("*"),
     supabase.from("journal_entry_lines").select("*"),
     supabase.from("financial_activity").select("*").order("created_at", { ascending: false }).limit(500),
+    supabase.from("matter_cost_entries").select("*"),
   ]);
 
   return {
@@ -577,5 +592,6 @@ export async function loadAnalyticsData(supabase: any) {
     journalEntries: journalEntries || [],
     journalLines: journalLines || [],
     financialActivity: financialActivity || [],
+    matterCostEntries: matterCostEntries || [],
   };
 }

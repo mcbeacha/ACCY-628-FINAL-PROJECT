@@ -2,6 +2,7 @@
 
 import { StatusBadge, PriorityBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
+import { MatterCostTab } from "@/components/MatterCostTab";
 import { PageHeader } from "@/components/PageHeader";
 import { ASSIGNMENT_ROLES, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
@@ -413,12 +414,14 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
     ? [
         { id: "overview", label: "Overview" },
         { id: "tasks", label: "Milestones" },
+        { id: "charges", label: "Charges" },
       ]
     : [
         { id: "overview", label: "Overview" },
         { id: "engagement", label: "Engagement Terms" },
         { id: "team", label: "Team" },
         { id: "tasks", label: "Tasks" },
+        { id: "costs", label: "Cost & Resources" },
         { id: "activity", label: "Activity" },
       ];
 
@@ -981,6 +984,16 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
             </form>
           )}
         </div>
+      )}
+
+      {(tab === "costs" || tab === "charges") && matter && (
+        <MatterCostTab
+          matterId={matterId}
+          role={role}
+          userId={userId}
+          clientId={matter.client_id}
+          matter={matter}
+        />
       )}
 
       {tab === "activity" && !isClient && (

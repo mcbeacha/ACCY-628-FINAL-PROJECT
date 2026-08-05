@@ -135,6 +135,7 @@ async function PartnerDashboard({
     (r: any) => r.account_status === "Below Threshold"
   ).length;
   const overBudget = bundle.matters.filter((m) => m.budgetFlag === "Over Budget").length;
+  const nearBudget = bundle.matters.filter((m) => m.budgetFlag === "Near Budget").length;
   const invAwaiting = raw.invoices.filter(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (i: any) => i.approval_status === "Submitted"
@@ -201,6 +202,11 @@ async function PartnerDashboard({
           tone={overBudget ? "error" : "default"}
         />
         <StatCard
+          label="Matters near budget"
+          value={nearBudget}
+          tone={nearBudget ? "warning" : "default"}
+        />
+        <StatCard
           label="Invoices awaiting approval"
           value={invAwaiting}
           tone={invAwaiting ? "warning" : "default"}
@@ -208,7 +214,10 @@ async function PartnerDashboard({
         <StatCard label="Active matters" value={activeMatters} />
       </div>
       <div className="flex flex-wrap gap-2">
-        <Link href="/profitability/matters" className="btn btn-sm btn-primary">
+        <Link href="/costs" className="btn btn-sm btn-primary">
+          Cost &amp; resources
+        </Link>
+        <Link href="/profitability/matters" className="btn btn-sm btn-outline">
           Matter profitability
         </Link>
         <Link href="/ar" className="btn btn-sm btn-outline">
