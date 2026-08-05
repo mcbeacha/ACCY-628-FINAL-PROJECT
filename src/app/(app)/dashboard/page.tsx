@@ -595,13 +595,13 @@ async function AttorneyDashboard({
           label="Tasks due today"
           value={dueTodayCount}
           tone={dueTodayCount ? "warning" : "default"}
-          href="/tasks"
+          href="/tasks?filter=due_soon"
         />
         <StatCard
           label="Overdue tasks"
           value={overdueTaskCount}
           tone={overdueTaskCount ? "error" : "success"}
-          href="/tasks"
+          href="/tasks?filter=overdue"
         />
         <StatCard
           label="Deadlines within 7 days"
@@ -676,8 +676,8 @@ async function AttorneyDashboard({
             description="Filter by what is due, late, or waiting on someone else."
             icon={<ListChecks className="h-5 w-5" />}
             action={
-              <Link href="/tasks" className="btn btn-outline btn-sm">
-                Open task board
+              <Link href="/tasks?filter=open" className="btn btn-outline btn-sm">
+                Open task queue
               </Link>
             }
           />
@@ -694,7 +694,7 @@ async function AttorneyDashboard({
             description="Hours logged, billable progress, and quick entry."
             icon={<Timer className="h-5 w-5" />}
             action={
-              <Link href="/time" className="btn btn-outline btn-sm">
+              <Link href={`/time?from=${weekStart}`} className="btn btn-outline btn-sm">
                 View my time
               </Link>
             }
@@ -710,22 +710,34 @@ async function AttorneyDashboard({
         description="Detail behind the summary above, drawn from recorded time and billing data."
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Hours entered this week" value={hoursWeek.toFixed(2)} href="/time" />
-        <StatCard label="Billable hours this week" value={billableWeek.toFixed(2)} href="/time" />
-        <StatCard label="Billable hours this month" value={billableMonth.toFixed(2)} href="/time" />
+        <StatCard
+          label="Hours entered this week"
+          value={hoursWeek.toFixed(2)}
+          href={`/time?from=${weekStart}`}
+        />
+        <StatCard
+          label="Billable hours this week"
+          value={billableWeek.toFixed(2)}
+          href={`/time?from=${weekStart}&billable=Billable`}
+        />
+        <StatCard
+          label="Billable hours this month"
+          value={billableMonth.toFixed(2)}
+          href={`/time?from=${monthIso}&billable=Billable`}
+        />
         <StatCard
           label="Utilization estimate (month)"
           value={utilEst == null ? "—" : `${utilEst.toFixed(1)}%`}
-          href="/time"
+          href={`/time?from=${monthIso}`}
         />
-        <StatCard label="Draft / unsubmitted time" value={unsubmitted} href="/time" />
+        <StatCard label="Draft / unsubmitted time" value={unsubmitted} href="/time?status=Draft" />
         <StatCard
           label="Rejected time entries"
           value={rejectedTime}
           tone={rejectedTime ? "error" : "default"}
-          href="/time"
+          href="/time?status=Rejected"
         />
-        <StatCard label="My unbilled approved time" value={formatCurrency(unbilledMine)} href="/time" />
+        <StatCard label="My unbilled approved time" value={formatCurrency(unbilledMine)} href="/time?status=Approved" />
         <StatCard label="Matter invoices (visible)" value={invMine.length} href="/invoices" />
         <StatCard
           label="Past-due balances (visible)"
@@ -746,7 +758,7 @@ async function AttorneyDashboard({
           href="/invoices"
         />
         <StatCard label="Matters with budgets set" value={budgetWarnings.length} href="/matters" />
-        <StatCard label="Draft time entries" value={draftTime} href="/time" />
+        <StatCard label="Draft time entries" value={draftTime} href="/time?status=Draft" />
       </div>
 
       <WeeklyUtilizationCard
@@ -928,6 +940,8 @@ async function StaffDashboard({
   }
   const hoursByMatter = Array.from(hoursByMatterMap.values()).sort((a, b) => b.hours - a.hours);
 
+  const deadlines = upcomingDeadlines(5);
+
   const { data: intakeEvals } = await supabase
     .from("case_evaluations")
     .select("*")
@@ -981,7 +995,6 @@ async function StaffDashboard({
             />
             <StatCard label="Referred to partners" value={referredOut.length} href="/case-evaluations" />
             <StatCard label="Scheduled consultations" value={scheduled.length} href="/case-evaluations" />
-            <StatCard label="Intake tasks (open)" value={open.length} href="/tasks?filter=open" />
           </div>
           <CaseEvaluationsMiniList
             rows={intake.slice(0, 8) as never[]}
@@ -1028,6 +1041,36 @@ async function StaffDashboard({
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Submitted expenses" value={submittedExp} href="/expenses?status=Submitted" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <SectionHeader
+              title="Upcoming deadlines"
+              description="Your next five dates. Anything within three days is highlighted."
+              icon={<CalendarClock className="h-5 w-5" />}
+            />
+            {deadlines.length === 0 ? (
+              <EmptyState
+                title="No upcoming deadlines"
+                description="Deadlines added to your matters will appear here."
+              />
+            ) : (
+              <ul className="space-y-2 mt-2">
+                {deadlines.map((deadline) => (
+                  <DeadlineCard key={deadline.id} deadline={deadline} />
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <h2 className="card-title text-base">Assigned tasks</h2>
+            <TaskMiniList tasks={open} />
+          </div>
+        </div>
       </div>
 
       <DeadlineCalendar
@@ -1092,12 +1135,6 @@ async function StaffDashboard({
                 </table>
               </div>
             )}
-          </div>
-        </div>
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-base">Assigned tasks</h2>
-            <TaskMiniList tasks={open} />
           </div>
         </div>
         <div className="card bg-base-100 border border-base-300 shadow-sm">

@@ -17,13 +17,14 @@ export default async function MyTimePage({
   const { profile, supabase } = await requireUser();
   if (!canEnterTime(profile.role)) redirect("/dashboard");
   const params = await searchParams;
+  const firmWide = profile.role === "managing_partner";
 
   let query = supabase
     .from("time_entries")
     .select("*, matters(id, matter_number, matter_name)")
     .order("work_date", { ascending: false });
 
-  if (profile.role !== "managing_partner") {
+  if (!firmWide) {
     query = query.eq("employee_id", profile.id);
   }
   if (params.status) query = query.eq("approval_status", params.status);
@@ -55,11 +56,13 @@ export default async function MyTimePage({
   return (
     <>
       <PageHeader
-        title="My Time"
+        title={firmWide ? "Time Entries" : "My Time"}
         description={
           filterNote
             ? `Filtered view — ${filterNote}`
-            : "Your time entries by matter, date, and approval status."
+            : firmWide
+              ? "Firm-wide time entries by matter, date, and approval status."
+              : "Your time entries by matter, date, and approval status."
         }
         actions={
           <div className="flex flex-wrap gap-2">
@@ -74,7 +77,7 @@ export default async function MyTimePage({
       />
 
       <form className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body py-4 grid gap-3 sm:grid-cols-5">
+        <div className="card-body py-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <input
             name="q"
             defaultValue={params.q || ""}
@@ -92,6 +95,10 @@ export default async function MyTimePage({
             {["Billable", "Nonbillable", "No Charge"].map((s) => (
               <option key={s}>{s}</option>
             ))}
+          </select>
+          <select name="oos" defaultValue={params.oos || ""} className="select select-bordered">
+            <option value="">All scope</option>
+            <option value="1">Out-of-scope only</option>
           </select>
           <input
             name="from"
@@ -139,57 +146,54 @@ export default async function MyTimePage({
                     (r.approval_status === "Draft" || r.approval_status === "Rejected") &&
                     (profile.role === "managing_partner" || r.employee_id === profile.id);
                   return (
-                  <tr key={r.id}>
-                    <td className="text-sm">{formatDate(r.work_date)}</td>
-                    <td className="text-sm">
-                      {r.matters ? (
-                        <Link href={`/matters/${r.matters.id}`} className="link link-hover">
-                          {r.matters.matter_number}
-                        </Link>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="text-sm font-mono">{r.billing_code || "—"}</td>
-                    <td>{r.hours}</td>
-                    <td className="text-sm">
-                      {formatCurrency(
-                        calcBillableAmount(Number(r.hours), Number(r.billing_rate), r.billable_status)
-                      )}
-                    </td>
-                    <td>
-                      <StatusBadge status={r.approval_status} />
-                      {r.out_of_scope && (
-                        <div className="mt-1">
-                          <span className="badge badge-warning badge-sm">Out of scope</span>
-                        </div>
-                      )}
-                      {r.rejection_reason && (
-                        <div className="text-xs text-error mt-1 max-w-[12rem]">{r.rejection_reason}</div>
-                      )}
-                    </td>
-                    <td>
-                      <StatusBadge status={r.invoice_status} />
-                    </td>
-                    <td className="text-sm max-w-xs">
-                      <div className="truncate">{r.billing_description || "—"}</div>
-                      {r.out_of_scope && r.out_of_scope_reason && (
-                        <div className="text-xs opacity-70 mt-1 line-clamp-2">
-                          Ad hoc: {r.out_of_scope_reason}
-                        </div>
-                      )}
-                    </td>
-                    <td className="text-right whitespace-nowrap">
-                      {canFix ? (
-                        <Link
-                          href={`/time/new?edit=${r.id}`}
-                          className="btn btn-ghost btn-xs"
-                        >
-                          {r.approval_status === "Rejected" ? "Edit & Resubmit" : "Edit draft"}
-                        </Link>
-                      ) : null}
-                    </td>
-                  </tr>
+                    <tr key={r.id}>
+                      <td className="text-sm">{formatDate(r.work_date)}</td>
+                      <td className="text-sm">
+                        {r.matters ? (
+                          <Link href={`/matters/${r.matters.id}`} className="link link-hover">
+                            {r.matters.matter_number}
+                          </Link>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="text-sm font-mono">{r.billing_code || "—"}</td>
+                      <td>{r.hours}</td>
+                      <td className="text-sm">
+                        {formatCurrency(
+                          calcBillableAmount(Number(r.hours), Number(r.billing_rate), r.billable_status)
+                        )}
+                      </td>
+                      <td>
+                        <StatusBadge status={r.approval_status} />
+                        {r.out_of_scope && (
+                          <div className="mt-1">
+                            <span className="badge badge-warning badge-sm">Out of scope</span>
+                          </div>
+                        )}
+                        {r.rejection_reason && (
+                          <div className="text-xs text-error mt-1 max-w-[12rem]">{r.rejection_reason}</div>
+                        )}
+                      </td>
+                      <td>
+                        <StatusBadge status={r.invoice_status} />
+                      </td>
+                      <td className="text-sm max-w-xs">
+                        <div className="truncate">{r.billing_description || "—"}</div>
+                        {r.out_of_scope && r.out_of_scope_reason && (
+                          <div className="text-xs opacity-70 mt-1 line-clamp-2">
+                            Ad hoc: {r.out_of_scope_reason}
+                          </div>
+                        )}
+                      </td>
+                      <td className="text-right whitespace-nowrap">
+                        {canFix ? (
+                          <Link href={`/time/new?edit=${r.id}`} className="btn btn-ghost btn-xs">
+                            {r.approval_status === "Rejected" ? "Edit & Resubmit" : "Edit draft"}
+                          </Link>
+                        ) : null}
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>

@@ -97,7 +97,7 @@ export function TimeReviewClient({ userId }: { userId: string }) {
   return (
     <>
       <PageHeader
-        title="Time Review"
+        title="Time Review/Out-of-Scope"
         description="Approve or reject submitted time. Out-of-scope / ad hoc work requires explicit attorney authorization before billing."
       />
       <div className="flex flex-wrap gap-2 items-center">

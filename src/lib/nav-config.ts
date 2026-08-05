@@ -72,7 +72,7 @@ export const NAV_SECTIONS: NavSectionDef[] = [
     icon: Receipt,
     links: [
       { href: "/billing-readiness", label: "Billing Readiness" },
-      { href: "/time/review", label: "Time Review" },
+      { href: "/time/review", label: "Time Review/Out-of-Scope" },
       { href: "/expenses/review", label: "Expense Review" },
       { href: "/unbilled", label: "Unbilled Activity" },
       { href: "/invoices", label: "Invoices" },
