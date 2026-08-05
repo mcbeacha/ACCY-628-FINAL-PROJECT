@@ -4,7 +4,6 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
-import { FINANCE_NOTICE } from "@/lib/billing-types";
 import { formatCurrency, formatDate, clientDisplayName } from "@/lib/format";
 import type { Invoice } from "@/lib/billing-types";
 import Link from "next/link";
@@ -49,9 +48,14 @@ export default async function ARPage({
     bucket: arAgingBucket(r.due_date, Number(r.balance_due), r.invoice_status),
   }));
 
-  const filtered = sp.bucket
-    ? withBucket.filter((r) => r.bucket === sp.bucket)
-    : withBucket;
+  const PAST_DUE_BUCKETS = new Set(["1–30", "31–60", "61–90", "90+"]);
+  const pastDueFilter = sp.bucket === "past_due";
+
+  const filtered = pastDueFilter
+    ? withBucket.filter((r) => PAST_DUE_BUCKETS.has(r.bucket))
+    : sp.bucket
+      ? withBucket.filter((r) => r.bucket === sp.bucket)
+      : withBucket;
 
   const open = withBucket.filter((r) => Number(r.balance_due) > 0 && !["Written Off", "Canceled", "Paid"].includes(r.invoice_status));
   const sumBal = (list: typeof withBucket) =>
@@ -63,6 +67,7 @@ export default async function ARPage({
   const b2 = sumBal(open.filter((r) => r.bucket === "31–60"));
   const b3 = sumBal(open.filter((r) => r.bucket === "61–90"));
   const b4 = sumBal(open.filter((r) => r.bucket === "90+"));
+  const pastDueTotal = b1 + b2 + b3 + b4;
   const partial = open.filter((r) => r.invoice_status === "Partially Paid").length;
   const disputed = open.filter((r) => r.invoice_status === "Disputed" || r.dispute_status === "Raised").length;
   const writtenOffAmt = ((writeOffs || []) as { amount: number; approval_status: string }[])
@@ -83,17 +88,20 @@ export default async function ARPage({
         title="Accounts Receivable"
         description="Outstanding balances, AR aging by due date, disputed and written-off invoices."
       />
-      <div className="alert alert-info text-sm">
-        <span>{FINANCE_NOTICE}</span>
-      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total outstanding AR" value={formatCurrency(totalAR)} />
-        <StatCard label="Current" value={formatCurrency(current)} />
-        <StatCard label="1–30 past due" value={formatCurrency(b1)} tone={b1 ? "warning" : "default"} />
-        <StatCard label="31–60 past due" value={formatCurrency(b2)} tone={b2 ? "warning" : "default"} />
-        <StatCard label="61–90 past due" value={formatCurrency(b3)} tone={b3 ? "error" : "default"} />
-        <StatCard label="90+ past due" value={formatCurrency(b4)} tone={b4 ? "error" : "default"} />
+        <StatCard
+          label="Past-due AR"
+          value={formatCurrency(pastDueTotal)}
+          tone={pastDueTotal ? "error" : "default"}
+          href="/ar?bucket=past_due"
+        />
+        <StatCard label="Total outstanding AR" value={formatCurrency(totalAR)} href="/ar" />
+        <StatCard label="Current" value={formatCurrency(current)} href="/ar?bucket=Current" />
+        <StatCard label="1–30 past due" value={formatCurrency(b1)} tone={b1 ? "warning" : "default"} href="/ar?bucket=1–30" />
+        <StatCard label="31–60 past due" value={formatCurrency(b2)} tone={b2 ? "warning" : "default"} href="/ar?bucket=31–60" />
+        <StatCard label="61–90 past due" value={formatCurrency(b3)} tone={b3 ? "error" : "default"} href="/ar?bucket=61–90" />
+        <StatCard label="90+ past due" value={formatCurrency(b4)} tone={b4 ? "error" : "default"} href="/ar?bucket=90+" />
         <StatCard label="Partially paid (open)" value={partial} />
         <StatCard label="Disputed (open)" value={disputed} tone={disputed ? "warning" : "default"} />
         <StatCard label="Approved write-offs" value={formatCurrency(writtenOffAmt)} />
@@ -115,8 +123,13 @@ export default async function ARPage({
           </label>
           <label className="form-control">
             <span className="label-text text-xs">Aging bucket</span>
-            <select name="bucket" className="select select-bordered select-sm" defaultValue={sp.bucket || ""}>
+            <select
+              name="bucket"
+              className="select select-bordered select-sm"
+              defaultValue={sp.bucket || ""}
+            >
               <option value="">All</option>
+              <option value="past_due">All past due</option>
               {["Current", "1–30", "31–60", "61–90", "90+"].map((s) => (
                 <option key={s} value={s}>
                   {s}

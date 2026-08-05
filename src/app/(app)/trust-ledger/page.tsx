@@ -91,15 +91,8 @@ export default async function TrustLedgerPage() {
     <>
       <PageHeader
         title="Trust Ledger"
-        description="Simulated retainer activity with running balances by matter."
+        description="Retainer activity with running balances by matter."
       />
-      <div className="alert alert-warning text-sm">
-        <span>
-          This is a simulated trust ledger for an academic project. It does not process or hold real
-          client funds. Retainer deposits are unearned until applied to fees or expenses in a later
-          phase.
-        </span>
-      </div>
 
       {ledgerLines.length === 0 ? (
         <EmptyState title="No approved trust/retainer transactions yet." />

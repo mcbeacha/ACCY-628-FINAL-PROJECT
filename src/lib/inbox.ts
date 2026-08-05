@@ -143,6 +143,51 @@ export function kindLabel(kind: InboxKind): string {
   }
 }
 
+/** Map inbox rows into TodaysFocus cards for the Partner Workspace. */
+export function inboxItemsToFocus(
+  items: InboxItem[],
+  limit = 6
+): {
+  id: string;
+  kind: "task" | "document" | "client" | "deadline";
+  title: string;
+  matterRef: string;
+  clientName: string;
+  dueDate: string;
+  priority: "Critical" | "High" | "Medium" | "Low";
+  status: string;
+  href: string;
+}[] {
+  return items.slice(0, limit).map((item) => {
+    const dueDate = item.createdAt.slice(0, 10);
+    const priority =
+      item.priority === "urgent"
+        ? ("Critical" as const)
+        : item.priority === "high"
+          ? ("High" as const)
+          : ("Medium" as const);
+    const kind =
+      item.kind.includes("invoice") || item.kind.includes("write_off")
+        ? ("document" as const)
+        : item.kind.includes("matter") || item.kind.includes("vendor")
+          ? ("client" as const)
+          : item.kind.includes("time") || item.kind.includes("expense") || item.kind.includes("cost")
+            ? ("deadline" as const)
+            : ("task" as const);
+    return {
+      id: item.id,
+      kind,
+      title: item.title,
+      matterRef: item.matterLabel || kindLabel(item.kind),
+      clientName: item.submitter || item.subtitle,
+      dueDate,
+      priority,
+      status: kindLabel(item.kind),
+      href: item.href,
+    };
+  });
+}
+
 function sortInbox(items: InboxItem[]): InboxItem[] {
   return [...items].sort((a, b) => {
     const pr = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];

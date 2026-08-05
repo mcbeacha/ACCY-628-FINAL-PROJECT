@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { canViewProfitability } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
-import { AnalyticsNotice, FormulaHelp } from "@/components/analytics/AnalyticsNotice";
+import { FormulaHelp } from "@/components/analytics/AnalyticsNotice";
 import { StatusBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
@@ -55,7 +55,6 @@ export default async function ClientProfitabilityPage({
           </a>
         }
       />
-      <AnalyticsNotice />
       <div className="flex flex-wrap gap-2">
         <FormulaHelp formulaKey="avgDaysToPay" />
         <FormulaHelp formulaKey="grossMargin" />

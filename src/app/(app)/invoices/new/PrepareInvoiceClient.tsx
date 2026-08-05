@@ -4,7 +4,6 @@ import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { calcBillableAmount } from "@/lib/phase2-types";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { FINANCE_NOTICE } from "@/lib/billing-types";
 import { createClient } from "@/lib/supabase/client";
 import type { ExpenseEntry, TimeEntry } from "@/lib/phase2-types";
 import { useRouter } from "next/navigation";
@@ -326,9 +325,6 @@ export function PrepareInvoiceClient({
         title="Prepare Invoice"
         description="Select approved unbilled time and expenses for an active matter. Finals lock lines after approval."
       />
-      <div className="alert alert-info text-sm">
-        <span>{FINANCE_NOTICE}</span>
-      </div>
       {error && (
         <div className="alert alert-error text-sm">
           <span>{error}</span>
