@@ -164,6 +164,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "managing_partner":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/case-evaluations", label: "Case Evaluations" },
         { href: "/costs", label: "Cost & Resources" },
         { href: "/vendors", label: "Vendors" },
         { href: "/costs/new", label: "Cost Entry" },
@@ -197,6 +198,7 @@ export function navForRole(role: UserRole): NavItem[] {
       return [
         { href: "/dashboard", label: "Dashboard" },
         { href: "/clients", label: "Clients" },
+        { href: "/case-evaluations", label: "Case Evaluations" },
         { href: "/matters", label: "My Matters" },
         { href: "/tasks", label: "My Tasks" },
         ...STAFF_WORKSPACE,
@@ -213,6 +215,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "paralegal":
       return [
         { href: "/dashboard", label: "Dashboard" },
+        { href: "/case-evaluations", label: "Case Evaluations" },
         { href: "/matters", label: "My Matters" },
         { href: "/tasks", label: "My Tasks" },
         ...STAFF_WORKSPACE,
@@ -256,7 +259,7 @@ export function navForRole(role: UserRole): NavItem[] {
       ];
     case "client":
       return [
-        { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard", label: "Home" },
         { href: "/matters", label: "My Matters" },
         { href: "/portal", label: "Milestones" },
         { href: "/portal/billing", label: "My Invoices & Payments" },

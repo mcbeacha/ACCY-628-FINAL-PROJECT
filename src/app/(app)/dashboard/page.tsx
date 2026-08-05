@@ -4,12 +4,15 @@ import { StatCard } from "@/components/StatCard";
 import { StatusBadge, PriorityBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
 import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
+import { ClientHomePage } from "@/components/client-home/ClientHomePage";
+import { CaseEvaluationsMiniList } from "@/components/intake/CaseEvaluationDetailClient";
 import { ExecutiveCharts } from "./ExecutiveCharts";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
 import { evaluateBillingReadiness } from "@/lib/billing-readiness";
 import { calcBillableAmount } from "@/lib/phase2-types";
 import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
 import { weeksInRange } from "@/lib/analytics";
+import type { CaseEvaluation } from "@/lib/case-evaluations";
 import type { Client, Matter, MatterTask, Profile } from "@/lib/types";
 import { SectionHeader } from "@/components/workspace/SectionHeader";
 import { TodaysFocus } from "@/components/workspace/TodaysFocus";
@@ -194,6 +197,29 @@ async function PartnerDashboard({
     .slice(0, 6)
     .map((m) => ({ name: m.matterNumber, grossProfit: m.grossProfit }));
 
+  const { data: evals } = await supabase
+    .from("case_evaluations")
+    .select("*")
+    .order("submitted_at", { ascending: false });
+  const evalRows = (evals || []) as CaseEvaluation[];
+  const monthStartIso = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const evalsThisMonth = evalRows.filter((e) => e.submitted_at >= monthStartIso);
+  const evalsByArea = countBy(evalRows.map((e) => e.practice_area));
+  const awaitingPartner = evalRows.filter((e) => e.evaluation_status === "Referred to Partner");
+  const converted = evalRows.filter((e) => e.converted_matter_id);
+  const closedDeclined = evalRows.filter((e) =>
+    ["Closed", "Declined"].includes(e.evaluation_status)
+  );
+  const followUpSamples = evalRows.filter((e) => e.follow_up_due_at && e.submitted_at).slice(0, 20);
+  const avgFollowHours =
+    followUpSamples.length > 0
+      ? followUpSamples.reduce((s, e) => {
+          const due = new Date(e.follow_up_due_at!).getTime();
+          const sub = new Date(e.submitted_at).getTime();
+          return s + (due - sub) / (1000 * 60 * 60);
+        }, 0) / followUpSamples.length
+      : null;
+
   return (
     <>
       <PageHeader
@@ -201,6 +227,57 @@ async function PartnerDashboard({
         description="Actionable firm metrics from saved operational data (fictional academic simulation)."
       />
       <AnalyticsNotice />
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="card-title text-base">Client intake — case evaluations</h2>
+            <Link href="/case-evaluations" className="btn btn-sm btn-outline">
+              View all evaluations
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <StatCard
+              label="New evaluations this month"
+              value={evalsThisMonth.length}
+              href="/case-evaluations"
+            />
+            <StatCard
+              label="Awaiting partner review"
+              value={awaitingPartner.length}
+              tone={awaitingPartner.length ? "warning" : "default"}
+              href="/case-evaluations"
+            />
+            <StatCard
+              label="Converted to prospective clients"
+              value={converted.length}
+              href="/case-evaluations"
+            />
+            <StatCard
+              label="Closed or declined"
+              value={closedDeclined.length}
+              href="/case-evaluations"
+            />
+            <StatCard
+              label="Avg fictional follow-up window"
+              value={avgFollowHours == null ? "—" : `${avgFollowHours.toFixed(0)}h`}
+            />
+            <StatCard label="Total evaluations" value={evalRows.length} href="/case-evaluations" />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <h3 className="text-sm font-semibold mb-2">By practice area</h3>
+              <StatusList items={evalsByArea.slice(0, 6)} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Recent evaluations</h3>
+              <CaseEvaluationsMiniList
+                rows={evalRows.slice(0, 5) as never[]}
+                emptyTitle="No case evaluations yet."
+              />
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Invoiced revenue" value={formatCurrency(totalInvoiced)} href="/invoices" />
         <StatCard label="Collected revenue" value={formatCurrency(totalCollected)} href="/ar" />
@@ -492,6 +569,17 @@ async function AttorneyDashboard({
     m.approval_status === "Needs Review"
   );
 
+  const { data: referredEvals } = await supabase
+    .from("case_evaluations")
+    .select("*")
+    .eq("assigned_partner_id", profile.id)
+    .order("submitted_at", { ascending: false });
+  const referred = (referredEvals || []) as CaseEvaluation[];
+  const awaitingRec = referred.filter((e) =>
+    ["Referred to Partner", "Under Review"].includes(e.evaluation_status)
+  );
+  const recentlyConverted = referred.filter((e) => e.converted_matter_id).slice(0, 5);
+
   return (
     <>
       <PageHeader
@@ -518,6 +606,34 @@ async function AttorneyDashboard({
         <QuickActions />
       </section>
 
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="card-title text-base">Case evaluations referred to me</h2>
+            <Link href="/case-evaluations" className="btn btn-sm btn-outline">
+              Open intake queue
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatCard label="Referred to me" value={referred.length} href="/case-evaluations" />
+            <StatCard
+              label="Awaiting recommendation"
+              value={awaitingRec.length}
+              tone={awaitingRec.length ? "warning" : "default"}
+              href="/case-evaluations"
+            />
+            <StatCard
+              label="Recently converted matters"
+              value={recentlyConverted.length}
+              href="/case-evaluations"
+            />
+          </div>
+          <CaseEvaluationsMiniList
+            rows={referred.slice(0, 6) as never[]}
+            emptyTitle="No evaluations are currently referred to you."
+          />
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active matters" value={active.length} href="/matters" />
         <StatCard
@@ -786,12 +902,61 @@ async function StaffDashboard({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const submittedExp = (myExp || []).filter((e: any) => e.approval_status === "Submitted").length;
 
+  const { data: intakeEvals } = await supabase
+    .from("case_evaluations")
+    .select("*")
+    .order("submitted_at", { ascending: false });
+  const intake = (intakeEvals || []) as CaseEvaluation[];
+  const newEvals = intake.filter((e) => e.evaluation_status === "New");
+  const needContact = intake.filter((e) =>
+    ["New", "Under Review", "Contact Attempted"].includes(e.evaluation_status)
+  );
+  const followUpDue = intake.filter((e) => {
+    if (!e.follow_up_due_at) return false;
+    if (["Accepted", "Declined", "Closed"].includes(e.evaluation_status)) return false;
+    return new Date(e.follow_up_due_at).getTime() <= Date.now() + 1000 * 60 * 60 * 24;
+  });
+  const referredOut = intake.filter((e) => e.evaluation_status === "Referred to Partner");
+  const scheduled = intake.filter((e) => e.evaluation_status === "Consultation Scheduled");
+
   return (
     <>
       <PageHeader
         title="Staff Workspace"
         description="Your assigned tasks, due dates, matter support work, and timekeeping."
       />
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="card-title text-base">New Case Evaluations</h2>
+            <Link href="/case-evaluations" className="btn btn-sm btn-primary">
+              Intake queue
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <StatCard label="New case evaluations" value={newEvals.length} href="/case-evaluations" />
+            <StatCard
+              label="Needing contact"
+              value={needContact.length}
+              tone={needContact.length ? "warning" : "default"}
+              href="/case-evaluations"
+            />
+            <StatCard
+              label="Due for follow-up"
+              value={followUpDue.length}
+              tone={followUpDue.length ? "warning" : "default"}
+              href="/case-evaluations"
+            />
+            <StatCard label="Referred to partners" value={referredOut.length} href="/case-evaluations" />
+            <StatCard label="Scheduled consultations" value={scheduled.length} href="/case-evaluations" />
+            <StatCard label="Intake tasks (open)" value={open.length} href="/tasks" />
+          </div>
+          <CaseEvaluationsMiniList
+            rows={intake.slice(0, 8) as never[]}
+            emptyTitle="No assigned case evaluations yet. Submissions from the Client page appear here."
+          />
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Assigned tasks" value={open.length} href="/tasks" />
         <StatCard label="Due soon" value={dueSoon.length} tone="warning" href="/tasks" />
@@ -1055,134 +1220,15 @@ async function ClientDashboard({
   supabase: any;
   profile: Profile;
 }) {
-  const { data: client } = await supabase
-    .from("clients")
-    .select("*")
-    .eq("portal_user_id", profile.id)
-    .maybeSingle();
+  const { data: leads } = await supabase
+    .from("practice_area_leads")
+    .select(
+      "*, lead:profiles!practice_area_leads_lead_attorney_id_fkey(id, full_name, job_title)"
+    )
+    .eq("active_status", true)
+    .order("display_order");
 
-  const { data: matters } = await supabase
-    .from("matters")
-    .select("*, responsible:profiles!matters_responsible_attorney_id_fkey(full_name)")
-    .order("created_at", { ascending: false });
-
-  const matterRows = (matters || []) as Matter[];
-  const active = matterRows.filter((m) => m.matter_status === "Active");
-
-  const matterIds = matterRows.map((m) => m.id);
-  let tasks: MatterTask[] = [];
-  if (matterIds.length) {
-    const { data } = await supabase
-      .from("matter_tasks")
-      .select("*")
-      .eq("client_visible", true)
-      .in("matter_id", matterIds)
-      .order("due_date", { ascending: true });
-    tasks = (data || []) as MatterTask[];
-  }
-
-  let openBal = 0;
-  let invCount = 0;
-  if (client) {
-    const { data: invs } = await supabase
-      .from("invoices")
-      .select("balance_due, invoice_total")
-      .eq("client_id", (client as Client).id)
-      .not("finalized_at", "is", null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const list = (invs || []) as any[];
-    invCount = list.length;
-    openBal = list.reduce((s, i) => s + Number(i.balance_due), 0);
-  }
-
-  return (
-    <>
-      <PageHeader
-        title="Client Workspace"
-        description="A simplified view of your matters, invoices, and important dates. This system contains fictional project data only."
-      />
-      <div className="alert alert-info text-sm">
-        <span>
-          Signed in as <strong>{profile.full_name}</strong>
-          {client ? (
-            <>
-              {" "}
-              · Client profile:{" "}
-              <strong>{clientDisplayName(client as Client)}</strong> (
-              {(client as Client).client_number})
-            </>
-          ) : (
-            " · No linked client profile yet. Contact the firm administrator for your seed client link."
-          )}
-        </span>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Active matters" value={active.length} href="/portal" />
-        <StatCard label="All your matters" value={matterRows.length} href="/portal" />
-        <StatCard label="Client-visible milestones" value={tasks.length} href="/portal" />
-        <StatCard label="Open invoice balance" value={formatCurrency(openBal)} href="/portal/billing" />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Link href="/portal/billing" className="btn btn-sm btn-primary">
-          Invoices & payments ({invCount})
-        </Link>
-        <Link href="/portal" className="btn btn-sm btn-outline">
-          Full portal
-        </Link>
-      </div>
-      <div className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-base">Your matters</h2>
-          {matterRows.length === 0 ? (
-            <EmptyState title="No active matters are currently available for this client." />
-          ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Matter</th>
-                    <th>Status</th>
-                    <th>Lead attorney</th>
-                    <th>Important dates</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {matterRows.map((m) => (
-                    <tr key={m.id}>
-                      <td>
-                        <Link href={`/matters/${m.id}`} className="link link-hover font-medium">
-                          {m.matter_name}
-                        </Link>
-                        <div className="text-xs opacity-60">{m.matter_number}</div>
-                      </td>
-                      <td>
-                        <StatusBadge status={m.matter_status} />
-                      </td>
-                      <td className="text-sm">
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        {(m as any).responsible?.full_name || "—"}
-                      </td>
-                      <td className="text-sm">
-                        Start {formatDate(m.engagement_start_date)}
-                        <br />
-                        Expected end {formatDate(m.expected_end_date)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-base">Client-visible tasks / milestones</h2>
-          <TaskMiniList tasks={tasks} clientView />
-        </div>
-      </div>
-    </>
-  );
+  return <ClientHomePage profile={profile} initialLeads={(leads || []) as never[]} />;
 }
 
 function countBy(values: string[]) {

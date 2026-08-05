@@ -83,7 +83,7 @@ export const DEMO_IDENTITIES: DemoIdentity[] = [
     displayName: "Nora Vale",
     title: "Client (Northvale Robotics)",
     profileId: "a1000000-0000-4000-8000-000000000006",
-    homePath: "/portal",
+    homePath: "/dashboard",
     viewBadge: "Client View",
   },
 ];
