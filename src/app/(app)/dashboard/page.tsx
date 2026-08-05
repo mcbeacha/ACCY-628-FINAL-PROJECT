@@ -971,6 +971,16 @@ async function StaffDashboard({
           </Link>
         }
       />
+
+      <section className="space-y-3">
+        <SectionHeader
+          title="Quick actions"
+          description="Start the work you do most often."
+          icon={<LayoutGrid className="h-5 w-5" />}
+        />
+        <QuickActions />
+      </section>
+
       <div className="card bg-base-100 border border-base-300 shadow-sm">
         <div className="card-body gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
