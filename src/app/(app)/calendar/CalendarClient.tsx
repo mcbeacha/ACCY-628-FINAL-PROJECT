@@ -72,7 +72,11 @@ function weekGrid(anchor: Date): Date[] {
   });
 }
 
-export function CalendarClient() {
+export function CalendarClient({
+  events = CALENDAR_EVENTS,
+}: {
+  events?: CalendarEvent[];
+}) {
   const [view, setView] = useState<ViewMode>("Month");
   const [offset, setOffset] = useState(0);
   const [hidden, setHidden] = useState<CalendarEventType[]>([]);
@@ -89,8 +93,8 @@ export function CalendarClient() {
   }, [view, offset]);
 
   const visibleEvents = useMemo(
-    () => CALENDAR_EVENTS.filter((e) => !hidden.includes(e.type)),
-    [hidden]
+    () => events.filter((e) => !hidden.includes(e.type)),
+    [events, hidden]
   );
 
   const byDate = useMemo(() => {

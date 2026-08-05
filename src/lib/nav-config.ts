@@ -114,7 +114,7 @@ export const NAV_SECTIONS: NavSectionDef[] = [
 
 export const DASHBOARD_LINK: NavLinkDef = {
   href: "/dashboard",
-  label: "Dashboard",
+  label: "Home",
 };
 
 export const DASHBOARD_ICON = LayoutDashboard;

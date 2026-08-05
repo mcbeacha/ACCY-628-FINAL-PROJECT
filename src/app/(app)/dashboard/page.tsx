@@ -25,9 +25,9 @@ import { MyTasksPanel } from "@/components/workspace/MyTasksPanel";
 import { TimeBillingSummary } from "@/components/workspace/TimeBillingSummary";
 import { QuickActions } from "@/components/workspace/QuickActions";
 import {
-  ACTIVITY,
-  FOCUS_ITEMS,
-  TASKS as MOCK_TASKS,
+  ATTORNEY_ACTIVITY,
+  ATTORNEY_FOCUS_ITEMS,
+  ATTORNEY_TASKS,
   daysUntil,
 } from "@/lib/workspace-mock";
 import {
@@ -589,11 +589,12 @@ async function AttorneyDashboard({
     matterRows.filter((m) => ["Active", "Closing", "On Hold"].includes(m.matter_status))
   ).slice(0, 6);
   const workspaceTasks = toWorkspaceTasks(taskRows, profile.full_name);
-  const myTasks = workspaceTasks.length > 0 ? workspaceTasks : MOCK_TASKS;
+  const myTasks = workspaceTasks.length > 0 ? workspaceTasks : ATTORNEY_TASKS;
   const realActivity = toActivityEvents(activityRows || []);
-  const activityEvents = realActivity.length > 0 ? realActivity : ACTIVITY;
+  const activityEvents = realActivity.length > 0 ? realActivity : ATTORNEY_ACTIVITY;
   const liveFocus = focusFromTasks(workspaceTasks);
-  const focusItems = liveFocus.length > 0 ? [...liveFocus, ...FOCUS_ITEMS].slice(0, 6) : FOCUS_ITEMS;
+  const focusItems =
+    liveFocus.length > 0 ? liveFocus.slice(0, 6) : ATTORNEY_FOCUS_ITEMS;
   const timekeeping = buildTimekeeping(timeRows, avail);
   const dueTodayCount = myTasks.filter(
     (t) => t.lane !== "Completed" && daysUntil(t.dueDate) === 0
