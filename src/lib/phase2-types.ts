@@ -22,6 +22,7 @@ export type TimeEntry = {
   billing_rate: number;
   internal_cost_rate: number;
   billable_status: string;
+  billing_code: string | null;
   billing_description: string | null;
   internal_notes: string | null;
   approval_status: string;

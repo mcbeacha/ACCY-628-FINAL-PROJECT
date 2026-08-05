@@ -34,7 +34,7 @@ export default async function MyTimePage({
   if (params.q?.trim()) {
     const q = params.q.toLowerCase();
     rows = rows.filter((r) =>
-      [r.billing_description, r.matters?.matter_number, r.matters?.matter_name]
+      [r.billing_code, r.billing_description, r.matters?.matter_number, r.matters?.matter_name]
         .join(" ")
         .toLowerCase()
         .includes(q)
@@ -55,7 +55,7 @@ export default async function MyTimePage({
 
       <form className="card bg-base-100 border border-base-300 shadow-sm">
         <div className="card-body py-4 grid gap-3 sm:grid-cols-4">
-          <input name="q" defaultValue={params.q || ""} className="input input-bordered" placeholder="Search description" />
+          <input name="q" defaultValue={params.q || ""} className="input input-bordered" placeholder="Search code or description" />
           <select name="status" defaultValue={params.status || ""} className="select select-bordered">
             <option value="">All statuses</option>
             {["Draft", "Submitted", "Approved", "Rejected"].map((s) => (
@@ -84,6 +84,7 @@ export default async function MyTimePage({
                 <tr>
                   <th>Date</th>
                   <th>Matter</th>
+                  <th>Billing code</th>
                   <th>Hours</th>
                   <th>Billable amt</th>
                   <th>Status</th>
@@ -104,6 +105,7 @@ export default async function MyTimePage({
                         "—"
                       )}
                     </td>
+                    <td className="text-sm font-mono">{r.billing_code || "—"}</td>
                     <td>{r.hours}</td>
                     <td className="text-sm">
                       {formatCurrency(calcBillableAmount(Number(r.hours), Number(r.billing_rate), r.billable_status))}
