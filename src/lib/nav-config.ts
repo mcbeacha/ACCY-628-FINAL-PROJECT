@@ -129,7 +129,7 @@ export function mattersSectionTitleForRole(role: UserRole): string {
     case "attorney":
       return "Attorney Matters";
     case "paralegal":
-      return "Staff Matters";
+      return "Paralegal/Legal Staff Tasks";
     case "billing_staff":
       return "Billing Matters";
     case "client":

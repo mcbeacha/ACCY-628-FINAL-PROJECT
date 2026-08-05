@@ -50,6 +50,8 @@ export type Matter = {
   matter_status: string;
   engagement_start_date: string | null;
   expected_end_date: string | null;
+  next_court_date?: string | null;
+  next_filing_deadline?: string | null;
   actual_close_date: string | null;
   responsible_attorney_id: string | null;
   originating_attorney_id: string | null;
@@ -110,6 +112,8 @@ export type MatterTask = {
   client_visible: boolean;
   internal_notes: string | null;
   completion_notes: string | null;
+  exception_notes?: string | null;
+  out_of_scope?: boolean;
   created_by: string | null;
   created_at: string;
   updated_at?: string;

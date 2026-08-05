@@ -3,6 +3,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge, PriorityBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
+import { DeadlineCalendar, buildDeadlineWindow } from "@/components/DeadlineCalendar";
+import { WeeklyUtilizationCard } from "@/components/WeeklyUtilizationCard";
 import { AnalyticsNotice } from "@/components/analytics/AnalyticsNotice";
 import { ClientHomePage } from "@/components/client-home/ClientHomePage";
 import { CaseEvaluationsMiniList } from "@/components/intake/CaseEvaluationDetailClient";
@@ -478,12 +480,13 @@ async function AttorneyDashboard({
 
   const { data: tasks } = await supabase
     .from("matter_tasks")
-    .select("*, matters(matter_name, matter_number)")
+    .select("*, matters(id, matter_name, matter_number)")
     .eq("assigned_to", profile.id)
     .order("due_date", { ascending: true });
   const taskRows = (tasks || []) as MatterTask[];
 
-  const [{ data: myTime }, { data: myExp }, { data: retainers }, { data: matterInvoices }] = await Promise.all([
+  const [{ data: myTime }, { data: myExp }, { data: retainers }, { data: matterInvoices }, { data: oosQueue }] =
+    await Promise.all([
     supabase.from("time_entries").select("*").eq("employee_id", profile.id),
     supabase.from("expense_entries").select("*").eq("created_by", profile.id).order("expense_date", { ascending: false }).limit(5),
     supabase.from("retainer_accounts").select("*, matters(matter_number, matter_name)").in("account_status", ["Below Threshold", "Exhausted"]),
@@ -492,6 +495,11 @@ async function AttorneyDashboard({
       .select("id, invoice_number, invoice_status, balance_due, due_date, matter_id, finalized_at")
       .order("due_date", { ascending: false })
       .limit(30),
+    supabase
+      .from("time_entries")
+      .select("id")
+      .eq("out_of_scope", true)
+      .eq("approval_status", "Submitted"),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -503,6 +511,7 @@ async function AttorneyDashboard({
     .reduce((s, t) => s + Number(t.hours), 0);
   const draftTime = timeRows.filter((t) => t.approval_status === "Draft").length;
   const rejectedTime = timeRows.filter((t) => t.approval_status === "Rejected").length;
+  const oosToAuthorize = (oosQueue || []).length;
   const unsubmitted = timeRows.filter((t) => t.approval_status === "Draft").length;
   const unbilledMine = timeRows
     .filter((t) => t.approval_status === "Approved" && t.invoice_status === "Unbilled" && t.billable_status === "Billable")
@@ -564,6 +573,11 @@ async function AttorneyDashboard({
   const deadlinesThisWeek = deadlines.filter((d) => daysUntil(d.dueDate) <= 7).length;
 
   const active = matterRows.filter((m) => m.matter_status === "Active");
+  const { items: deadlineItems, today: deadlineToday, end: deadlineEnd } = buildDeadlineWindow({
+    tasks: taskRows,
+    matters: matterRows,
+    days: 14,
+  });
   const needsUpdate = matterRows.filter((m) =>
     ["Draft", "Pending Approval", "Needs Review", "On Hold"].includes(m.matter_status) ||
     m.approval_status === "Needs Review"
@@ -779,6 +793,12 @@ async function AttorneyDashboard({
           href="/invoices"
         />
         <StatCard
+          label="Out-of-scope to authorize"
+          value={oosToAuthorize}
+          tone={oosToAuthorize ? "warning" : "default"}
+          href="/time/review"
+        />
+        <StatCard
           label="Past-due $ (assigned matters)"
           value={formatCurrency(pastDueMine.reduce((s, i) => s + Number(i.balance_due), 0))}
           tone={pastDueMine.length ? "warning" : "default"}
@@ -787,9 +807,27 @@ async function AttorneyDashboard({
         <StatCard label="Matters with budgets set" value={budgetWarnings.length} href="/matters" />
         <StatCard label="Draft time entries" value={draftTime} href="/time" />
       </div>
-      <p className="text-xs opacity-60">
-        Utilization uses available weekly hours (default 40) × weeks this month — management estimate only.
+
+      <WeeklyUtilizationCard
+        weekStart={weekStart}
+        availableHours={avail}
+        totalHours={hoursWeek}
+        billableHours={billableWeek}
+        timeHref={`/time?from=${weekStart}`}
+      />
+      <p className="text-xs opacity-60 -mt-2">
+        Month estimate ({utilEst == null ? "—" : `${utilEst.toFixed(1)}%`}): billable this month ÷
+        (available weekly × weeks elapsed). Same available-hours source as the weekly meter above.
       </p>
+
+      <DeadlineCalendar
+        items={deadlineItems}
+        today={deadlineToday}
+        end={deadlineEnd}
+        title="Coming up — next 7–14 days"
+        emptyTitle="No due tasks, court dates, or filing deadlines in the next 14 days."
+      />
+
       {invMine.length > 0 && (
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
@@ -887,20 +925,65 @@ async function StaffDashboard({
 
   const { data: matters } = await supabase
     .from("matters")
-    .select("id, matter_number, matter_name, matter_status")
+    .select(
+      "id, matter_number, matter_name, matter_status, next_court_date, next_filing_deadline, expected_end_date"
+    )
     .order("updated_at", { ascending: false });
 
+  const matterRows = (matters || []) as Matter[];
+  const { items: deadlineItems, today: deadlineToday, end: deadlineEnd } = buildDeadlineWindow({
+    tasks: taskRows,
+    matters: matterRows,
+    days: 14,
+  });
+
   const [{ data: myTime }, { data: myExp }] = await Promise.all([
-    supabase.from("time_entries").select("*").eq("employee_id", profile.id),
+    supabase
+      .from("time_entries")
+      .select("*, matters(id, matter_number, matter_name)")
+      .eq("employee_id", profile.id),
     supabase.from("expense_entries").select("id, approval_status").eq("created_by", profile.id),
   ]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const timeRows = (myTime || []) as any[];
-  const hoursWeek = timeRows.filter((t) => t.work_date >= weekStart).reduce((s, t) => s + Number(t.hours), 0);
+  const weekRows = timeRows.filter((t) => t.work_date >= weekStart);
+  const hoursWeek = weekRows.reduce((s, t) => s + Number(t.hours), 0);
+  const billableWeek = weekRows
+    .filter((t) => t.billable_status === "Billable")
+    .reduce((s, t) => s + Number(t.hours), 0);
   const draftTime = timeRows.filter((t) => t.approval_status === "Draft").length;
   const rejected = timeRows.filter((t) => t.approval_status === "Rejected").length;
+  const oosPending = timeRows.filter(
+    (t) => t.out_of_scope && t.approval_status === "Submitted"
+  ).length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const submittedExp = (myExp || []).filter((e: any) => e.approval_status === "Submitted").length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const availableWeekly = Number((profile as any).available_weekly_hours) || 40;
+
+  const hoursByMatterMap = new Map<
+    string,
+    { id: string; matter_number: string; matter_name: string; hours: number; billable: number }
+  >();
+  for (const t of weekRows) {
+    const mid = String(t.matter_id);
+    const existing = hoursByMatterMap.get(mid);
+    const h = Number(t.hours) || 0;
+    const billableHours = t.billable_status === "Billable" ? h : 0;
+    if (existing) {
+      existing.hours += h;
+      existing.billable += billableHours;
+    } else {
+      hoursByMatterMap.set(mid, {
+        id: t.matters?.id || mid,
+        matter_number: t.matters?.matter_number || "—",
+        matter_name: t.matters?.matter_name || "Unknown matter",
+        hours: h,
+        billable: billableHours,
+      });
+    }
+  }
+  const hoursByMatter = Array.from(hoursByMatterMap.values()).sort((a, b) => b.hours - a.hours);
 
   const { data: intakeEvals } = await supabase
     .from("case_evaluations")
@@ -922,7 +1005,7 @@ async function StaffDashboard({
   return (
     <>
       <PageHeader
-        title="Staff Workspace"
+        title="Paralegal/Legal Staff Workspace"
         description="Your assigned tasks, due dates, matter support work, and timekeeping."
       />
       <div className="card bg-base-100 border border-base-300 shadow-sm">
@@ -949,7 +1032,7 @@ async function StaffDashboard({
             />
             <StatCard label="Referred to partners" value={referredOut.length} href="/case-evaluations" />
             <StatCard label="Scheduled consultations" value={scheduled.length} href="/case-evaluations" />
-            <StatCard label="Intake tasks (open)" value={open.length} href="/tasks" />
+            <StatCard label="Intake tasks (open)" value={open.length} href="/tasks?filter=open" />
           </div>
           <CaseEvaluationsMiniList
             rows={intake.slice(0, 8) as never[]}
@@ -958,28 +1041,104 @@ async function StaffDashboard({
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Assigned tasks" value={open.length} href="/tasks" />
-        <StatCard label="Due soon" value={dueSoon.length} tone="warning" href="/tasks" />
+        <StatCard label="Assigned tasks" value={open.length} href="/tasks?filter=open" />
+        <StatCard label="Due soon" value={dueSoon.length} tone="warning" href="/tasks?filter=due_soon" />
         <StatCard
           label="Overdue"
           value={overdue.length}
           tone={overdue.length ? "error" : "default"}
-          href="/tasks"
+          href="/tasks?filter=overdue"
         />
-        <StatCard label="Waiting on others" value={waiting.length} href="/tasks" />
+        <StatCard label="Waiting on others" value={waiting.length} href="/tasks?filter=waiting" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Hours entered this week" value={hoursWeek.toFixed(2)} href="/time" />
-        <StatCard label="Draft time entries" value={draftTime} href="/time" />
-        <StatCard label="Submitted expenses" value={submittedExp} href="/expenses" />
+        <StatCard
+          label="Hours entered this week"
+          value={hoursWeek.toFixed(2)}
+          href={`/time?from=${weekStart}`}
+        />
+        <StatCard label="Draft time entries" value={draftTime} href="/time?status=Draft" />
+        <StatCard
+          label="Out-of-scope awaiting attorney"
+          value={oosPending}
+          tone={oosPending ? "warning" : "default"}
+          href="/time?status=Submitted&oos=1"
+        />
         <StatCard
           label="Rejected entries needing correction"
           value={rejected}
           tone={rejected ? "error" : "default"}
-          href="/time"
+          href="/time?status=Rejected"
         />
       </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Submitted expenses" value={submittedExp} href="/expenses?status=Submitted" />
+      </div>
+
+      <DeadlineCalendar
+        items={deadlineItems}
+        today={deadlineToday}
+        end={deadlineEnd}
+        title="Coming up — next 7–14 days"
+        emptyTitle="No due tasks, court dates, or filing deadlines in the next 14 days."
+      />
+
       <div className="grid gap-4 lg:grid-cols-2">
+        <WeeklyUtilizationCard
+          weekStart={weekStart}
+          availableHours={availableWeekly}
+          totalHours={hoursWeek}
+          billableHours={billableWeek}
+          timeHref={`/time?from=${weekStart}`}
+        />
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="card-title text-base">Hours by matter this week</h2>
+              <Link href={`/time?from=${weekStart}`} className="link text-sm">
+                View time
+              </Link>
+            </div>
+            <p className="text-xs opacity-60 -mt-1">
+              Week starting {formatDate(weekStart)} · {hoursWeek.toFixed(2)} hrs total
+            </p>
+            {hoursByMatter.length === 0 ? (
+              <EmptyState
+                title="No hours entered this week yet."
+                action={
+                  <Link href="/time/new" className="btn btn-primary btn-sm">
+                    Enter time
+                  </Link>
+                }
+              />
+            ) : (
+              <div className="table-wrap">
+                <table className="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Matter</th>
+                      <th className="text-right">Total hrs</th>
+                      <th className="text-right">Billable</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hoursByMatter.map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          <Link href={`/matters/${row.id}`} className="link link-hover text-sm">
+                            {row.matter_number} · {row.matter_name}
+                          </Link>
+                        </td>
+                        <td className="text-right font-medium">{row.hours.toFixed(2)}</td>
+                        <td className="text-right text-sm opacity-80">{row.billable.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
             <h2 className="card-title text-base">Assigned tasks</h2>
@@ -989,13 +1148,12 @@ async function StaffDashboard({
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
             <h2 className="card-title text-base">Assigned matters</h2>
-            {(matters || []).length === 0 ? (
+            {matterRows.length === 0 ? (
               <EmptyState title="You do not currently have any assigned matters." />
             ) : (
               <ul className="space-y-2">
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {(matters || []).map((m: any) => (
-                  <li key={m.id} className="flex justify-between text-sm">
+                {matterRows.map((m) => (
+                  <li key={m.id} className="flex justify-between gap-3 text-sm">
                     <Link href={`/matters/${m.id}`} className="link link-hover">
                       {m.matter_number} · {m.matter_name}
                     </Link>

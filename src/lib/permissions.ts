@@ -33,7 +33,7 @@ export function canEnterTime(role: UserRole) {
 }
 
 export function canApproveTime(role: UserRole) {
-  return role === "managing_partner";
+  return role === "managing_partner" || role === "attorney";
 }
 
 export function canApproveExpenses(role: UserRole) {
@@ -183,7 +183,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/data-quality", label: "Data Quality" },
         { href: "/controls", label: "Control Monitor" },
         { href: "/billing-readiness", label: "Billing Readiness" },
-        { href: "/time/review", label: "Time Review" },
+        { href: "/time/review", label: "Time Review / Out-of-Scope" },
         { href: "/expenses/review", label: "Expense Review" },
         { href: "/unbilled", label: "Unbilled Activity" },
         { href: "/invoices", label: "Invoices" },
@@ -204,6 +204,7 @@ export function navForRole(role: UserRole): NavItem[] {
         ...STAFF_WORKSPACE,
         { href: "/time", label: "My Time" },
         { href: "/time/new", label: "Enter Time" },
+        { href: "/time/review", label: "Review Time / Out-of-Scope" },
         { href: "/expenses", label: "My Expenses" },
         { href: "/expenses/new", label: "Enter Expense" },
         { href: "/costs/new", label: "Cost Entry" },
