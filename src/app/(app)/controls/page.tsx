@@ -106,6 +106,33 @@ export default async function ControlsPage() {
     }
   }
 
+  // Duplicate invoice numbers (unique numbering control)
+  {
+    const byNumber = new Map<string, typeof raw.invoices>();
+    for (const inv of raw.invoices) {
+      const key = String(inv.invoice_number || "")
+        .trim()
+        .toUpperCase();
+      if (!key) continue;
+      const list = byNumber.get(key) || [];
+      list.push(inv);
+      byNumber.set(key, list);
+    }
+    for (const [, list] of byNumber) {
+      if (list.length < 2) continue;
+      const first = list[0];
+      rows.push({
+        risk: "High",
+        record: `Duplicate invoice number ${first.invoice_number} (${list.length} invoices)`,
+        href: `/invoices/${first.id}`,
+        user: pmap.get(first.created_by) || "—",
+        date: first.created_at,
+        status: "Control fail",
+        followUp: "Stop billing on duplicate numbers; void/cancel extras and keep one authoritative invoice",
+      });
+    }
+  }
+
   // Missing approval on finalized
   for (const inv of raw.invoices) {
     if (inv.finalized_at && !inv.approved_by && !inv.approved_at) {
@@ -187,7 +214,7 @@ export default async function ControlsPage() {
     <>
       <PageHeader
         title="Control Monitoring"
-        description="Exception list for segregation of duties, high-value adjustments, reversals, and lock gaps."
+        description="Exception list for segregation of duties, duplicate invoice numbers, high-value adjustments, reversals, and lock gaps."
       />
       <AnalyticsNotice />
       <p className="text-sm opacity-70">

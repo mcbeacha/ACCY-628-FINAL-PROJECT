@@ -46,10 +46,17 @@ type Props = {
   role: string;
 };
 
+type EditableLine = {
+  id: string;
+  description: string;
+  write_down_amount: string;
+};
+
 export function InvoiceDetailClient(props: Props) {
-  const { invoice: initial, lines, adjustments, writeOffs, applications, retainerBalance, userId, role } =
+  const { invoice: initial, lines: initialLines, adjustments, writeOffs, applications, retainerBalance, userId, role } =
     props;
   const [inv, setInv] = useState(initial);
+  const [lines, setLines] = useState(initialLines);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -58,25 +65,157 @@ export function InvoiceDetailClient(props: Props) {
   const [writeOffReason, setWriteOffReason] = useState("");
   const [disputeReason, setDisputeReason] = useState(inv.dispute_reason || "");
   const [disputeResolution, setDisputeResolution] = useState("");
+  const [editInvoiceDate, setEditInvoiceDate] = useState(initial.invoice_date?.slice(0, 10) || "");
+  const [editDueDate, setEditDueDate] = useState(initial.due_date?.slice(0, 10) || "");
+  const [editPeriodStart, setEditPeriodStart] = useState(
+    initial.billing_period_start?.slice(0, 10) || ""
+  );
+  const [editPeriodEnd, setEditPeriodEnd] = useState(initial.billing_period_end?.slice(0, 10) || "");
+  const [editClientMessage, setEditClientMessage] = useState(initial.client_message || "");
+  const [editInternalNotes, setEditInternalNotes] = useState(initial.internal_notes || "");
+  const [editLines, setEditLines] = useState<EditableLine[]>(
+    initialLines.map((l) => ({
+      id: l.id,
+      description: l.description || "",
+      write_down_amount: String(Number(l.write_down_amount) || 0),
+    }))
+  );
   const router = useRouter();
 
   const locked = !!inv.finalized_at;
   const canPrepare = role === "managing_partner" || role === "billing_staff";
   const canApprove = role === "managing_partner";
   const canPost = canPrepare;
+  const canEditDraft = canPrepare && !locked && inv.approval_status === "Draft";
   const isHighValue = Number(inv.invoice_total) >= HIGH_VALUE;
   const selfApprovalFlag =
     isHighValue && inv.created_by === userId && canApprove;
 
+  function syncEditForm(
+    nextInv: typeof inv,
+    nextLines: InvoiceLine[]
+  ) {
+    setEditInvoiceDate(nextInv.invoice_date?.slice(0, 10) || "");
+    setEditDueDate(nextInv.due_date?.slice(0, 10) || "");
+    setEditPeriodStart(nextInv.billing_period_start?.slice(0, 10) || "");
+    setEditPeriodEnd(nextInv.billing_period_end?.slice(0, 10) || "");
+    setEditClientMessage(nextInv.client_message || "");
+    setEditInternalNotes(nextInv.internal_notes || "");
+    setEditLines(
+      nextLines.map((l) => ({
+        id: l.id,
+        description: l.description || "",
+        write_down_amount: String(Number(l.write_down_amount) || 0),
+      }))
+    );
+  }
+
   async function refresh() {
     const supabase = createClient();
-    const { data } = await supabase
-      .from("invoices")
-      .select("*, matters(matter_number, matter_name, matter_status), clients(organization_name, first_name, last_name, client_number)")
-      .eq("id", inv.id)
-      .single();
+    const [{ data }, { data: lineData }] = await Promise.all([
+      supabase
+        .from("invoices")
+        .select(
+          "*, matters(matter_number, matter_name, matter_status), clients(organization_name, first_name, last_name, client_number)"
+        )
+        .eq("id", inv.id)
+        .single(),
+      supabase.from("invoice_lines").select("*").eq("invoice_id", inv.id).order("service_date"),
+    ]);
     if (data) setInv(data as typeof inv);
+    const nextLines = (lineData || []) as InvoiceLine[];
+    setLines(nextLines);
+    if (data) syncEditForm(data as typeof inv, nextLines);
     router.refresh();
+  }
+
+  async function saveDraftEdits() {
+    if (!canEditDraft) return;
+    if (!editInvoiceDate || !editDueDate) {
+      setError("Invoice date and due date are required.");
+      return;
+    }
+    for (const el of editLines) {
+      const line = lines.find((l) => l.id === el.id);
+      if (!line) continue;
+      const wd = Number(el.write_down_amount);
+      if (Number.isNaN(wd) || wd < 0) {
+        setError("Write-down amounts must be zero or positive numbers.");
+        return;
+      }
+      if (wd > Number(line.original_amount)) {
+        setError("Write-down cannot exceed the original line amount.");
+        return;
+      }
+      if (!el.description.trim()) {
+        setError("Line descriptions cannot be empty.");
+        return;
+      }
+    }
+
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+
+    const { error: invErr } = await supabase
+      .from("invoices")
+      .update({
+        invoice_date: editInvoiceDate,
+        due_date: editDueDate,
+        billing_period_start: editPeriodStart || null,
+        billing_period_end: editPeriodEnd || null,
+        client_message: editClientMessage.trim() || null,
+        internal_notes: editInternalNotes.trim() || null,
+      })
+      .eq("id", inv.id);
+
+    if (invErr) {
+      setError(invErr.message);
+      setBusy(false);
+      return;
+    }
+
+    for (const el of editLines) {
+      const line = lines.find((l) => l.id === el.id);
+      if (!line) continue;
+      const wd = Math.min(Number(el.write_down_amount) || 0, Number(line.original_amount));
+      const finalAmount = Number(line.original_amount) - wd;
+      const { error: lineErr } = await supabase
+        .from("invoice_lines")
+        .update({
+          description: el.description.trim(),
+          write_down_amount: wd,
+          final_amount: finalAmount,
+        })
+        .eq("id", el.id);
+      if (lineErr) {
+        setError(lineErr.message);
+        setBusy(false);
+        return;
+      }
+    }
+
+    const { error: recalcErr } = await supabase.rpc("recalc_invoice_totals", {
+      p_invoice_id: inv.id,
+    });
+    if (recalcErr) {
+      setError(recalcErr.message);
+      setBusy(false);
+      return;
+    }
+
+    await supabase.from("financial_activity").insert({
+      action_type: "invoice_draft_edited",
+      record_type: "invoice",
+      record_id: inv.id,
+      matter_id: inv.matter_id,
+      action_description: `Draft invoice ${inv.invoice_number} header/lines updated.`,
+      performed_by: userId,
+    });
+
+    setMessage("Draft invoice changes saved.");
+    await refresh();
+    setBusy(false);
   }
 
   async function submitForApproval() {
@@ -149,7 +288,7 @@ export function InvoiceDetailClient(props: Props) {
     const { error: err } = await supabase
       .from("invoices")
       .update({
-        approval_status: "Rejected",
+        approval_status: "Draft",
         invoice_status: "Draft",
         internal_notes: `${inv.internal_notes || ""}\nRejected: ${reason}`.trim(),
       })
@@ -409,6 +548,76 @@ export function InvoiceDetailClient(props: Props) {
         </div>
       </div>
 
+      {canEditDraft && (
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <h2 className="card-title text-base">Edit invoice</h2>
+            <p className="text-sm opacity-70">
+              Draft invoices can be updated before submission. Finalized invoices stay locked.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mt-2">
+              <label className="form-control">
+                <span className="label-text text-xs">Invoice date</span>
+                <input
+                  type="date"
+                  className="input input-bordered input-sm"
+                  value={editInvoiceDate}
+                  onChange={(e) => setEditInvoiceDate(e.target.value)}
+                />
+              </label>
+              <label className="form-control">
+                <span className="label-text text-xs">Due date</span>
+                <input
+                  type="date"
+                  className="input input-bordered input-sm"
+                  value={editDueDate}
+                  onChange={(e) => setEditDueDate(e.target.value)}
+                />
+              </label>
+              <label className="form-control">
+                <span className="label-text text-xs">Billing period start</span>
+                <input
+                  type="date"
+                  className="input input-bordered input-sm"
+                  value={editPeriodStart}
+                  onChange={(e) => setEditPeriodStart(e.target.value)}
+                />
+              </label>
+              <label className="form-control">
+                <span className="label-text text-xs">Billing period end</span>
+                <input
+                  type="date"
+                  className="input input-bordered input-sm"
+                  value={editPeriodEnd}
+                  onChange={(e) => setEditPeriodEnd(e.target.value)}
+                />
+              </label>
+            </div>
+            <label className="form-control mt-2">
+              <span className="label-text text-xs">Client message</span>
+              <textarea
+                className="textarea textarea-bordered text-sm"
+                rows={2}
+                value={editClientMessage}
+                onChange={(e) => setEditClientMessage(e.target.value)}
+              />
+            </label>
+            <label className="form-control">
+              <span className="label-text text-xs">Internal notes</span>
+              <textarea
+                className="textarea textarea-bordered text-sm"
+                rows={2}
+                value={editInternalNotes}
+                onChange={(e) => setEditInternalNotes(e.target.value)}
+              />
+            </label>
+            <button className="btn btn-primary btn-sm w-fit" disabled={busy} onClick={saveDraftEdits}>
+              Save changes
+            </button>
+          </div>
+        </div>
+      )}
+
       {canPrepare && !locked && (
         <div className="flex flex-wrap gap-2">
           {inv.approval_status === "Draft" && (
@@ -479,6 +688,11 @@ export function InvoiceDetailClient(props: Props) {
       <div className="card bg-base-100 border border-base-300 shadow-sm">
         <div className="card-body">
           <h2 className="card-title text-base">Line items</h2>
+          {canEditDraft && (
+            <p className="text-xs opacity-70">
+              Description and write-down are editable on drafts — use Save changes above to persist.
+            </p>
+          )}
           <div className="table-wrap">
             <table className="table table-sm">
               <thead>
@@ -494,18 +708,65 @@ export function InvoiceDetailClient(props: Props) {
                 </tr>
               </thead>
               <tbody>
-                {lines.map((l) => (
-                  <tr key={l.id}>
-                    <td>{l.line_type}</td>
-                    <td>{formatDate(l.service_date)}</td>
-                    <td className="max-w-sm">{l.description}</td>
-                    <td>{l.quantity}</td>
-                    <td>{formatCurrency(Number(l.unit_rate))}</td>
-                    <td>{formatCurrency(Number(l.original_amount))}</td>
-                    <td>{formatCurrency(Number(l.write_down_amount))}</td>
-                    <td className="font-medium">{formatCurrency(Number(l.final_amount))}</td>
-                  </tr>
-                ))}
+                {lines.map((l) => {
+                  const edit = editLines.find((e) => e.id === l.id);
+                  const wdPreview = canEditDraft
+                    ? Math.min(
+                        Number(edit?.write_down_amount) || 0,
+                        Number(l.original_amount)
+                      )
+                    : Number(l.write_down_amount);
+                  const finalPreview = Number(l.original_amount) - wdPreview;
+                  return (
+                    <tr key={l.id}>
+                      <td>{l.line_type}</td>
+                      <td>{formatDate(l.service_date)}</td>
+                      <td className="max-w-sm">
+                        {canEditDraft ? (
+                          <input
+                            className="input input-bordered input-xs w-full min-w-[12rem]"
+                            value={edit?.description ?? l.description}
+                            onChange={(e) =>
+                              setEditLines((prev) =>
+                                prev.map((row) =>
+                                  row.id === l.id ? { ...row, description: e.target.value } : row
+                                )
+                              )
+                            }
+                          />
+                        ) : (
+                          l.description
+                        )}
+                      </td>
+                      <td>{l.quantity}</td>
+                      <td>{formatCurrency(Number(l.unit_rate))}</td>
+                      <td>{formatCurrency(Number(l.original_amount))}</td>
+                      <td>
+                        {canEditDraft ? (
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            className="input input-bordered input-xs w-24"
+                            value={edit?.write_down_amount ?? String(Number(l.write_down_amount))}
+                            onChange={(e) =>
+                              setEditLines((prev) =>
+                                prev.map((row) =>
+                                  row.id === l.id
+                                    ? { ...row, write_down_amount: e.target.value }
+                                    : row
+                                )
+                              )
+                            }
+                          />
+                        ) : (
+                          formatCurrency(Number(l.write_down_amount))
+                        )}
+                      </td>
+                      <td className="font-medium">{formatCurrency(finalPreview)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -10,6 +10,8 @@ import {
   type ResolvedNavSection,
 } from "@/lib/nav-config";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
+import { canApproveExpenses, canApproveMatterCosts } from "@/lib/permissions";
+import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
@@ -33,13 +35,18 @@ function NavLinkRow({
   active,
   indented,
   onNavigate,
+  badgeCount,
 }: {
   href: string;
   label: string;
   active: boolean;
   indented?: boolean;
   onNavigate?: () => void;
+  badgeCount?: number;
 }) {
+  const showBadge = typeof badgeCount === "number" && badgeCount > 0;
+  const ariaLabel = showBadge ? `${label}, ${badgeCount} pending` : undefined;
+
   return (
     <Link
       href={href}
@@ -53,11 +60,17 @@ function NavLinkRow({
           : "hover:bg-base-200 opacity-90",
       ].join(" ")}
       aria-current={active ? "page" : undefined}
+      aria-label={ariaLabel}
     >
       {active && (
         <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
       )}
-      <span className="truncate">{label}</span>
+      <span className="truncate flex-1">{label}</span>
+      {showBadge && (
+        <span className="badge badge-warning badge-sm shrink-0" aria-hidden>
+          {badgeCount}
+        </span>
+      )}
     </Link>
   );
 }
@@ -70,6 +83,7 @@ function SidebarSection({
   pathname,
   onNavigate,
   titleLive,
+  badgeCounts,
 }: {
   section: ResolvedNavSection;
   open: boolean;
@@ -78,6 +92,7 @@ function SidebarSection({
   pathname: string;
   onNavigate?: () => void;
   titleLive?: boolean;
+  badgeCounts?: Record<string, number>;
 }) {
   const panelId = useId();
   const Icon = section.icon;
@@ -134,6 +149,7 @@ function SidebarSection({
                   indented
                   active={isNavLinkActive(pathname, link.href, allHrefs)}
                   onNavigate={onNavigate}
+                  badgeCount={badgeCounts?.[link.href]}
                 />
               </li>
             ))}
@@ -175,10 +191,46 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
 
   const routeSection = sectionIdForPath(pathname, sectionsWithTitle);
   const [openSection, setOpenSection] = useState<NavSectionId | null>(routeSection);
+  const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
+
+  const canSeeExpenseReview = canApproveExpenses(effectiveRole);
+  const canSeeCostApproval = canApproveMatterCosts(effectiveRole);
 
   useEffect(() => {
     setOpenSection(routeSection);
   }, [routeSection]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPendingBadges() {
+      const next: Record<string, number> = {};
+      const supabase = createClient();
+
+      if (canSeeExpenseReview) {
+        const { count, error } = await supabase
+          .from("expense_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("approval_status", "Submitted");
+        if (!error) next["/expenses/review"] = count ?? 0;
+      }
+
+      if (canSeeCostApproval) {
+        const { count, error } = await supabase
+          .from("matter_cost_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("approval_status", "Submitted");
+        if (!error) next["/costs/review"] = count ?? 0;
+      }
+
+      if (!cancelled) setBadgeCounts(next);
+    }
+
+    void loadPendingBadges();
+    return () => {
+      cancelled = true;
+    };
+  }, [canSeeExpenseReview, canSeeCostApproval, pathname, effectiveRole]);
 
   function onNavigate() {
     if (closeDrawerOnNavigate) closeMobileDrawer();
@@ -224,6 +276,7 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
           pathname={pathname}
           onNavigate={onNavigate}
           titleLive={section.id === "partner_matters"}
+          badgeCounts={badgeCounts}
         />
       ))}
     </nav>

@@ -5,6 +5,10 @@ import { EmptyState } from "@/components/EmptyState";
 import { calcBillableAmount } from "@/lib/phase2-types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { FINANCE_NOTICE } from "@/lib/billing-types";
+import {
+  DUPLICATE_INVOICE_NUMBER_MESSAGE,
+  isDuplicateInvoiceNumberError,
+} from "@/lib/invoice-controls";
 import { createClient } from "@/lib/supabase/client";
 import type { ExpenseEntry, TimeEntry } from "@/lib/phase2-types";
 import { useRouter } from "next/navigation";
@@ -40,6 +44,7 @@ export function PrepareInvoiceClient({
   const [dueDate, setDueDate] = useState("");
   const [clientMessage, setClientMessage] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [fixedFee, setFixedFee] = useState("");
   const [fixedDesc, setFixedDesc] = useState("Authorized fixed-fee installment");
   const [timeRows, setTimeRows] = useState<TimeEntry[]>([]);
@@ -196,6 +201,21 @@ export function PrepareInvoiceClient({
 
     setBusy(true);
     const supabase = createClient();
+    const requestedNumber = invoiceNumber.trim();
+    if (requestedNumber) {
+      const { data: existing } = await supabase
+        .from("invoices")
+        .select("id, invoice_number")
+        .ilike("invoice_number", requestedNumber)
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        setError(`${DUPLICATE_INVOICE_NUMBER_MESSAGE} Existing number: ${existing.invoice_number}.`);
+        setBusy(false);
+        return;
+      }
+    }
+
     const { data: inv, error: invErr } = await supabase
       .from("invoices")
       .insert({
@@ -210,12 +230,17 @@ export function PrepareInvoiceClient({
         client_message: clientMessage || null,
         internal_notes: internalNotes || null,
         created_by: userId,
+        ...(requestedNumber ? { invoice_number: requestedNumber } : {}),
       })
       .select("id, invoice_number")
       .single();
 
     if (invErr || !inv) {
-      setError(invErr?.message || "Could not create invoice.");
+      setError(
+        isDuplicateInvoiceNumberError(invErr?.message)
+          ? DUPLICATE_INVOICE_NUMBER_MESSAGE
+          : invErr?.message || "Could not create invoice."
+      );
       setBusy(false);
       return;
     }
@@ -377,6 +402,18 @@ export function PrepareInvoiceClient({
                 value={periodEnd}
                 onChange={(e) => setPeriodEnd(e.target.value)}
               />
+            </label>
+            <label className="form-control">
+              <span className="label-text">Invoice number (optional)</span>
+              <input
+                className="input input-bordered"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                placeholder="Leave blank to auto-assign"
+              />
+              <span className="label-text-alt opacity-70">
+                Must be unique — duplicates are blocked for Billing Staff.
+              </span>
             </label>
             <label className="form-control">
               <span className="label-text">Invoice date</span>

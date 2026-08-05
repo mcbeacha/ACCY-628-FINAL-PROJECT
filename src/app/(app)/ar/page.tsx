@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import { FilterField, FilterToolbar } from "@/components/FilterToolbar";
 import { FINANCE_NOTICE } from "@/lib/billing-types";
 import { formatCurrency, formatDate, clientDisplayName } from "@/lib/format";
 import type { Invoice } from "@/lib/billing-types";
@@ -77,6 +78,8 @@ export default async function ARPage({
     ...new Set(rows.map((r) => r.matters?.practice_area).filter(Boolean)),
   ] as string[];
 
+  const activeFilterCount = [sp.status, sp.bucket, sp.practice].filter(Boolean).length;
+
   return (
     <>
       <PageHeader
@@ -100,10 +103,25 @@ export default async function ARPage({
         <StatCard label="Unapplied payments" value={formatCurrency(unapplied)} />
       </div>
 
-      <form className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body flex flex-wrap gap-3 items-end">
-          <label className="form-control">
-            <span className="label-text text-xs">Invoice status</span>
+      <form>
+        <FilterToolbar
+          actions={
+            <>
+              <button type="submit" className="btn btn-sm btn-primary">
+                Apply
+              </button>
+              <Link href="/ar" className="btn btn-sm btn-ghost">
+                Clear
+              </Link>
+            </>
+          }
+          hint={
+            activeFilterCount > 0
+              ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active · ${filtered.length} shown`
+              : undefined
+          }
+        >
+          <FilterField label="Status" className="w-full sm:w-40">
             <select name="status" className="select select-bordered select-sm" defaultValue={sp.status || ""}>
               <option value="">All</option>
               {["Finalized", "Partially Paid", "Past Due", "Disputed", "Paid", "Written Off"].map((s) => (
@@ -112,9 +130,8 @@ export default async function ARPage({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">Aging bucket</span>
+          </FilterField>
+          <FilterField label="Aging" className="w-full sm:w-36">
             <select name="bucket" className="select select-bordered select-sm" defaultValue={sp.bucket || ""}>
               <option value="">All</option>
               {["Current", "1–30", "31–60", "61–90", "90+"].map((s) => (
@@ -123,9 +140,8 @@ export default async function ARPage({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">Practice area</span>
+          </FilterField>
+          <FilterField label="Practice" className="w-full sm:w-44">
             <select name="practice" className="select select-bordered select-sm" defaultValue={sp.practice || ""}>
               <option value="">All</option>
               {practiceAreas.map((p) => (
@@ -134,31 +150,29 @@ export default async function ARPage({
                 </option>
               ))}
             </select>
-          </label>
-          <button type="submit" className="btn btn-sm btn-primary">
-            Filter
-          </button>
-          <Link href="/ar" className="btn btn-sm btn-ghost">
-            Clear
-          </Link>
-        </div>
+          </FilterField>
+        </FilterToolbar>
       </form>
 
       {filtered.length === 0 ? (
         <EmptyState title="No invoices match these filters." />
       ) : (
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="rounded-lg border border-base-300 bg-base-100 overflow-hidden">
+          <div className="px-3 py-2 border-b border-base-200 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Open &amp; finalized invoices</h2>
+            <span className="text-xs opacity-55 tabular-nums">{filtered.length} rows</span>
+          </div>
           <div className="table-wrap">
             <table className="table table-sm">
               <thead>
-                <tr>
+                <tr className="text-xs">
                   <th>Invoice</th>
                   <th>Client</th>
                   <th>Matter</th>
                   <th>Attorney</th>
                   <th>Due</th>
-                  <th>Total</th>
-                  <th>Balance</th>
+                  <th className="text-right">Total</th>
+                  <th className="text-right">Balance</th>
                   <th>Aging</th>
                   <th>Status</th>
                 </tr>
@@ -174,10 +188,14 @@ export default async function ARPage({
                     <td className="text-sm">{clientDisplayName(r.clients)}</td>
                     <td className="text-sm">{r.matters?.matter_number}</td>
                     <td className="text-sm">{r.matters?.responsible?.full_name || "—"}</td>
-                    <td>{formatDate(r.due_date)}</td>
-                    <td>{formatCurrency(Number(r.invoice_total))}</td>
-                    <td className="font-semibold">{formatCurrency(Number(r.balance_due))}</td>
-                    <td>{r.bucket}</td>
+                    <td className="text-sm whitespace-nowrap">{formatDate(r.due_date)}</td>
+                    <td className="text-sm text-right tabular-nums">
+                      {formatCurrency(Number(r.invoice_total))}
+                    </td>
+                    <td className="text-sm text-right font-semibold tabular-nums">
+                      {formatCurrency(Number(r.balance_due))}
+                    </td>
+                    <td className="text-sm whitespace-nowrap">{r.bucket}</td>
                     <td>
                       <StatusBadge status={r.invoice_status} />
                     </td>
