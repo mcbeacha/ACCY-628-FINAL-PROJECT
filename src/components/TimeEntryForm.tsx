@@ -2,6 +2,10 @@
 
 import { PageHeader } from "@/components/PageHeader";
 import {
+  BILLING_ACTIVITIES,
+  buildBillingCode,
+} from "@/lib/billing-codes";
+import {
   EXPENSE_HIGH_VALUE_THRESHOLD,
   EXPENSE_RECEIPT_THRESHOLD,
   TIME_BILLABLE_STATUSES,
@@ -26,6 +30,8 @@ export function TimeEntryForm({
   showInternalCost: boolean;
 }) {
   const [matters, setMatters] = useState<MatterOpt[]>([]);
+  const [matterId, setMatterId] = useState("");
+  const [activityCode, setActivityCode] = useState("");
   const [billingRate, setBillingRate] = useState(0);
   const [costRate, setCostRate] = useState(0);
   const [start, setStart] = useState("");
@@ -61,6 +67,16 @@ export function TimeEntryForm({
     })();
   }, [userId]);
 
+  const selectedMatter = useMemo(
+    () => matters.find((m) => m.id === matterId) || null,
+    [matters, matterId]
+  );
+
+  const billingCode = useMemo(() => {
+    if (!selectedMatter?.matter_number || !activityCode) return "";
+    return buildBillingCode(selectedMatter.matter_number, activityCode);
+  }, [selectedMatter, activityCode]);
+
   const calcHours = useMemo(() => {
     const fromTimes = hoursFromTimes(start, end);
     if (fromTimes !== null) return fromTimes;
@@ -83,7 +99,6 @@ export function TimeEntryForm({
     setMessage(null);
 
     const fd = new FormData(e.currentTarget);
-    const matterId = String(fd.get("matter_id") || "");
     const workDate = String(fd.get("work_date") || "");
     const desc = String(fd.get("billing_description") || "").trim();
     const notes = String(fd.get("internal_notes") || "").trim();
@@ -91,6 +106,10 @@ export function TimeEntryForm({
 
     if (!matterId || !workDate) {
       setError("Matter and work date are required.");
+      return;
+    }
+    if (!activityCode || !billingCode) {
+      setError("Select an activity so the billing code can be generated.");
       return;
     }
     if (!h || h <= 0 || h > 24) {
@@ -111,7 +130,7 @@ export function TimeEntryForm({
     const supabase = createClient();
 
     // Soft duplicate / overlap warning
-    let q = supabase
+    const { data: existing } = await supabase
       .from("time_entries")
       .select("id, start_time, end_time, billing_description, approval_status")
       .eq("employee_id", userId)
@@ -119,7 +138,6 @@ export function TimeEntryForm({
       .eq("work_date", workDate)
       .neq("approval_status", "Rejected");
 
-    const { data: existing } = await q;
     if (existing?.length) {
       const simDesc = existing.some(
         (x) =>
@@ -144,6 +162,7 @@ export function TimeEntryForm({
       billing_rate: billingRate,
       internal_cost_rate: costRate,
       billable_status: billable,
+      billing_code: billingCode,
       billing_description: desc || null,
       internal_notes: notes || null,
       approval_status: submit ? "Submitted" : "Draft",
@@ -178,6 +197,8 @@ export function TimeEntryForm({
     setMessage(submit ? "Time entry submitted for approval." : "Draft time entry saved.");
     setLoading(false);
     (e.target as HTMLFormElement).reset();
+    setMatterId("");
+    setActivityCode("");
     setStart("");
     setEnd("");
     setHours("");
@@ -206,7 +227,14 @@ export function TimeEntryForm({
               Matter *
             </label>
             <div className="field-cell">
-              <select id="matter_id" name="matter_id" className="select select-bordered w-full" required defaultValue="">
+              <select
+                id="matter_id"
+                name="matter_id"
+                className="select select-bordered w-full"
+                required
+                value={matterId}
+                onChange={(e) => setMatterId(e.target.value)}
+              >
                 <option value="" disabled>
                   Select assigned matter
                 </option>
@@ -287,6 +315,47 @@ export function TimeEntryForm({
               </select>
             </div>
 
+            <label className="label-cell" htmlFor="activity_code">
+              Activity *
+            </label>
+            <div className="field-cell">
+              <select
+                id="activity_code"
+                name="activity_code"
+                className="select select-bordered w-full"
+                required
+                value={activityCode}
+                onChange={(e) => setActivityCode(e.target.value)}
+              >
+                <option value="" disabled>
+                  Select activity
+                </option>
+                {BILLING_ACTIVITIES.map((a) => (
+                  <option key={a.code} value={a.code}>
+                    {a.code} · {a.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <label className="label-cell" htmlFor="billing_code">
+              Billing code
+            </label>
+            <div className="field-cell">
+              <input
+                id="billing_code"
+                name="billing_code"
+                className="input input-bordered w-full font-mono"
+                value={billingCode}
+                readOnly
+                placeholder="Select matter and activity"
+                aria-describedby="billing_code_help"
+              />
+              <p id="billing_code_help" className="text-xs opacity-60 mt-1">
+                Auto-built as Matter # + activity code (example: MT-05001-1002).
+              </p>
+            </div>
+
             <label className="label-cell" htmlFor="billing_description">
               Billing description {billable === "Billable" ? "*" : ""}
             </label>
@@ -340,7 +409,7 @@ export function TimeEntryForm({
               type="submit"
               className="btn btn-ghost"
               disabled={loading}
-              onClick={(ev) => {
+              onClick={() => {
                 // default form submits as draft via onSubmit(..., false)
               }}
             >

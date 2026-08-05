@@ -61,6 +61,11 @@ export type Matter = {
   retainer_replenishment_threshold: number | null;
   estimated_matter_value: number | null;
   matter_budget: number | null;
+  planned_labor_hours?: number | null;
+  planned_labor_cost?: number | null;
+  planned_vendor_cost?: number | null;
+  planned_direct_expense_cost?: number | null;
+  planned_allocated_cost?: number | null;
   billing_frequency: string | null;
   payment_terms_days: number | null;
   scope_summary: string | null;

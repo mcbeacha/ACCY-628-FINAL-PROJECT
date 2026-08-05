@@ -92,6 +92,39 @@ export function canViewControls(role: UserRole) {
   return role === "managing_partner" || role === "billing_staff";
 }
 
+export function canManageVendors(role: UserRole) {
+  return role === "managing_partner" || role === "billing_staff";
+}
+
+export function canApproveVendors(role: UserRole) {
+  return role === "managing_partner";
+}
+
+export function canEnterMatterCosts(role: UserRole) {
+  return (
+    role === "managing_partner" ||
+    role === "billing_staff" ||
+    role === "attorney" ||
+    role === "paralegal"
+  );
+}
+
+export function canApproveMatterCosts(role: UserRole) {
+  return role === "managing_partner" || role === "billing_staff";
+}
+
+export function canManageAllocations(role: UserRole) {
+  return role === "managing_partner" || role === "billing_staff";
+}
+
+export function canViewCostDashboard(role: UserRole) {
+  return role === "managing_partner" || role === "billing_staff";
+}
+
+export function canViewMatterCosts(role: UserRole) {
+  return role !== "client";
+}
+
 export function canViewInternalCost(role: UserRole) {
   return (
     role === "managing_partner" ||
@@ -109,151 +142,128 @@ export function isStaffRole(role: UserRole) {
   return role !== "client";
 }
 
-/**
- * Icon keys are resolved to components in `AppShell` so this module stays free
- * of JSX and can be imported from server code.
- */
-export type NavIcon =
-  | "dashboard"
-  | "matters"
-  | "clients"
-  | "calendar"
-  | "tasks"
-  | "documents"
-  | "time"
-  | "expenses"
-  | "messages"
-  | "research"
-  | "reports"
-  | "directory"
-  | "resources"
-  | "settings"
-  | "profitability"
-  | "productivity"
-  | "quality"
-  | "controls"
-  | "billing"
-  | "invoices"
-  | "payments"
-  | "receivables"
-  | "retainers"
-  | "trust"
-  | "journal"
-  | "unbilled"
-  | "review";
-
-export type NavItem = {
-  href: string;
-  label: string;
-  icon?: NavIcon;
-  /** Optional grouping label rendered above the item in the sidebar. */
-  group?: string;
-};
+export type NavItem = { href: string; label: string };
 
 /** Workspace tools every staff role shares. */
 const STAFF_WORKSPACE: NavItem[] = [
-  { href: "/calendar", label: "Calendar", icon: "calendar", group: "Workspace" },
-  { href: "/tasks", label: "Tasks", icon: "tasks", group: "Workspace" },
-  { href: "/documents", label: "Documents", icon: "documents", group: "Workspace" },
+  { href: "/calendar", label: "Calendar" },
+  { href: "/documents", label: "Documents" },
 ];
 
+/** Firm-wide references available to every staff role. */
 const STAFF_FIRM: NavItem[] = [
-  { href: "/directory", label: "Firm Directory", icon: "directory", group: "Firm" },
-  { href: "/resources", label: "Resources", icon: "resources", group: "Firm" },
-  { href: "/settings", label: "Settings", icon: "settings", group: "Firm" },
+  { href: "/messages", label: "Messages" },
+  { href: "/research", label: "Legal Research" },
+  { href: "/directory", label: "Firm Directory" },
+  { href: "/resources", label: "Resources" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function navForRole(role: UserRole): NavItem[] {
   switch (role) {
     case "managing_partner":
       return [
-        { href: "/dashboard", label: "Dashboard", icon: "dashboard", group: "Workspace" },
-        { href: "/matters", label: "Matters", icon: "matters", group: "Workspace" },
-        { href: "/clients", label: "Clients", icon: "clients", group: "Workspace" },
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/costs", label: "Cost & Resources" },
+        { href: "/vendors", label: "Vendors" },
+        { href: "/costs/new", label: "Cost Entry" },
+        { href: "/costs/vendor-charge", label: "Vendor Charge" },
+        { href: "/costs/allocations", label: "Cost Allocations" },
+        { href: "/costs/review", label: "Cost Approval" },
+        { href: "/clients", label: "Clients" },
+        { href: "/matters", label: "Matters" },
+        { href: "/tasks", label: "Tasks" },
         ...STAFF_WORKSPACE,
-        { href: "/time/review", label: "Time Review", icon: "review", group: "Practice" },
-        { href: "/expenses/review", label: "Expense Review", icon: "review", group: "Practice" },
-        { href: "/messages", label: "Messages", icon: "messages", group: "Practice" },
-        { href: "/research", label: "Legal Research", icon: "research", group: "Practice" },
-        { href: "/billing-readiness", label: "Billing Readiness", icon: "billing", group: "Billing" },
-        { href: "/unbilled", label: "Unbilled Activity", icon: "unbilled", group: "Billing" },
-        { href: "/invoices", label: "Invoices", icon: "invoices", group: "Billing" },
-        { href: "/payments", label: "Payments", icon: "payments", group: "Billing" },
-        { href: "/ar", label: "Accounts Receivable", icon: "receivables", group: "Billing" },
-        { href: "/retainers", label: "Retainers", icon: "retainers", group: "Billing" },
-        { href: "/trust-ledger", label: "Trust Ledger", icon: "trust", group: "Billing" },
-        { href: "/journal", label: "Journal Entries", icon: "journal", group: "Billing" },
-        { href: "/profitability/matters", label: "Matter Profitability", icon: "profitability", group: "Analytics" },
-        { href: "/profitability/clients", label: "Client Profitability", icon: "profitability", group: "Analytics" },
-        { href: "/profitability/practice-areas", label: "Practice Areas", icon: "profitability", group: "Analytics" },
-        { href: "/productivity", label: "Attorney Productivity", icon: "productivity", group: "Analytics" },
-        { href: "/reports", label: "Reports", icon: "reports", group: "Analytics" },
-        { href: "/data-quality", label: "Data Quality", icon: "quality", group: "Analytics" },
-        { href: "/controls", label: "Control Monitor", icon: "controls", group: "Analytics" },
+        { href: "/profitability/matters", label: "Matter Profitability" },
+        { href: "/profitability/clients", label: "Client Profitability" },
+        { href: "/profitability/practice-areas", label: "Practice Areas" },
+        { href: "/productivity", label: "Attorney Productivity" },
+        { href: "/reports", label: "Reports" },
+        { href: "/data-quality", label: "Data Quality" },
+        { href: "/controls", label: "Control Monitor" },
+        { href: "/billing-readiness", label: "Billing Readiness" },
+        { href: "/time/review", label: "Time Review" },
+        { href: "/expenses/review", label: "Expense Review" },
+        { href: "/unbilled", label: "Unbilled Activity" },
+        { href: "/invoices", label: "Invoices" },
+        { href: "/payments", label: "Payments" },
+        { href: "/ar", label: "Accounts Receivable" },
+        { href: "/retainers", label: "Retainers" },
+        { href: "/trust-ledger", label: "Trust Ledger" },
+        { href: "/journal", label: "Journal Entries" },
         ...STAFF_FIRM,
       ];
     case "attorney":
       return [
-        { href: "/dashboard", label: "Dashboard", icon: "dashboard", group: "Workspace" },
-        { href: "/matters", label: "Matters", icon: "matters", group: "Workspace" },
-        { href: "/clients", label: "Clients", icon: "clients", group: "Workspace" },
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/clients", label: "Clients" },
+        { href: "/matters", label: "My Matters" },
+        { href: "/tasks", label: "My Tasks" },
         ...STAFF_WORKSPACE,
-        { href: "/time", label: "Time and Billing", icon: "time", group: "Practice" },
-        { href: "/expenses", label: "Expenses", icon: "expenses", group: "Practice" },
-        { href: "/messages", label: "Messages", icon: "messages", group: "Practice" },
-        { href: "/research", label: "Legal Research", icon: "research", group: "Practice" },
-        { href: "/reports", label: "Reports", icon: "reports", group: "Practice" },
+        { href: "/time", label: "My Time" },
+        { href: "/time/new", label: "Enter Time" },
+        { href: "/expenses", label: "My Expenses" },
+        { href: "/expenses/new", label: "Enter Expense" },
+        { href: "/costs/new", label: "Cost Entry" },
+        { href: "/costs/vendor-charge", label: "Request Vendor Charge" },
+        { href: "/invoices", label: "Assigned Matter Billing Status" },
+        { href: "/reports", label: "Reports" },
         ...STAFF_FIRM,
       ];
     case "paralegal":
       return [
-        { href: "/dashboard", label: "Dashboard", icon: "dashboard", group: "Workspace" },
-        { href: "/matters", label: "My Matters", icon: "matters", group: "Workspace" },
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/matters", label: "My Matters" },
+        { href: "/tasks", label: "My Tasks" },
         ...STAFF_WORKSPACE,
-        { href: "/time", label: "My Time", icon: "time", group: "Practice" },
-        { href: "/time/new", label: "Enter Time", icon: "time", group: "Practice" },
-        { href: "/expenses", label: "My Expenses", icon: "expenses", group: "Practice" },
-        { href: "/expenses/new", label: "Enter Expense", icon: "expenses", group: "Practice" },
-        { href: "/messages", label: "Messages", icon: "messages", group: "Practice" },
-        { href: "/research", label: "Legal Research", icon: "research", group: "Practice" },
+        { href: "/time", label: "My Time" },
+        { href: "/time/new", label: "Enter Time" },
+        { href: "/expenses", label: "My Expenses" },
+        { href: "/expenses/new", label: "Enter Expense" },
+        { href: "/costs/new", label: "Cost Entry" },
         ...STAFF_FIRM,
       ];
     case "billing_staff":
       return [
-        { href: "/dashboard", label: "Dashboard", icon: "dashboard", group: "Workspace" },
-        { href: "/matters", label: "Matters", icon: "matters", group: "Workspace" },
-        { href: "/clients", label: "Clients", icon: "clients", group: "Workspace" },
-        { href: "/calendar", label: "Calendar", icon: "calendar", group: "Workspace" },
-        { href: "/documents", label: "Documents", icon: "documents", group: "Workspace" },
-        { href: "/billing-readiness", label: "Billing Readiness", icon: "billing", group: "Billing" },
-        { href: "/unbilled", label: "Unbilled Activity", icon: "unbilled", group: "Billing" },
-        { href: "/expenses/review", label: "Expense Review", icon: "review", group: "Billing" },
-        { href: "/invoices", label: "Invoices", icon: "invoices", group: "Billing" },
-        { href: "/invoices/new", label: "Prepare Invoice", icon: "invoices", group: "Billing" },
-        { href: "/payments", label: "Payments", icon: "payments", group: "Billing" },
-        { href: "/ar", label: "Accounts Receivable", icon: "receivables", group: "Billing" },
-        { href: "/retainers", label: "Retainers", icon: "retainers", group: "Billing" },
-        { href: "/trust-ledger", label: "Trust Ledger", icon: "trust", group: "Billing" },
-        { href: "/journal", label: "Journal Entries", icon: "journal", group: "Billing" },
-        { href: "/profitability/matters", label: "Matter Profitability", icon: "profitability", group: "Analytics" },
-        { href: "/profitability/clients", label: "Client Profitability", icon: "profitability", group: "Analytics" },
-        { href: "/profitability/practice-areas", label: "Practice Areas", icon: "profitability", group: "Analytics" },
-        { href: "/productivity", label: "Productivity", icon: "productivity", group: "Analytics" },
-        { href: "/reports", label: "Reports", icon: "reports", group: "Analytics" },
-        { href: "/data-quality", label: "Data Quality", icon: "quality", group: "Analytics" },
-        { href: "/controls", label: "Control Monitor", icon: "controls", group: "Analytics" },
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/costs", label: "Cost & Resources" },
+        { href: "/vendors", label: "Vendors" },
+        { href: "/costs/new", label: "Cost Entry" },
+        { href: "/costs/vendor-charge", label: "Vendor Charge" },
+        { href: "/costs/allocations", label: "Cost Allocations" },
+        { href: "/costs/review", label: "Cost Approval" },
+        { href: "/clients", label: "Clients" },
+        { href: "/matters", label: "Matters" },
+        ...STAFF_WORKSPACE,
+        { href: "/profitability/matters", label: "Matter Profitability" },
+        { href: "/profitability/clients", label: "Client Profitability" },
+        { href: "/profitability/practice-areas", label: "Practice Areas" },
+        { href: "/productivity", label: "Productivity" },
+        { href: "/reports", label: "Reports" },
+        { href: "/data-quality", label: "Data Quality" },
+        { href: "/controls", label: "Control Monitor" },
+        { href: "/billing-readiness", label: "Billing Readiness" },
+        { href: "/unbilled", label: "Unbilled Activity" },
+        { href: "/expenses/review", label: "Expense Review" },
+        { href: "/invoices", label: "Invoices" },
+        { href: "/invoices/new", label: "Prepare Invoice" },
+        { href: "/payments", label: "Payments" },
+        { href: "/ar", label: "Accounts Receivable" },
+        { href: "/retainers", label: "Retainers" },
+        { href: "/trust-ledger", label: "Trust Ledger" },
+        { href: "/journal", label: "Journal Entries" },
         ...STAFF_FIRM,
       ];
     case "client":
       return [
-        { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-        { href: "/matters", label: "My Matters", icon: "matters" },
-        { href: "/portal", label: "Milestones", icon: "tasks" },
-        { href: "/portal/billing", label: "My Invoices & Payments", icon: "invoices" },
-        { href: "/settings", label: "Settings", icon: "settings" },
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/matters", label: "My Matters" },
+        { href: "/portal", label: "Milestones" },
+        { href: "/portal/billing", label: "My Invoices & Payments" },
+        { href: "/settings", label: "Settings" },
       ];
     default:
-      return [{ href: "/dashboard", label: "Dashboard", icon: "dashboard" }];
+      return [{ href: "/dashboard", label: "Dashboard" }];
   }
 }
 

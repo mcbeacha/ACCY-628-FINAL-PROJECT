@@ -141,9 +141,22 @@ export function DemoRoleProvider({
           );
         }
 
-        // Full navigation clears RSC/cache so the prior role's data cannot linger.
+        // Full navigation clears prior-role UI. Leave the page only if the new role may open it.
         if (options?.home !== false) {
-          window.location.assign(identity.homePath);
+          const { navForRole } = await import("@/lib/permissions");
+          const allowed = navForRole(identity.role);
+          const current = window.location.pathname;
+          const stillAllowed = allowed.some(
+            (item) =>
+              current === item.href ||
+              (item.href !== "/dashboard" && current.startsWith(`${item.href}/`))
+          );
+          const dest = stillAllowed
+            ? current
+            : identity.role === "client"
+              ? identity.homePath
+              : "/dashboard";
+          window.location.assign(dest);
           return;
         }
         router.refresh();
