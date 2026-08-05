@@ -3,6 +3,7 @@ import { canViewJournal } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import { FilterField, FilterToolbar } from "@/components/FilterToolbar";
 import { formatCurrency, formatDate } from "@/lib/format";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -83,6 +84,8 @@ export default async function JournalPage({
   }
   const csv = csvRows.join("\n");
 
+  const activeFilterCount = [sp.from, sp.to, sp.source].filter(Boolean).length;
+
   return (
     <>
       <PageHeader
@@ -90,18 +93,48 @@ export default async function JournalPage({
         description="Read-only report of balanced simulated GL postings from financial events."
       />
 
-      <form className="card bg-base-100 border border-base-300">
-        <div className="card-body flex flex-wrap gap-3 items-end">
-          <label className="form-control">
-            <span className="label-text text-xs">From</span>
-            <input type="date" name="from" className="input input-bordered input-sm" defaultValue={sp.from || ""} />
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">To</span>
-            <input type="date" name="to" className="input input-bordered input-sm" defaultValue={sp.to || ""} />
-          </label>
-          <label className="form-control">
-            <span className="label-text text-xs">Source</span>
+      <form>
+        <FilterToolbar
+          actions={
+            <>
+              <button className="btn btn-sm btn-primary" type="submit">
+                Apply
+              </button>
+              <Link href="/journal" className="btn btn-sm btn-ghost">
+                Clear
+              </Link>
+              <a
+                className="btn btn-sm btn-outline"
+                href={`data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`}
+                download="journal-entries.csv"
+              >
+                Export CSV
+              </a>
+            </>
+          }
+          hint={
+            activeFilterCount > 0
+              ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active · ${rows.length} shown`
+              : undefined
+          }
+        >
+          <FilterField label="From" className="w-full sm:w-40">
+            <input
+              type="date"
+              name="from"
+              className="input input-bordered input-sm"
+              defaultValue={sp.from || ""}
+            />
+          </FilterField>
+          <FilterField label="To" className="w-full sm:w-40">
+            <input
+              type="date"
+              name="to"
+              className="input input-bordered input-sm"
+              defaultValue={sp.to || ""}
+            />
+          </FilterField>
+          <FilterField label="Source" className="w-full sm:w-48">
             <select name="source" className="select select-bordered select-sm" defaultValue={sp.source || ""}>
               <option value="">All</option>
               {[
@@ -119,18 +152,8 @@ export default async function JournalPage({
                 </option>
               ))}
             </select>
-          </label>
-          <button className="btn btn-sm btn-primary" type="submit">
-            Filter
-          </button>
-          <a
-            className="btn btn-sm btn-outline"
-            href={`data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`}
-            download="journal-entries.csv"
-          >
-            Export CSV
-          </a>
-        </div>
+          </FilterField>
+        </FilterToolbar>
       </form>
 
       {rows.length === 0 ? (
