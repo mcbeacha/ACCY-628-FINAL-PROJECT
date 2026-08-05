@@ -186,6 +186,6 @@ export function focusFromTasks(tasks: WorkspaceTask[]): FocusItem[] {
       dueDate: task.dueDate,
       priority: task.priority,
       status: task.lane,
-      href: "/tasks",
+      href: "/tasks?filter=due_soon",
     }));
 }

@@ -671,7 +671,13 @@ async function loadStaffWorkInbox(
       ]
         .filter(Boolean)
         .join(" · "),
-      href: "/tasks",
+      href: overdue
+        ? "/tasks?filter=overdue"
+        : dueSoon
+          ? "/tasks?filter=due_soon"
+          : waiting
+            ? "/tasks?filter=waiting"
+            : "/tasks?filter=open",
       createdAt: t.due_date ? `${t.due_date}T00:00:00` : t.created_at || new Date().toISOString(),
       matterLabel: matterLabel(t.matters as { matter_number?: string; matter_name?: string } | null),
     });
