@@ -35,6 +35,32 @@ npm run dev
 
 4. Open [http://localhost:3000](http://localhost:3000)
 
+## Demo Mode (recommended for presentations)
+
+Set in `.env.local`:
+
+```text
+NEXT_PUBLIC_DEMO_MODE=true
+```
+
+When Demo Mode is on:
+
+- The login/signup screens are skipped.
+- The app opens as **Managing Partner** (Margaret Sinclair) by default.
+- Use **View App As** in the header to switch among five fictional roles.
+- The role preference is stored in browser `localStorage` as `rebel-law-demo-role` (role key only — no passwords).
+- **Reset Demo View** returns to Managing Partner.
+
+Demo Mode silently signs in as the matching seeded Supabase user so existing Row Level Security continues to apply. It is a **presentation tool**, not real authentication.
+
+To restore normal email/password login:
+
+```text
+NEXT_PUBLIC_DEMO_MODE=false
+```
+
+Restart `npm run dev` after changing `.env.local`.
+
 ## Demo accounts
 
 Password for all seeded users:
@@ -82,6 +108,7 @@ In **Project → Settings → Environment Variables**, add for Production (and P
 |------|--------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Same as local Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same as local anon/public key |
+| `NEXT_PUBLIC_DEMO_MODE` | `true` for presentation (skip login); `false` for normal auth |
 
 Do **not** add `SUPABASE_SERVICE_ROLE_KEY` unless you have a private server-only API route that requires it (this app does **not** use a service role key).
 

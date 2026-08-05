@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function isDemoMode() {
+  return process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -30,13 +34,47 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  const demoMode = isDemoMode();
   const isAuthRoute = path.startsWith("/login") || path.startsWith("/auth");
+  const isDemoEnter = path.startsWith("/demo-enter");
   const isPublicAsset =
     path.startsWith("/_next") ||
     path.startsWith("/favicon") ||
     path.includes(".");
 
-  if (!user && !isAuthRoute && !isPublicAsset) {
+  // --- Demo Mode: skip login; boot via /demo-enter ---
+  if (demoMode) {
+    if (isAuthRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = user ? "/dashboard" : "/demo-enter";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+
+    if (!user && !isDemoEnter && !isPublicAsset) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/demo-enter";
+      url.searchParams.set("next", path === "/" ? "/dashboard" : path);
+      return NextResponse.redirect(url);
+    }
+
+    if (user && isDemoEnter) {
+      const url = request.nextUrl.clone();
+      const next = request.nextUrl.searchParams.get("next");
+      url.pathname =
+        next && next.startsWith("/") && !next.startsWith("//")
+          ? next
+          : "/dashboard";
+      url.search = "";
+      // Still allow demo-enter to re-sync role; only skip if already matching is handled client-side
+      return supabaseResponse;
+    }
+
+    return supabaseResponse;
+  }
+
+  // --- Normal authentication mode ---
+  if (!user && !isAuthRoute && !isPublicAsset && !isDemoEnter) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";

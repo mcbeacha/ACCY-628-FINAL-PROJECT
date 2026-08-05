@@ -140,14 +140,13 @@ export function navForRole(role: UserRole): NavItem[] {
     case "attorney":
       return [
         { href: "/dashboard", label: "Dashboard" },
-        { href: "/clients", label: "Clients" },
         { href: "/matters", label: "My Matters" },
         { href: "/tasks", label: "My Tasks" },
         { href: "/time", label: "My Time" },
         { href: "/time/new", label: "Enter Time" },
         { href: "/expenses", label: "My Expenses" },
         { href: "/expenses/new", label: "Enter Expense" },
-        { href: "/invoices", label: "Matter Billing" },
+        { href: "/invoices", label: "Assigned Matter Billing Status" },
       ];
     case "paralegal":
       return [
@@ -185,9 +184,9 @@ export function navForRole(role: UserRole): NavItem[] {
     case "client":
       return [
         { href: "/dashboard", label: "Dashboard" },
-        { href: "/portal", label: "Client Portal" },
-        { href: "/portal/billing", label: "Invoices & Payments" },
         { href: "/matters", label: "My Matters" },
+        { href: "/portal", label: "Milestones" },
+        { href: "/portal/billing", label: "My Invoices & Payments" },
       ];
     default:
       return [{ href: "/dashboard", label: "Dashboard" }];

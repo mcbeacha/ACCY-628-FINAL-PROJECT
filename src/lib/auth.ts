@@ -1,6 +1,14 @@
+import { isDemoMode } from "@/lib/demo-config";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, UserRole } from "@/lib/types";
 import { redirect } from "next/navigation";
+
+function authEntryPath(error?: "profile") {
+  if (isDemoMode()) {
+    return error === "profile" ? "/demo-enter?error=profile" : "/demo-enter";
+  }
+  return error === "profile" ? "/login?error=profile" : "/login";
+}
 
 async function ensureProfile(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,7 +68,7 @@ export async function requireUser() {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    redirect("/login");
+    redirect(authEntryPath());
   }
 
   const profile = await ensureProfile(supabase, user);
@@ -68,7 +76,7 @@ export async function requireUser() {
   if (!profile) {
     // Avoid middleware bounce: end the session and show a clear login error
     await supabase.auth.signOut();
-    redirect("/login?error=profile");
+    redirect(authEntryPath("profile"));
   }
 
   return { supabase, user, profile };
