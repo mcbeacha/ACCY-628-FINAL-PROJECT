@@ -171,41 +171,47 @@ async function PartnerDashboard({
       />
       <AnalyticsNotice />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Invoiced revenue" value={formatCurrency(totalInvoiced)} />
-        <StatCard label="Collected revenue" value={formatCurrency(totalCollected)} />
+        <StatCard label="Invoiced revenue" value={formatCurrency(totalInvoiced)} href="/invoices" />
+        <StatCard label="Collected revenue" value={formatCurrency(totalCollected)} href="/ar" />
         <StatCard
           label="Outstanding AR"
           value={formatCurrency(outstandingAR)}
           tone={outstandingAR ? "warning" : "default"}
+          href="/ar"
         />
         <StatCard
           label="Past-due AR"
           value={formatCurrency(pastDueAR)}
           tone={pastDueAR ? "error" : "default"}
+          href="/ar"
         />
-        <StatCard label="Gross profit" value={formatCurrency(grossProfit)} />
+        <StatCard label="Gross profit" value={formatCurrency(grossProfit)} href="/profitability/matters" />
         <StatCard
           label="Gross margin"
           value={grossMargin == null ? "N/A" : `${grossMargin.toFixed(1)}%`}
+          href="/profitability/matters"
         />
-        <StatCard label="Unbilled approved time" value={formatCurrency(unbilledTimeAmt)} />
-        <StatCard label="Unbilled approved expenses" value={formatCurrency(unbilledExpAmt)} />
+        <StatCard label="Unbilled approved time" value={formatCurrency(unbilledTimeAmt)} href="/unbilled" />
+        <StatCard label="Unbilled approved expenses" value={formatCurrency(unbilledExpAmt)} href="/unbilled" />
         <StatCard
           label="Retainers below threshold"
           value={lowRetainers}
           tone={lowRetainers ? "warning" : "success"}
+          href="/retainers"
         />
         <StatCard
           label="Matters over budget"
           value={overBudget}
           tone={overBudget ? "error" : "default"}
+          href="/profitability/matters"
         />
         <StatCard
           label="Invoices awaiting approval"
           value={invAwaiting}
           tone={invAwaiting ? "warning" : "default"}
+          href="/invoices"
         />
-        <StatCard label="Active matters" value={activeMatters} />
+        <StatCard label="Active matters" value={activeMatters} href="/matters" />
       </div>
       <div className="flex flex-wrap gap-2">
         <Link href="/profitability/matters" className="btn btn-sm btn-primary">
@@ -228,19 +234,31 @@ async function PartnerDashboard({
         </Link>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Active clients" value={activeClients} />
+        <StatCard label="Active clients" value={activeClients} href="/clients" />
         <StatCard
           label="Matters awaiting approval"
           value={awaiting.length}
           tone={awaiting.length ? "warning" : "default"}
+          href="/matters"
         />
         <StatCard
           label="Missing lead attorney"
           value={missingLead.length}
           tone={missingLead.length ? "error" : "success"}
+          href="/data-quality"
         />
-        <StatCard label="Submitted time to review" value={submittedTime} tone={submittedTime ? "warning" : "default"} />
-        <StatCard label="Disputed invoices" value={disputedInv} tone={disputedInv ? "warning" : "default"} />
+        <StatCard
+          label="Submitted time to review"
+          value={submittedTime}
+          tone={submittedTime ? "warning" : "default"}
+          href="/time/review"
+        />
+        <StatCard
+          label="Disputed invoices"
+          value={disputedInv}
+          tone={disputedInv ? "warning" : "default"}
+          href="/invoices"
+        />
       </div>
       <ExecutiveCharts
         monthly={bundle.monthly}
@@ -420,31 +438,48 @@ async function AttorneyDashboard({
         description="Assigned matters, open work, deadlines, and your timekeeping."
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Assigned active matters" value={active.length} />
-        <StatCard label="Open tasks" value={openTasks.length} />
-        <StatCard label="Overdue tasks" value={overdue.length} tone={overdue.length ? "error" : "success"} />
-        <StatCard label="Upcoming deadlines" value={upcoming.length} tone="warning" />
+        <StatCard label="Assigned active matters" value={active.length} href="/matters" />
+        <StatCard label="Open tasks" value={openTasks.length} href="/tasks" />
+        <StatCard
+          label="Overdue tasks"
+          value={overdue.length}
+          tone={overdue.length ? "error" : "success"}
+          href="/tasks"
+        />
+        <StatCard label="Upcoming deadlines" value={upcoming.length} tone="warning" href="/matters" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Hours entered this week" value={hoursWeek.toFixed(2)} />
-        <StatCard label="Billable hours this week" value={billableWeek.toFixed(2)} />
-        <StatCard label="Billable hours this month" value={billableMonth.toFixed(2)} />
+        <StatCard label="Hours entered this week" value={hoursWeek.toFixed(2)} href="/time" />
+        <StatCard label="Billable hours this week" value={billableWeek.toFixed(2)} href="/time" />
+        <StatCard label="Billable hours this month" value={billableMonth.toFixed(2)} href="/time" />
         <StatCard
           label="Utilization estimate (month)"
           value={utilEst == null ? "—" : `${utilEst.toFixed(1)}%`}
+          href="/time"
         />
-        <StatCard label="Draft / unsubmitted time" value={unsubmitted} />
-        <StatCard label="Rejected time entries" value={rejectedTime} tone={rejectedTime ? "error" : "default"} />
-        <StatCard label="My unbilled approved time" value={formatCurrency(unbilledMine)} />
-        <StatCard label="Matter invoices (visible)" value={invMine.length} />
-        <StatCard label="Past-due balances (visible)" value={pastDueMine.length} tone={pastDueMine.length ? "error" : "default"} />
+        <StatCard label="Draft / unsubmitted time" value={unsubmitted} href="/time" />
+        <StatCard
+          label="Rejected time entries"
+          value={rejectedTime}
+          tone={rejectedTime ? "error" : "default"}
+          href="/time"
+        />
+        <StatCard label="My unbilled approved time" value={formatCurrency(unbilledMine)} href="/time" />
+        <StatCard label="Matter invoices (visible)" value={invMine.length} href="/invoices" />
+        <StatCard
+          label="Past-due balances (visible)"
+          value={pastDueMine.length}
+          tone={pastDueMine.length ? "error" : "default"}
+          href="/invoices"
+        />
         <StatCard
           label="Past-due $ (assigned matters)"
           value={formatCurrency(pastDueMine.reduce((s, i) => s + Number(i.balance_due), 0))}
           tone={pastDueMine.length ? "warning" : "default"}
+          href="/invoices"
         />
-        <StatCard label="Matters with budgets set" value={budgetWarnings.length} />
-        <StatCard label="Draft time entries" value={draftTime} />
+        <StatCard label="Matters with budgets set" value={budgetWarnings.length} href="/matters" />
+        <StatCard label="Draft time entries" value={draftTime} href="/time" />
       </div>
       <p className="text-xs opacity-60">
         Utilization uses available weekly hours (default 40) × weeks this month — management estimate only.
@@ -612,16 +647,26 @@ async function StaffDashboard({
         description="Your assigned tasks, due dates, matter support work, and timekeeping."
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Assigned tasks" value={open.length} />
-        <StatCard label="Due soon" value={dueSoon.length} tone="warning" />
-        <StatCard label="Overdue" value={overdue.length} tone={overdue.length ? "error" : "default"} />
-        <StatCard label="Waiting on others" value={waiting.length} />
+        <StatCard label="Assigned tasks" value={open.length} href="/tasks" />
+        <StatCard label="Due soon" value={dueSoon.length} tone="warning" href="/tasks" />
+        <StatCard
+          label="Overdue"
+          value={overdue.length}
+          tone={overdue.length ? "error" : "default"}
+          href="/tasks"
+        />
+        <StatCard label="Waiting on others" value={waiting.length} href="/tasks" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Hours entered this week" value={hoursWeek.toFixed(2)} />
-        <StatCard label="Draft time entries" value={draftTime} />
-        <StatCard label="Submitted expenses" value={submittedExp} />
-        <StatCard label="Rejected entries needing correction" value={rejected} tone={rejected ? "error" : "default"} />
+        <StatCard label="Hours entered this week" value={hoursWeek.toFixed(2)} href="/time" />
+        <StatCard label="Draft time entries" value={draftTime} href="/time" />
+        <StatCard label="Submitted expenses" value={submittedExp} href="/expenses" />
+        <StatCard
+          label="Rejected entries needing correction"
+          value={rejected}
+          tone={rejected ? "error" : "default"}
+          href="/time"
+        />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card bg-base-100 border border-base-300 shadow-sm">
@@ -740,21 +785,28 @@ async function BillingDashboard({
         description="Unbilled work, draft invoices, AR aging cues, payments, and retainers."
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Approved matters" value={rows.length} />
-        <StatCard label="Billing ready" value={ready.length} tone="success" />
+        <StatCard label="Approved matters" value={rows.length} href="/matters" />
+        <StatCard label="Billing ready" value={ready.length} tone="success" href="/billing-readiness" />
         <StatCard
           label="Missing information"
           value={missing.length}
           tone={missing.length ? "warning" : "default"}
+          href="/billing-readiness"
         />
         <StatCard
           label="Recently approved"
           value={rows.filter((r) => r.matter.approved_at).slice(0, 5).length}
+          href="/matters"
         />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Draft invoices" value={draftInv} />
-        <StatCard label="Invoices awaiting approval" value={pendingInv} tone={pendingInv ? "warning" : "default"} />
+        <StatCard label="Draft invoices" value={draftInv} href="/invoices" />
+        <StatCard
+          label="Invoices awaiting approval"
+          value={pendingInv}
+          tone={pendingInv ? "warning" : "default"}
+          href="/invoices"
+        />
         <StatCard
           label="Approved unbilled time"
           value={formatCurrency(
@@ -763,19 +815,50 @@ async function BillingDashboard({
               0
             )
           )}
+          href="/unbilled"
         />
         <StatCard
           label="Approved unbilled expenses"
           value={formatCurrency(unbilledExp.reduce((s, e) => s + Number(e.amount), 0))}
+          href="/unbilled"
         />
-        <StatCard label="Payments waiting to post" value={draftPays} />
-        <StatCard label="Unapplied payments" value={formatCurrency(unappliedPay)} />
-        <StatCard label="Outstanding AR" value={formatCurrency(arOpen)} tone={arOpen ? "warning" : "default"} />
-        <StatCard label="Past-due invoices" value={pastDueInv.length} tone={pastDueInv.length ? "error" : "default"} />
-        <StatCard label="Retainers available for application" value={formatCurrency(retAvailable)} />
-        <StatCard label="Entries missing descriptions" value={missingDesc} tone={missingDesc ? "warning" : "default"} />
-        <StatCard label="Entries missing rates" value={missingRates} tone={missingRates ? "warning" : "default"} />
-        <StatCard label="Retainers below threshold" value={lowRet} tone={lowRet ? "warning" : "success"} />
+        <StatCard label="Payments waiting to post" value={draftPays} href="/payments" />
+        <StatCard label="Unapplied payments" value={formatCurrency(unappliedPay)} href="/payments" />
+        <StatCard
+          label="Outstanding AR"
+          value={formatCurrency(arOpen)}
+          tone={arOpen ? "warning" : "default"}
+          href="/ar"
+        />
+        <StatCard
+          label="Past-due invoices"
+          value={pastDueInv.length}
+          tone={pastDueInv.length ? "error" : "default"}
+          href="/ar"
+        />
+        <StatCard
+          label="Retainers available for application"
+          value={formatCurrency(retAvailable)}
+          href="/retainers"
+        />
+        <StatCard
+          label="Entries missing descriptions"
+          value={missingDesc}
+          tone={missingDesc ? "warning" : "default"}
+          href="/unbilled"
+        />
+        <StatCard
+          label="Entries missing rates"
+          value={missingRates}
+          tone={missingRates ? "warning" : "default"}
+          href="/unbilled"
+        />
+        <StatCard
+          label="Retainers below threshold"
+          value={lowRet}
+          tone={lowRet ? "warning" : "success"}
+          href="/retainers"
+        />
       </div>
       <div className="flex flex-wrap gap-2">
         <Link href="/invoices/new" className="btn btn-sm btn-primary">Prepare invoice</Link>
@@ -888,10 +971,10 @@ async function ClientDashboard({
         </span>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Active matters" value={active.length} />
-        <StatCard label="All your matters" value={matterRows.length} />
-        <StatCard label="Client-visible milestones" value={tasks.length} />
-        <StatCard label="Open invoice balance" value={formatCurrency(openBal)} />
+        <StatCard label="Active matters" value={active.length} href="/portal" />
+        <StatCard label="All your matters" value={matterRows.length} href="/portal" />
+        <StatCard label="Client-visible milestones" value={tasks.length} href="/portal" />
+        <StatCard label="Open invoice balance" value={formatCurrency(openBal)} href="/portal/billing" />
       </div>
       <div className="flex flex-wrap gap-2">
         <Link href="/portal/billing" className="btn btn-sm btn-primary">
