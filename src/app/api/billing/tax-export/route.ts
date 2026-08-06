@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { buildTaxExportGroups } from "@/lib/tax-exports";
+import { buildTaxExportGroups, resolveTaxYear } from "@/lib/tax-exports";
 import { buildTaxExportWorkbook } from "@/lib/tax-exports-excel";
 import { workbookToBuffer, xlsxResponse } from "@/lib/attorney-excel";
 import { ROLE_LABELS } from "@/lib/constants";
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const taxYear = Number(url.searchParams.get("year") || new Date().getFullYear());
+  const taxYear = resolveTaxYear(url.searchParams.get("year") || undefined);
 
   const [{ data: payments }, { data: expenses }, { data: invoices }] = await Promise.all([
     supabase

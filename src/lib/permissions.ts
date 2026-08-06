@@ -18,7 +18,7 @@ export function canCreateMatters(role: UserRole) {
 }
 
 export function canApproveMatters(role: UserRole) {
-  return role === "managing_partner";
+  return role === "managing_partner" || role === "attorney";
 }
 
 export function canAssignTeam(role: UserRole) {
@@ -58,7 +58,7 @@ export function canPrepareInvoices(role: UserRole) {
 }
 
 export function canApproveInvoices(role: UserRole) {
-  return role === "managing_partner";
+  return role === "managing_partner" || role === "billing_staff";
 }
 
 export function canPostPayments(role: UserRole) {
@@ -203,6 +203,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/retainers", label: "Retainers" },
         { href: "/trust-ledger", label: "Trust Ledger" },
         { href: "/journal", label: "Journal Entries" },
+        { href: "/exports", label: "Tax Info" },
         ...STAFF_FIRM,
       ];
     case "attorney":

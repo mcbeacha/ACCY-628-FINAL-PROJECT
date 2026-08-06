@@ -3,13 +3,34 @@
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import {
+  approvalBadgeLabel,
+  viewerCanApprove,
+  type ApprovalMatterContext,
+} from "@/lib/approval-tiers";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { calcBillableAmount, calcLaborCost, type TimeEntry } from "@/lib/phase2-types";
 import { createClient } from "@/lib/supabase/client";
+import type { UserRole } from "@/lib/types";
 import { useEffect, useState } from "react";
 
-export function TimeReviewClient({ userId }: { userId: string }) {
-  const [rows, setRows] = useState<TimeEntry[]>([]);
+type TimeRow = TimeEntry & {
+  matters?: ApprovalMatterContext & {
+    id?: string;
+    matter_number?: string;
+    matter_name?: string;
+  } | null;
+  employee?: { full_name?: string } | null;
+};
+
+export function TimeReviewClient({
+  userId,
+  role,
+}: {
+  userId: string;
+  role: UserRole;
+}) {
+  const [rows, setRows] = useState<TimeRow[]>([]);
   const [status, setStatus] = useState("Submitted");
   const [scopeFilter, setScopeFilter] = useState<"all" | "oos" | "in">("all");
   const [message, setMessage] = useState<string | null>(null);
@@ -20,13 +41,15 @@ export function TimeReviewClient({ userId }: { userId: string }) {
     const supabase = createClient();
     let q = supabase
       .from("time_entries")
-      .select("*, matters(id, matter_number, matter_name), employee:profiles!time_entries_employee_id_fkey(full_name)")
+      .select(
+        "*, matters(id, matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), employee:profiles!time_entries_employee_id_fkey(full_name)"
+      )
       .order("work_date", { ascending: false });
     if (status) q = q.eq("approval_status", status);
     if (scopeFilter === "oos") q = q.eq("out_of_scope", true);
     if (scopeFilter === "in") q = q.eq("out_of_scope", false);
     const { data } = await q;
-    setRows((data || []) as TimeEntry[]);
+    setRows((data || []) as TimeRow[]);
   }
 
   useEffect(() => {
@@ -34,7 +57,27 @@ export function TimeReviewClient({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, scopeFilter]);
 
-  async function decide(row: TimeEntry, decision: "Approved" | "Rejected") {
+  function rowGate(row: TimeRow) {
+    return viewerCanApprove({
+      kind: "time",
+      viewerRole: role,
+      viewerId: userId,
+      matter: row.matters,
+      amount: calcBillableAmount(
+        Number(row.hours),
+        Number(row.billing_rate),
+        row.billable_status
+      ),
+    });
+  }
+
+  async function decide(row: TimeRow, decision: "Approved" | "Rejected") {
+    const gate = rowGate(row);
+    if (!gate.allowed) {
+      setError(gate.blockedReason || gate.decision.reason);
+      return;
+    }
+
     let reason: string | null = null;
     if (decision === "Rejected") {
       reason = window.prompt("Rejection reason (required):");
@@ -98,7 +141,7 @@ export function TimeReviewClient({ userId }: { userId: string }) {
     <>
       <PageHeader
         title="Time Review/Out-of-Scope"
-        description="Approve or reject submitted time. Out-of-scope / ad hoc work requires explicit attorney authorization before billing."
+        description="Approve or reject submitted time. Attorneys review their responsible matters; Contingency / PI time still routes to the responsible attorney first."
       />
       <div className="flex flex-wrap gap-2 items-center">
         <select className="select select-bordered select-sm" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -148,66 +191,85 @@ export function TimeReviewClient({ userId }: { userId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className={r.out_of_scope ? "bg-warning/10" : undefined}>
-                    <td className="text-sm">{formatDate(r.work_date)}</td>
-                    <td className="text-sm">
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {(r as any).employee?.full_name || "—"}
-                    </td>
-                    <td className="text-sm">{r.matters?.matter_number}</td>
-                    <td>{r.hours}</td>
-                    <td className="text-sm">
-                      {formatCurrency(calcBillableAmount(Number(r.hours), Number(r.billing_rate), r.billable_status))}
-                    </td>
-                    <td className="text-sm">
-                      {formatCurrency(calcLaborCost(Number(r.hours), Number(r.internal_cost_rate)))}
-                    </td>
-                    <td>
-                      <div className="flex flex-col gap-1 items-start">
-                        <StatusBadge status={r.approval_status} />
-                        {r.out_of_scope && (
-                          <span className="badge badge-warning badge-sm whitespace-nowrap">
-                            Out of scope
+                {rows.map((r) => {
+                  const gate = rowGate(r);
+                  return (
+                    <tr key={r.id} className={r.out_of_scope ? "bg-warning/10" : undefined}>
+                      <td className="text-sm">{formatDate(r.work_date)}</td>
+                      <td className="text-sm">{r.employee?.full_name || "—"}</td>
+                      <td className="text-sm">{r.matters?.matter_number}</td>
+                      <td>{r.hours}</td>
+                      <td className="text-sm">
+                        {formatCurrency(
+                          calcBillableAmount(
+                            Number(r.hours),
+                            Number(r.billing_rate),
+                            r.billable_status
+                          )
+                        )}
+                      </td>
+                      <td className="text-sm">
+                        {formatCurrency(
+                          calcLaborCost(Number(r.hours), Number(r.internal_cost_rate))
+                        )}
+                      </td>
+                      <td>
+                        <div className="flex flex-col gap-1 items-start">
+                          <StatusBadge status={r.approval_status} />
+                          {r.out_of_scope && (
+                            <span className="badge badge-warning badge-sm whitespace-nowrap">
+                              Out of scope
+                            </span>
+                          )}
+                          {r.approval_status === "Submitted" && (
+                            <span className="badge badge-ghost badge-sm">
+                              {approvalBadgeLabel(gate.decision)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="text-sm max-w-[16rem]">
+                        {r.billing_description}
+                        {r.out_of_scope && r.out_of_scope_reason && (
+                          <div className="text-xs mt-1 opacity-80">
+                            <span className="font-semibold">Ad hoc reason:</span>{" "}
+                            {r.out_of_scope_reason}
+                          </div>
+                        )}
+                        {r.rejection_reason && (
+                          <div className="text-xs text-error mt-1">{r.rejection_reason}</div>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap">
+                        {r.approval_status === "Submitted" && gate.allowed && (
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              className={`btn btn-xs ${r.out_of_scope ? "btn-warning" : "btn-success"}`}
+                              disabled={busy}
+                              onClick={() => decide(r, "Approved")}
+                            >
+                              {r.out_of_scope ? "Authorize" : "Approve"}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-error btn-xs"
+                              disabled={busy}
+                              onClick={() => decide(r, "Rejected")}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                        {r.approval_status === "Submitted" && !gate.allowed && (
+                          <span className="text-xs opacity-60 max-w-[8rem] inline-block">
+                            {gate.blockedReason}
                           </span>
                         )}
-                      </div>
-                    </td>
-                    <td className="text-sm max-w-[16rem]">
-                      {r.billing_description}
-                      {r.out_of_scope && r.out_of_scope_reason && (
-                        <div className="text-xs mt-1 opacity-80">
-                          <span className="font-semibold">Ad hoc reason:</span> {r.out_of_scope_reason}
-                        </div>
-                      )}
-                      {r.rejection_reason && (
-                        <div className="text-xs text-error mt-1">{r.rejection_reason}</div>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap">
-                      {r.approval_status === "Submitted" && (
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            className={`btn btn-xs ${r.out_of_scope ? "btn-warning" : "btn-success"}`}
-                            disabled={busy}
-                            onClick={() => decide(r, "Approved")}
-                          >
-                            {r.out_of_scope ? "Authorize" : "Approve"}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-error btn-xs"
-                            disabled={busy}
-                            onClick={() => decide(r, "Rejected")}
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

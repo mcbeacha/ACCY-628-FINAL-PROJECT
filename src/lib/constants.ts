@@ -132,6 +132,12 @@ export const RETAINER_TXN_TYPES = [
 export const EXPENSE_RECEIPT_THRESHOLD = 75;
 export const EXPENSE_HIGH_VALUE_THRESHOLD = 1000;
 
+/** Case-type approval matrix thresholds (academic demo). */
+export const INVOICE_BILLING_APPROVE_MAX = 5000;
+export const EXPENSE_ELEVATED_MP_THRESHOLD = 500;
+export const COST_ROUTINE_MP_THRESHOLD = EXPENSE_HIGH_VALUE_THRESHOLD;
+export const COST_ELEVATED_MP_THRESHOLD = EXPENSE_ELEVATED_MP_THRESHOLD;
+
 export const LIGHT_THEME = "corporate";
 export const DARK_THEME = "business";
 
