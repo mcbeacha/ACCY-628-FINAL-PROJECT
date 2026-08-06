@@ -1,10 +1,11 @@
 import { requireUser } from "@/lib/auth";
-import { canViewBillingReadiness } from "@/lib/permissions";
+import { canPrepareInvoices, canViewBillingReadiness } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
 import { Asc606MatterCard } from "@/components/Asc606MatterCard";
 import { evaluateBillingReadiness } from "@/lib/billing-readiness";
+import { isOrdinaryInvoiceMethod } from "@/lib/billing/prepare-invoice-matters";
 import { evaluateAsc606, ASC606_STEPS } from "@/lib/asc606";
 import { clientDisplayName } from "@/lib/format";
 import type { Client, Matter } from "@/lib/types";
@@ -16,6 +17,8 @@ export default async function BillingReadinessPage() {
   if (!canViewBillingReadiness(profile.role)) {
     redirect("/dashboard");
   }
+
+  const canCreateInvoice = canPrepareInvoices(profile.role);
 
   const { data } = await supabase
     .from("matters")
@@ -86,37 +89,61 @@ export default async function BillingReadinessPage() {
                     <th>Billing status</th>
                     <th>ASC 606</th>
                     <th>Gaps</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.matter.id}>
-                      <td>
-                        <Link
-                          href={`/matters/${r.matter.id}?tab=engagement`}
-                          className="link link-hover font-medium"
-                        >
-                          {r.matter.matter_number}
-                        </Link>
-                        <div className="text-xs opacity-60">{r.matter.matter_name}</div>
-                      </td>
-                      <td className="text-sm">{clientDisplayName(r.client)}</td>
-                      <td className="text-sm">{r.matter.billing_method || "—"}</td>
-                      <td>
-                        <StatusBadge status={r.status} />
-                      </td>
-                      <td>
-                        <StatusBadge status={r.asc606Status} />
-                        <div className="text-xs opacity-60">Score {r.asc606Score}</div>
-                      </td>
-                      <td className="text-sm max-w-md">
-                        {[...r.missing, ...r.asc606Gaps].length
-                          ? [...r.missing, ...r.asc606Gaps].slice(0, 4).join("; ") +
-                            ([...r.missing, ...r.asc606Gaps].length > 4 ? "…" : "")
-                          : "None"}
-                      </td>
-                    </tr>
-                  ))}
+                  {rows.map((r) => {
+                    const canInvoiceFromRow =
+                      canCreateInvoice &&
+                      r.status === "Ready" &&
+                      r.asc606Status === "Compliant" &&
+                      isOrdinaryInvoiceMethod({
+                        billing_method: r.matter.billing_method,
+                        fixed_fee_amount: r.matter.fixed_fee_amount,
+                        hourly_rate: r.matter.hourly_rate,
+                      });
+                    return (
+                      <tr key={r.matter.id}>
+                        <td>
+                          <Link
+                            href={`/matters/${r.matter.id}?tab=engagement`}
+                            className="link link-hover font-medium"
+                          >
+                            {r.matter.matter_number}
+                          </Link>
+                          <div className="text-xs opacity-60">{r.matter.matter_name}</div>
+                        </td>
+                        <td className="text-sm">{clientDisplayName(r.client)}</td>
+                        <td className="text-sm">{r.matter.billing_method || "—"}</td>
+                        <td>
+                          <StatusBadge status={r.status} />
+                        </td>
+                        <td>
+                          <StatusBadge status={r.asc606Status} />
+                          <div className="text-xs opacity-60">Score {r.asc606Score}</div>
+                        </td>
+                        <td className="text-sm max-w-md">
+                          {[...r.missing, ...r.asc606Gaps].length
+                            ? [...r.missing, ...r.asc606Gaps].slice(0, 4).join("; ") +
+                              ([...r.missing, ...r.asc606Gaps].length > 4 ? "…" : "")
+                            : "None"}
+                        </td>
+                        <td>
+                          {canInvoiceFromRow ? (
+                            <Link
+                              href={`/invoices/new?matterId=${r.matter.id}`}
+                              className="btn btn-sm btn-primary"
+                            >
+                              Create invoice
+                            </Link>
+                          ) : (
+                            <span className="text-sm opacity-50">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

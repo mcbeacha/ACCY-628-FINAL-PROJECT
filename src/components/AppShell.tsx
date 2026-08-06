@@ -167,7 +167,11 @@ export function AppShell({
               Workspace
             </p>
             <div className="flex-1 overflow-y-auto overscroll-contain pr-1">
-              <SidebarNav role={profile.role} closeDrawerOnNavigate />
+              <SidebarNav
+                role={profile.role}
+                userId={profile.id}
+                closeDrawerOnNavigate
+              />
             </div>
             <div className="app-sidebar-foot mt-6 p-3 rounded-md text-xs">
               {demoMode ? (

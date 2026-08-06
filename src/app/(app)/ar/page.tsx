@@ -1,7 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { canViewAR, arAgingBucket } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
-import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
 import { FilterField, FilterToolbar } from "@/components/FilterToolbar";
@@ -14,6 +13,11 @@ import {
   reconcileClientOutstanding,
   type ArOpenInvoice,
 } from "@/lib/ar-client-summary";
+import {
+  ArSummaryPanel,
+  type ArSummaryCategory,
+  type ArSummaryInvoiceItem,
+} from "./ArSummaryPanel";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArClientFocus } from "./ArClientFocus";
@@ -25,6 +29,26 @@ function arQuery(params: Record<string, string | undefined>) {
   }
   const qs = q.toString();
   return qs ? `/ar?${qs}` : "/ar";
+}
+
+function toInvoiceItem(r: {
+  id: string;
+  invoice_number?: string;
+  due_date?: string;
+  balance_due?: number;
+  invoice_status?: string;
+  clients?: Parameters<typeof clientDisplayName>[0];
+  matters?: { matter_number?: string } | null;
+}): ArSummaryInvoiceItem {
+  return {
+    id: r.id,
+    invoiceNumber: r.invoice_number || "—",
+    clientLabel: clientDisplayName(r.clients ?? null),
+    matterNumber: r.matters?.matter_number || "—",
+    dueDate: formatDate(r.due_date || null),
+    balanceLabel: formatCurrency(Number(r.balance_due || 0)),
+    status: r.invoice_status || "—",
+  };
 }
 
 export default async function ARPage({
@@ -46,10 +70,15 @@ export default async function ARPage({
       .order("due_date"),
     supabase
       .from("payments")
-      .select("id, unapplied_amount, payment_status, total_amount")
+      .select("id, payment_number, unapplied_amount, payment_status, total_amount")
       .eq("payment_status", "Posted")
       .gt("unapplied_amount", 0),
-    supabase.from("write_offs").select("amount, approval_status"),
+    supabase
+      .from("write_offs")
+      .select(
+        "amount, approval_status, invoice_id, invoices(id, invoice_number, due_date, balance_due, invoice_status, clients(organization_name, first_name, last_name, client_number, client_type, primary_contact_name), matters(matter_number))"
+      )
+      .eq("approval_status", "Approved"),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,24 +117,137 @@ export default async function ARPage({
   const sumBal = (list: typeof withBucket) =>
     list.reduce((s, r) => s + Math.max(0, Number(r.balance_due)), 0);
 
-  const totalAR = sumBal(open);
-  const current = sumBal(open.filter((r) => r.bucket === "Current"));
-  const b1 = sumBal(open.filter((r) => r.bucket === "1–30"));
-  const b2 = sumBal(open.filter((r) => r.bucket === "31–60"));
-  const b3 = sumBal(open.filter((r) => r.bucket === "61–90"));
-  const b4 = sumBal(open.filter((r) => r.bucket === "90+"));
-  const pastDueTotal = b1 + b2 + b3 + b4;
-  const partial = open.filter((r) => r.invoice_status === "Partially Paid").length;
-  const disputed = open.filter(
+  const pastDueOpen = open.filter((r) => PAST_DUE_BUCKETS.has(r.bucket));
+  const currentOpen = open.filter((r) => r.bucket === "Current");
+  const b1Open = open.filter((r) => r.bucket === "1–30");
+  const b2Open = open.filter((r) => r.bucket === "31–60");
+  const b3Open = open.filter((r) => r.bucket === "61–90");
+  const b4Open = open.filter((r) => r.bucket === "90+");
+  const partialOpen = open.filter((r) => r.invoice_status === "Partially Paid");
+  const disputedOpen = open.filter(
     (r) => r.invoice_status === "Disputed" || r.dispute_status === "Raised"
-  ).length;
-  const writtenOffAmt = ((writeOffs || []) as { amount: number; approval_status: string }[])
-    .filter((w) => w.approval_status === "Approved")
-    .reduce((s, w) => s + Number(w.amount), 0);
-  const unapplied = ((payments || []) as { unapplied_amount: number }[]).reduce(
+  );
+
+  const totalAR = sumBal(open);
+  const current = sumBal(currentOpen);
+  const b1 = sumBal(b1Open);
+  const b2 = sumBal(b2Open);
+  const b3 = sumBal(b3Open);
+  const b4 = sumBal(b4Open);
+  const pastDueTotal = b1 + b2 + b3 + b4;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const approvedWriteOffs = (writeOffs || []) as any[];
+  const writtenOffAmt = approvedWriteOffs.reduce(
+    (s, w) => s + Number(w.amount || 0),
+    0
+  );
+  const writeOffInvoiceItems: ArSummaryInvoiceItem[] = [];
+  const seenWriteOffInvoices = new Set<string>();
+  for (const w of approvedWriteOffs) {
+    const inv = w.invoices;
+    if (!inv?.id || seenWriteOffInvoices.has(inv.id)) continue;
+    seenWriteOffInvoices.add(inv.id);
+    writeOffInvoiceItems.push(toInvoiceItem(inv));
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unappliedPayments = (payments || []) as any[];
+  const unapplied = unappliedPayments.reduce(
     (s, p) => s + Number(p.unapplied_amount),
     0
   );
+
+  const categories: ArSummaryCategory[] = [
+    {
+      id: "past_due",
+      label: "Past-due AR",
+      value: formatCurrency(pastDueTotal),
+      tone: pastDueTotal ? "error" : "default",
+      kind: "invoice",
+      items: pastDueOpen.map(toInvoiceItem),
+    },
+    {
+      id: "total",
+      label: "Total outstanding AR",
+      value: formatCurrency(totalAR),
+      kind: "invoice",
+      items: open.map(toInvoiceItem),
+    },
+    {
+      id: "current",
+      label: "Current",
+      value: formatCurrency(current),
+      kind: "invoice",
+      items: currentOpen.map(toInvoiceItem),
+    },
+    {
+      id: "b1",
+      label: "1–30 past due",
+      value: formatCurrency(b1),
+      tone: b1 ? "warning" : "default",
+      kind: "invoice",
+      items: b1Open.map(toInvoiceItem),
+    },
+    {
+      id: "b2",
+      label: "31–60 past due",
+      value: formatCurrency(b2),
+      tone: b2 ? "warning" : "default",
+      kind: "invoice",
+      items: b2Open.map(toInvoiceItem),
+    },
+    {
+      id: "b3",
+      label: "61–90 past due",
+      value: formatCurrency(b3),
+      tone: b3 ? "error" : "default",
+      kind: "invoice",
+      items: b3Open.map(toInvoiceItem),
+    },
+    {
+      id: "b4",
+      label: "90+ past due",
+      value: formatCurrency(b4),
+      tone: b4 ? "error" : "default",
+      kind: "invoice",
+      items: b4Open.map(toInvoiceItem),
+    },
+    {
+      id: "partial",
+      label: "Partially paid (open)",
+      value: partialOpen.length,
+      kind: "invoice",
+      items: partialOpen.map(toInvoiceItem),
+    },
+    {
+      id: "disputed",
+      label: "Disputed (open)",
+      value: disputedOpen.length,
+      tone: disputedOpen.length ? "warning" : "default",
+      kind: "invoice",
+      items: disputedOpen.map(toInvoiceItem),
+    },
+    {
+      id: "write_offs",
+      label: "Approved write-offs",
+      value: formatCurrency(writtenOffAmt),
+      kind: "invoice",
+      items: writeOffInvoiceItems,
+    },
+    {
+      id: "unapplied",
+      label: "Unapplied payments",
+      value: formatCurrency(unapplied),
+      kind: "payment",
+      items: unappliedPayments.map((p) => ({
+        id: p.id,
+        paymentNumber: p.payment_number || p.id.slice(0, 8),
+        totalLabel: formatCurrency(Number(p.total_amount || 0)),
+        unappliedLabel: formatCurrency(Number(p.unapplied_amount || 0)),
+      })),
+    },
+  ];
 
   const practiceAreas = [
     ...new Set(scoped.map((r) => r.matters?.practice_area).filter(Boolean)),
@@ -157,48 +299,7 @@ export default async function ARPage({
         description="Outstanding balances, AR aging by due date, disputed and written-off invoices."
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Past-due AR"
-          value={formatCurrency(pastDueTotal)}
-          tone={pastDueTotal ? "error" : "default"}
-          href="/ar?bucket=past_due"
-        />
-        <StatCard label="Total outstanding AR" value={formatCurrency(totalAR)} href="/ar" />
-        <StatCard label="Current" value={formatCurrency(current)} href="/ar?bucket=Current" />
-        <StatCard
-          label="1–30 past due"
-          value={formatCurrency(b1)}
-          tone={b1 ? "warning" : "default"}
-          href="/ar?bucket=1–30"
-        />
-        <StatCard
-          label="31–60 past due"
-          value={formatCurrency(b2)}
-          tone={b2 ? "warning" : "default"}
-          href="/ar?bucket=31–60"
-        />
-        <StatCard
-          label="61–90 past due"
-          value={formatCurrency(b3)}
-          tone={b3 ? "error" : "default"}
-          href="/ar?bucket=61–90"
-        />
-        <StatCard
-          label="90+ past due"
-          value={formatCurrency(b4)}
-          tone={b4 ? "error" : "default"}
-          href="/ar?bucket=90+"
-        />
-        <StatCard label="Partially paid (open)" value={partial} />
-        <StatCard
-          label="Disputed (open)"
-          value={disputed}
-          tone={disputed ? "warning" : "default"}
-        />
-        <StatCard label="Approved write-offs" value={formatCurrency(writtenOffAmt)} />
-        <StatCard label="Unapplied payments" value={formatCurrency(unapplied)} />
-      </div>
+      <ArSummaryPanel categories={categories} />
 
       <form className="mt-4">
         <FilterToolbar

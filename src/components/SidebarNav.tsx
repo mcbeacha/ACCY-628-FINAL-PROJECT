@@ -13,12 +13,7 @@ import {
 } from "@/lib/nav-config";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
 import type { DemoRoleKey } from "@/lib/demo-config";
-import {
-  expenseRequiredApproverRole,
-  type ApprovalMatterContext,
-} from "@/lib/approval-tiers";
-import { getFirmThresholds } from "@/lib/firm-thresholds";
-import { canApproveExpenses, canApproveMatterCosts } from "@/lib/permissions";
+import { loadNavApprovalBadgeCounts } from "@/lib/nav-approval-badges";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
 import { ChevronDown } from "lucide-react";
@@ -28,6 +23,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 
 type Props = {
   role: UserRole;
+  userId: string;
   /** When true, selecting a link closes the mobile drawer. */
   closeDrawerOnNavigate?: boolean;
 };
@@ -208,12 +204,17 @@ function SidebarSection({
   );
 }
 
-export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
+export function SidebarNav({
+  role,
+  userId,
+  closeDrawerOnNavigate = false,
+}: Props) {
   const pathname = usePathname();
   const demo = useDemoRole();
   // Prefer demo context so the matters heading updates as soon as View App As changes.
   const effectiveKey = (demo?.activeDemoRole ?? role) as DemoRoleKey | UserRole;
   const effectiveRole = permissionRoleForDemoKey(effectiveKey);
+  const viewerId = demo?.activeDemoProfileId ?? userId;
 
   const { dashboard, inbox, settings, sections } = useMemo(
     () => buildNavSectionsForDemoKey(effectiveKey),
@@ -244,9 +245,6 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
   const [openSection, setOpenSection] = useState<NavSectionId | null>(routeSection);
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
 
-  const canSeeExpenseReview = canApproveExpenses(effectiveRole);
-  const canSeeCostApproval = canApproveMatterCosts(effectiveRole);
-
   useEffect(() => {
     setOpenSection(routeSection);
   }, [routeSection]);
@@ -255,53 +253,15 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
     let cancelled = false;
 
     async function loadPendingBadges() {
-      const next: Record<string, number> = {};
+      if (effectiveRole === "client") {
+        if (!cancelled) setBadgeCounts({});
+        return;
+      }
       const supabase = createClient();
-
-      if (canSeeExpenseReview) {
-        const thresholds = await getFirmThresholds(supabase);
-        const { data, error } = await supabase
-          .from("expense_entries")
-          .select(
-            "id, amount, created_by, required_approver_role, matters(billing_method, practice_area, responsible_attorney_id)"
-          )
-          .eq("approval_status", "Submitted");
-        if (!error) {
-          const rows = (data || []) as {
-            id: string;
-            amount: number;
-            created_by?: string | null;
-            required_approver_role?: string | null;
-            matters?: ApprovalMatterContext | null;
-          }[];
-          const count = rows.filter((row) => {
-            const required = expenseRequiredApproverRole({
-              matter: row.matters,
-              amount: Number(row.amount),
-              thresholds,
-              stampedRequiredRole: row.required_approver_role,
-            });
-            if (effectiveRole === "managing_partner") {
-              return required === "managing_partner";
-            }
-            if (effectiveRole === "billing_staff") {
-              // Count items billing can act on (not self-submitted)
-              return required === "billing_staff";
-            }
-            return false;
-          }).length;
-          if (count > 0) next["/expenses/review"] = count;
-        }
-      }
-
-      if (canSeeCostApproval) {
-        const { count, error } = await supabase
-          .from("matter_cost_entries")
-          .select("id", { count: "exact", head: true })
-          .eq("approval_status", "Submitted");
-        if (!error && (count ?? 0) > 0) next["/costs/review"] = count ?? 0;
-      }
-
+      const next = await loadNavApprovalBadgeCounts(supabase, {
+        role: effectiveRole,
+        userId: viewerId,
+      });
       if (!cancelled) setBadgeCounts(next);
     }
 
@@ -309,7 +269,7 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [canSeeExpenseReview, canSeeCostApproval, pathname, effectiveRole]);
+  }, [pathname, effectiveRole, viewerId]);
 
   function onNavigate() {
     if (closeDrawerOnNavigate) closeMobileDrawer();
@@ -356,24 +316,41 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
         </div>
       )}
 
-      {inbox && (
-        <div className="mb-2">
-          <Link
-            href={inbox.href}
-            onClick={onNavigate}
-            className={[
-              "nav-link",
-              isNavLinkActive(pathname, inbox.href, allHrefs) ? "nav-link-active" : "",
-            ].join(" ")}
-            aria-current={
-              isNavLinkActive(pathname, inbox.href, allHrefs) ? "page" : undefined
-            }
-          >
-            <InboxIcon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-            <span className="font-semibold">{inbox.label}</span>
-          </Link>
-        </div>
-      )}
+      {inbox && (() => {
+        const inboxCount = badgeCounts[inbox.href] ?? 0;
+        const showInboxBadge = inboxCount > 0;
+        return (
+          <div className="mb-2">
+            <Link
+              href={inbox.href}
+              onClick={onNavigate}
+              className={[
+                "nav-link",
+                isNavLinkActive(pathname, inbox.href, allHrefs) ? "nav-link-active" : "",
+              ].join(" ")}
+              aria-current={
+                isNavLinkActive(pathname, inbox.href, allHrefs) ? "page" : undefined
+              }
+              aria-label={
+                showInboxBadge
+                  ? `${inbox.label}, ${inboxCount} pending`
+                  : undefined
+              }
+            >
+              <InboxIcon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+              <span className="font-semibold flex-1 truncate">{inbox.label}</span>
+              {showInboxBadge && (
+                <span
+                  className="badge badge-sm shrink-0 border-0 bg-accent/90 text-accent-content"
+                  aria-hidden
+                >
+                  {inboxCount}
+                </span>
+              )}
+            </Link>
+          </div>
+        );
+      })()}
 
       <div className="flex-1 min-h-0">
         {sectionsWithTitle.map((section) => (

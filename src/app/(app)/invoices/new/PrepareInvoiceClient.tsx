@@ -27,8 +27,8 @@ import {
   getFirmThresholds,
   type FirmApprovalThresholds,
 } from "@/lib/firm-thresholds";
-import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type MatterRow = {
   id: string;
@@ -53,6 +53,9 @@ export function PrepareInvoiceClient({
   role: string;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillMatterId = searchParams.get("matterId");
+  const prefillAppliedRef = useRef(false);
   const [matters, setMatters] = useState<MatterRow[]>([]);
   const [mattersLoading, setMattersLoading] = useState(true);
   const [mattersError, setMattersError] = useState<string | null>(null);
@@ -147,6 +150,34 @@ export function PrepareInvoiceClient({
       }
     }
   }
+
+  useEffect(() => {
+    if (mattersLoading || prefillAppliedRef.current) return;
+    if (!prefillMatterId) {
+      prefillAppliedRef.current = true;
+      return;
+    }
+    prefillAppliedRef.current = true;
+    const m = matters.find((x) => x.id === prefillMatterId);
+    if (!m) {
+      setError("Matter not available for Prepare Invoice.");
+      return;
+    }
+    // Same autofill path as onMatterChange (due date / fixed fee).
+    setMatterId(m.id);
+    const terms = m.payment_terms_days || 30;
+    const d = new Date(`${invoiceDate}T00:00:00`);
+    d.setDate(d.getDate() + terms);
+    setDueDate(d.toISOString().slice(0, 10));
+    if (
+      (m.billing_method === "Fixed Fee" || m.billing_method === "Hybrid") &&
+      Number(m.fixed_fee_amount) > 0
+    ) {
+      setFixedFee(String(m.fixed_fee_amount));
+    } else {
+      setFixedFee("");
+    }
+  }, [mattersLoading, matters, prefillMatterId, invoiceDate]);
 
   useEffect(() => {
     if (!matterId) return;
