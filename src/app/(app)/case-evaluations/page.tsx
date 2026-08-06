@@ -16,13 +16,14 @@ export default async function CaseEvaluationsPage() {
   const { data } = await supabase
     .from("case_evaluations")
     .select(
-      "*, partner:profiles!case_evaluations_assigned_partner_id_fkey(full_name), paralegal:profiles!case_evaluations_assigned_paralegal_id_fkey(full_name)"
+      "*, partner:profiles!case_evaluations_assigned_partner_id_fkey(full_name), paralegal:profiles!case_evaluations_assigned_paralegal_id_fkey(full_name), lead_sources(source_name)"
     )
     .order("submitted_at", { ascending: false });
 
   const rows = (data || []) as (CaseEvaluation & {
     partner?: { full_name: string } | null;
     paralegal?: { full_name: string } | null;
+    lead_sources?: { source_name: string } | null;
   })[];
 
   const title =
@@ -50,6 +51,7 @@ export default async function CaseEvaluationsPage() {
                     <th>Reference</th>
                     <th>Contact</th>
                     <th>Practice area</th>
+                    <th>Source</th>
                     <th>Urgency</th>
                     <th>Status</th>
                     <th>Follow-up</th>
@@ -67,6 +69,7 @@ export default async function CaseEvaluationsPage() {
                       </td>
                       <td className="text-sm">{evaluationDisplayName(e)}</td>
                       <td className="text-sm">{e.practice_area}</td>
+                      <td className="text-sm">{e.lead_sources?.source_name || e.referral_source || "—"}</td>
                       <td className="text-sm">{e.urgency_level}</td>
                       <td>
                         <StatusBadge status={e.evaluation_status} />

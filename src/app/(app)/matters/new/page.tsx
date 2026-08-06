@@ -21,21 +21,35 @@ function NewMatterForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [teamIds, setTeamIds] = useState<string[]>([]);
+  const [leadSources, setLeadSources] = useState<{ id: string; source_name: string }[]>([]);
+  const [campaigns, setCampaigns] = useState<
+    { id: string; campaign_name: string; lead_source_id: string }[]
+  >([]);
+  const [leadSourceId, setLeadSourceId] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
     (async () => {
-      const [{ data: clientData }, { data: staffData }] = await Promise.all([
-        supabase.from("clients").select("*").order("created_at", { ascending: false }),
-        supabase
-          .from("profiles")
-          .select("*")
-          .in("role", ["managing_partner", "attorney", "paralegal", "billing_staff"])
-          .eq("active_status", true)
-          .order("full_name"),
-      ]);
+      const [{ data: clientData }, { data: staffData }, { data: sources }, { data: camps }] =
+        await Promise.all([
+          supabase.from("clients").select("*").order("created_at", { ascending: false }),
+          supabase
+            .from("profiles")
+            .select("*")
+            .in("role", ["managing_partner", "attorney", "paralegal", "billing_staff"])
+            .eq("active_status", true)
+            .order("full_name"),
+          supabase.from("lead_sources").select("id, source_name").eq("active_status", true).order("display_order"),
+          supabase
+            .from("marketing_campaigns")
+            .select("id, campaign_name, lead_source_id")
+            .eq("status", "Active")
+            .order("campaign_name"),
+        ]);
       setClients((clientData || []) as Client[]);
       setStaff((staffData || []) as Profile[]);
+      setLeadSources(sources || []);
+      setCampaigns(camps || []);
     })();
   }, []);
 
@@ -162,6 +176,8 @@ function NewMatterForm() {
       approval_status: submitForApproval ? "Pending Approval" : "Draft",
       approval_notes: String(fd.get("approval_notes") || "").trim() || null,
       created_by: user.id,
+      lead_source_id: String(fd.get("lead_source_id") || "").trim() || null,
+      campaign_id: String(fd.get("campaign_id") || "").trim() || null,
     };
 
     const { data: matter, error: insertError } = await supabase
@@ -301,6 +317,40 @@ function NewMatterForm() {
                   {PRACTICE_AREAS.map((p) => (
                     <option key={p}>{p}</option>
                   ))}
+                </select>
+              </div>
+              <label className="label-cell" htmlFor="lead_source_id">
+                Lead source
+              </label>
+              <div className="field-cell">
+                <select
+                  id="lead_source_id"
+                  name="lead_source_id"
+                  className="select select-bordered w-full"
+                  value={leadSourceId}
+                  onChange={(e) => setLeadSourceId(e.target.value)}
+                >
+                  <option value="">Unattributed</option>
+                  {leadSources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.source_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label className="label-cell" htmlFor="campaign_id">
+                Marketing campaign
+              </label>
+              <div className="field-cell">
+                <select id="campaign_id" name="campaign_id" className="select select-bordered w-full" defaultValue="">
+                  <option value="">None</option>
+                  {campaigns
+                    .filter((c) => !leadSourceId || c.lead_source_id === leadSourceId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.campaign_name}
+                      </option>
+                    ))}
                 </select>
               </div>
               <label className="label-cell" htmlFor="engagement_start_date">

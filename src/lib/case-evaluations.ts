@@ -84,6 +84,13 @@ export type CaseEvaluation = {
   urgency_level: CaseEvalUrgency;
   currently_represented: boolean;
   referral_source: string | null;
+  lead_source_id?: string | null;
+  campaign_id?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  landing_page?: string | null;
+  tracking_phone?: string | null;
   consent_to_contact: boolean;
   disclaimer_acknowledged: boolean;
   evaluation_status: CaseEvalStatus;

@@ -7,6 +7,7 @@ import {
   FileText,
   Inbox,
   Landmark,
+  Megaphone,
   Receipt,
   ShieldAlert,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const PARTNER_ACTIONS = [
   { label: "Review Time", Icon: Clock, href: "/time/review" },
   { label: "Review Expenses", Icon: Receipt, href: "/expenses/review" },
   { label: "Review Costs", Icon: ClipboardCheck, href: "/costs/review" },
+  { label: "Marketing ROI", Icon: Megaphone, href: "/marketing" },
   { label: "New Matter", Icon: FilePlus2, href: "/matters/new" },
   { label: "Invoices", Icon: FileText, href: "/invoices" },
   { label: "AR & Collections", Icon: Landmark, href: "/ar" },
