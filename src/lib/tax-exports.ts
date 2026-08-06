@@ -41,12 +41,14 @@ export type TaxExportAudit = {
   taxYear: number;
 };
 
-const DEMO_FALLBACKS: Omit<TaxLineItem, "id">[] = [
+const DEMO_FALLBACKS: Array<
+  Omit<TaxLineItem, "id" | "date"> & { monthDay: string }
+> = [
   {
     categoryId: "entertainment_0",
     description: "Client development — sporting event tickets (demo)",
     amount: 480,
-    date: `${new Date().getFullYear()}-06-14`,
+    monthDay: "06-14",
     source: "demo",
     reference: "DEMO-ENT-001",
     taxNote: "Generally nondeductible entertainment under IRC §274",
@@ -55,7 +57,7 @@ const DEMO_FALLBACKS: Omit<TaxLineItem, "id">[] = [
     categoryId: "entertainment_0",
     description: "Golf outing with referral source (demo)",
     amount: 320,
-    date: `${new Date().getFullYear()}-08-02`,
+    monthDay: "08-02",
     source: "demo",
     reference: "DEMO-ENT-002",
     taxNote: "Generally nondeductible entertainment under IRC §274",
@@ -64,7 +66,7 @@ const DEMO_FALLBACKS: Omit<TaxLineItem, "id">[] = [
     categoryId: "meals_50",
     description: "Client lunch — matter strategy discussion (demo)",
     amount: 96.4,
-    date: `${new Date().getFullYear()}-03-18`,
+    monthDay: "03-18",
     source: "demo",
     reference: "DEMO-MEAL-001",
     taxNote: "Typical business meal — often 50% deductible when substantiated",
@@ -73,7 +75,7 @@ const DEMO_FALLBACKS: Omit<TaxLineItem, "id">[] = [
     categoryId: "professional_dues",
     description: "State bar dues (demo)",
     amount: 375,
-    date: `${new Date().getFullYear()}-01-15`,
+    monthDay: "01-15",
     source: "demo",
     reference: "DEMO-DUE-001",
     taxNote: "Ordinary professional dues — usually fully deductible",
@@ -82,7 +84,7 @@ const DEMO_FALLBACKS: Omit<TaxLineItem, "id">[] = [
     categoryId: "professional_dues",
     description: "CLE registration — ethics hours (demo)",
     amount: 249,
-    date: `${new Date().getFullYear()}-04-09`,
+    monthDay: "04-09",
     source: "demo",
     reference: "DEMO-CLE-001",
     taxNote: "Continuing education — usually fully deductible",
@@ -91,7 +93,7 @@ const DEMO_FALLBACKS: Omit<TaxLineItem, "id">[] = [
     categoryId: "insurance",
     description: "Professional malpractice insurance premium (demo)",
     amount: 4200,
-    date: `${new Date().getFullYear()}-02-01`,
+    monthDay: "02-01",
     source: "demo",
     reference: "DEMO-INS-001",
     taxNote: "Business insurance — usually fully deductible",
@@ -100,7 +102,7 @@ const DEMO_FALLBACKS: Omit<TaxLineItem, "id">[] = [
     categoryId: "office_ops",
     description: "Office rent — quarterly (demo)",
     amount: 9000,
-    date: `${new Date().getFullYear()}-01-01`,
+    monthDay: "01-01",
     source: "demo",
     reference: "DEMO-RENT-001",
     taxNote: "Rent / occupancy — usually fully deductible",
@@ -109,7 +111,7 @@ const DEMO_FALLBACKS: Omit<TaxLineItem, "id">[] = [
     categoryId: "office_ops",
     description: "Legal research subscription (demo)",
     amount: 1800,
-    date: `${new Date().getFullYear()}-01-05`,
+    monthDay: "01-05",
     source: "demo",
     reference: "DEMO-SOFT-001",
     taxNote: "Software / research tools — usually fully deductible",
@@ -118,7 +120,7 @@ const DEMO_FALLBACKS: Omit<TaxLineItem, "id">[] = [
     categoryId: "payroll_notes",
     description: "Wages & payroll taxes summary (demo placeholder)",
     amount: 186000,
-    date: `${new Date().getFullYear()}-12-31`,
+    monthDay: "12-31",
     source: "demo",
     reference: "DEMO-PAY-001",
     taxNote: "Provide W-2 / payroll reports to CPA; owner draws tracked separately",
@@ -127,12 +129,29 @@ const DEMO_FALLBACKS: Omit<TaxLineItem, "id">[] = [
     categoryId: "trust_memo",
     description: "Client trust / IOLTA balances — informational only (demo)",
     amount: 0,
-    date: `${new Date().getFullYear()}-12-31`,
+    monthDay: "12-31",
     source: "demo",
     reference: "DEMO-TRUST-001",
     taxNote: "Trust funds are not firm income; report for CPA reconciliation only",
   },
 ];
+
+/** Calendar years available in the Tax Exports year picker (current + prior two). */
+export function availableTaxYears(now = new Date()): number[] {
+  const current = now.getFullYear();
+  return [current, current - 1, current - 2];
+}
+
+export function resolveTaxYear(
+  raw: string | string[] | undefined,
+  now = new Date()
+): number {
+  const years = availableTaxYears(now);
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const parsed = Number(value);
+  if (Number.isInteger(parsed) && years.includes(parsed)) return parsed;
+  return years[0];
+}
 
 export const TAX_CATEGORY_META: Record<
   TaxCategoryId,
@@ -342,7 +361,12 @@ export function buildTaxExportGroups(input: {
       "trust_memo",
     ];
     if (!present.has(demo.categoryId) && mustHave.includes(demo.categoryId)) {
-      items.push({ ...demo, id: `demo-${demoIdx++}` });
+      const { monthDay, ...rest } = demo;
+      items.push({
+        ...rest,
+        id: `demo-${demoIdx++}`,
+        date: `${input.taxYear}-${monthDay}`,
+      });
       present.add(demo.categoryId);
     }
   }

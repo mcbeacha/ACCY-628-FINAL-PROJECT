@@ -9,6 +9,10 @@ import {
   type TaskCompletionResult,
 } from "@/components/TaskCompletionModal";
 import { ASSIGNMENT_ROLES, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants";
+import {
+  approvalBadgeLabel,
+  viewerCanApprove,
+} from "@/lib/approval-tiers";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type {
@@ -38,13 +42,6 @@ type Props = {
 export function MatterDetailClient({ matterId, role, userId }: Props) {
   const router = useRouter();
   const isClient = role === "client";
-  const canApprove = role === "managing_partner";
-  const canEditTasks =
-    role === "managing_partner" || role === "attorney" || role === "paralegal";
-  const canAssign = role === "managing_partner" || role === "attorney";
-  const canLogTimeExpense =
-    role === "managing_partner" || role === "attorney" || role === "paralegal";
-
   const [tab, setTab] = useState("overview");
   const [matter, setMatter] = useState<Matter | null>(null);
   const [client, setClient] = useState<Client | null>(null);
@@ -57,6 +54,21 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pendingComplete, setPendingComplete] = useState<MatterTask | null>(null);
+
+  const matterEngagement = matter
+    ? viewerCanApprove({
+        kind: "matter_engagement",
+        viewerRole: role,
+        viewerId: userId,
+        matter,
+      })
+    : null;
+  const canApprove = !!matterEngagement?.allowed;
+  const canEditTasks =
+    role === "managing_partner" || role === "attorney" || role === "paralegal";
+  const canAssign = role === "managing_partner" || role === "attorney";
+  const canLogTimeExpense =
+    role === "managing_partner" || role === "attorney" || role === "paralegal";
 
   async function load() {
     const supabase = createClient();
@@ -522,6 +534,11 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
                 matter.matter_status === "Pending Approval" ||
                 matter.matter_status === "Draft") && (
                 <>
+                  {matterEngagement ? (
+                    <span className="badge badge-outline badge-sm self-center">
+                      {approvalBadgeLabel(matterEngagement.decision)}
+                    </span>
+                  ) : null}
                   <button
                     className="btn btn-success btn-sm"
                     disabled={busy}
@@ -547,6 +564,15 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
                     Reject
                   </button>
                 </>
+              )}
+            {!canApprove &&
+              matterEngagement &&
+              (matter.approval_status === "Pending Approval" ||
+                matter.approval_status === "Needs Review" ||
+                matter.matter_status === "Pending Approval") && (
+                <span className="badge badge-warning badge-sm self-center">
+                  {approvalBadgeLabel(matterEngagement.decision)}
+                </span>
               )}
             {!isClient &&
               !canApprove &&

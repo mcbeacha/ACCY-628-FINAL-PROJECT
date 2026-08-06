@@ -6,5 +6,5 @@ import { redirect } from "next/navigation";
 export default async function TimeReviewPage() {
   const { profile } = await requireUser();
   if (!canApproveTime(profile.role)) redirect("/dashboard");
-  return <TimeReviewClient userId={profile.id} />;
+  return <TimeReviewClient userId={profile.id} role={profile.role} />;
 }

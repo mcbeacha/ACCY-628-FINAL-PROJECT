@@ -147,6 +147,71 @@ export default async function ControlsPage() {
     }
   }
 
+  // Case-type approval matrix: Contingency / PI invoice approved by non-MP
+  {
+    type MatterRow = {
+      id?: string;
+      billing_method?: string | null;
+      practice_area?: string | null;
+    };
+    const matterById = new Map<string, MatterRow>(
+      (raw.matterRows || []).map((m: MatterRow) => [String(m.id), m])
+    );
+    const roleById = new Map(
+      raw.profiles.map((p: any) => [String(p.id), String(p.role || "")])
+    );
+    for (const inv of raw.invoices) {
+      if (inv.approval_status !== "Approved" || !inv.approved_by) continue;
+      const matter = matterById.get(String(inv.matter_id));
+      if (!matter) continue;
+      const elevated =
+        matter.billing_method === "Contingency" ||
+        matter.practice_area === "Personal Injury";
+      if (!elevated) continue;
+      const approverRole = roleById.get(String(inv.approved_by));
+      if (approverRole && approverRole !== "managing_partner") {
+        rows.push({
+          risk: "High",
+          record: `Contingency / PI invoice ${inv.invoice_number} approved by non-partner`,
+          href: `/invoices/${inv.id}`,
+          user: pmap.get(inv.approved_by) || "—",
+          date: inv.approved_at || inv.created_at,
+          status: inv.invoice_status,
+          followUp:
+            "Policy requires Managing Partner approval for Contingency and Personal Injury invoices",
+        });
+      }
+    }
+
+    // Routine hourly invoice under $5k still waiting on MP (matrix not clearing workload)
+    for (const inv of raw.invoices) {
+      if (inv.approval_status !== "Submitted") continue;
+      const matter = matterById.get(String(inv.matter_id));
+      if (!matter) continue;
+      const elevated =
+        matter.billing_method === "Contingency" ||
+        matter.practice_area === "Personal Injury";
+      const total = n(inv.invoice_total ?? inv.total_amount);
+      if (elevated || total >= 5000) continue;
+      if (
+        matter.billing_method === "Hourly" ||
+        matter.billing_method === "Fixed Fee" ||
+        matter.billing_method === "Retainer-Funded Hourly"
+      ) {
+        rows.push({
+          risk: "Medium",
+          record: `Routine ${matter.billing_method} invoice ${inv.invoice_number} (${formatCurrency(total)}) still submitted — billing should clear under matrix`,
+          href: `/invoices/${inv.id}`,
+          user: pmap.get(inv.created_by) || "—",
+          date: inv.created_at,
+          status: "Submitted",
+          followUp:
+            "Confirm Billing Staff can approve under $5k routine invoices so Managing Partner is not the bottleneck",
+        });
+      }
+    }
+  }
+
   // Out-of-scope time awaiting attorney authorization (unauthorized work control)
   for (const t of raw.time) {
     if (t.out_of_scope && t.approval_status === "Submitted") {

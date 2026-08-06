@@ -1,16 +1,29 @@
 "use client";
 
-import { formatTaxTotal, type TaxCategoryGroup } from "@/lib/tax-exports";
+import {
+  formatTaxTotal,
+  type TaxCategoryGroup,
+} from "@/lib/tax-exports";
 import { Download, FileSpreadsheet, Info } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 type Props = {
   taxYear: number;
+  availableYears: number[];
   groups: TaxCategoryGroup[];
   exporterName: string;
+  canExport: boolean;
 };
 
-export function TaxExportsClient({ taxYear, groups, exporterName }: Props) {
+export function TaxExportsClient({
+  taxYear,
+  availableYears,
+  groups,
+  exporterName,
+  canExport,
+}: Props) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +36,13 @@ export function TaxExportsClient({ taxYear, groups, exporterName }: Props) {
     return { income, meals, entertainment };
   }, [groups]);
 
+  function onYearChange(nextYear: number) {
+    if (nextYear === taxYear) return;
+    router.push(`/exports?year=${nextYear}`);
+  }
+
   async function onExport() {
+    if (!canExport) return;
     setBusy(true);
     setError(null);
     try {
@@ -50,6 +69,27 @@ export function TaxExportsClient({ taxYear, groups, exporterName }: Props) {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <label className="form-control w-full max-w-xs">
+          <span className="label-text text-sm font-medium">Tax year</span>
+          <select
+            className="select select-bordered"
+            value={taxYear}
+            onChange={(e) => onYearChange(Number(e.target.value))}
+            aria-label="Select tax year"
+          >
+            {availableYears.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </label>
+        {!canExport ? (
+          <div className="badge badge-ghost badge-lg">Managing partner preview</div>
+        ) : null}
+      </div>
+
       <div className="rounded-lg border border-info/30 bg-info/5 px-4 py-3 text-sm">
         <div className="flex gap-2 items-start">
           <Info className="h-4 w-4 mt-0.5 shrink-0 text-info" />
@@ -151,27 +191,37 @@ export function TaxExportsClient({ taxYear, groups, exporterName }: Props) {
             <FileSpreadsheet className="h-5 w-5 opacity-70" />
             <h2 className="card-title text-base">Export for Tax CPA</h2>
           </div>
-          <p className="text-sm opacity-70">
-            Downloads an Excel workbook with category sheets plus an{" "}
-            <strong>Audit Cover</strong> tab stamped with who exported and when (currently{" "}
-            {exporterName}). Share that cover sheet with your Tax CPA for an audit trail.
-          </p>
-          {error ? (
-            <div className="alert alert-error text-sm">
-              <span>{error}</span>
-            </div>
-          ) : null}
-          <div>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => void onExport()}
-              disabled={busy}
-            >
-              <Download className="h-4 w-4" />
-              {busy ? "Preparing Excel…" : `Export ${taxYear} tax package to Excel`}
-            </button>
-          </div>
+          {canExport ? (
+            <>
+              <p className="text-sm opacity-70">
+                Downloads an Excel workbook with category sheets plus an{" "}
+                <strong>Audit Cover</strong> tab stamped with who exported and when (currently{" "}
+                {exporterName}). Share that cover sheet with your Tax CPA for an audit trail.
+              </p>
+              {error ? (
+                <div className="alert alert-error text-sm">
+                  <span>{error}</span>
+                </div>
+              ) : null}
+              <div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void onExport()}
+                  disabled={busy}
+                >
+                  <Download className="h-4 w-4" />
+                  {busy ? "Preparing Excel…" : `Export ${taxYear} tax package to Excel`}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm opacity-70">
+              This is a read-only managing partner preview of the {taxYear} package. Ask
+              Billing / Accounting Staff to run the Excel export when the Tax CPA package is
+              ready.
+            </p>
+          )}
         </div>
       </div>
     </div>
