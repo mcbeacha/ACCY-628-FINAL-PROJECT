@@ -173,6 +173,18 @@ async function PartnerDashboard({
   const evalsThisMonth = evalRows.filter((e) => e.submitted_at >= monthStartIso);
   const awaitingPartner = evalRows.filter((e) => e.evaluation_status === "Referred to Partner");
 
+  const { data: mktSpendRows } = await supabase
+    .from("marketing_spend")
+    .select("amount, approval_status, spend_date")
+    .eq("approval_status", "Approved");
+  const approvedSpend = (mktSpendRows || []).reduce(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (s: number, r: any) => s + Number(r.amount || 0),
+    0
+  );
+  const cpl =
+    evalRows.length > 0 ? approvedSpend / evalRows.length : null;
+
   const focusItems = inboxItemsToFocus(inboxItems, 6);
   const { data: rates } = await supabase
     .from("employee_rates")
@@ -260,6 +272,21 @@ async function PartnerDashboard({
             href="/case-evaluations"
           />
         )}
+        <StatCard
+          label="Leads (all time)"
+          value={evalRows.length}
+          href="/marketing"
+        />
+        <StatCard
+          label="Marketing CPL"
+          value={cpl != null ? formatCurrency(cpl) : "—"}
+          href="/marketing"
+        />
+        <StatCard
+          label="Approved ad spend"
+          value={formatCurrency(approvedSpend)}
+          href="/marketing"
+        />
       </div>
 
       <section className="space-y-3">
