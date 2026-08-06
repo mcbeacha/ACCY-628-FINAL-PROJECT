@@ -160,9 +160,7 @@ export function AppShell({
             aria-label="Close navigation menu"
           />
           <aside className="app-sidebar min-h-full w-72 max-w-[85vw] p-4 flex flex-col">
-            <div className="rounded-md bg-base-100/95 p-2 mb-1 lg:mb-0">
-              <BrandLogo variant="sidebar" />
-            </div>
+            <BrandLogo variant="sidebar" />
             <p className="app-sidebar-label text-[0.65rem] font-semibold uppercase tracking-[0.16em] mb-3 px-2">
               Workspace
             </p>

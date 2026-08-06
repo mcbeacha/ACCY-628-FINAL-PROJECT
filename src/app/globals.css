@@ -4,29 +4,30 @@
   themes: rebel-navy --default, rebel-night --prefersdark;
 }
 
-/* Ink navy + muted brass — product chrome, not cream-template */
+/* Brand tokens sampled from rebel-law-group-logo.png:
+   plate #FEFEFE, ink #072B1E, gold #A4864D */
 @plugin "daisyui/theme" {
   name: "rebel-navy";
   default: true;
   prefersdark: false;
   color-scheme: light;
 
-  --color-base-100: oklch(99.2% 0.004 250);
-  --color-base-200: oklch(96.2% 0.008 250);
-  --color-base-300: oklch(90% 0.012 250);
-  --color-base-content: oklch(22% 0.03 255);
+  --color-base-100: #ffffff;
+  --color-base-200: #f4f5f4;
+  --color-base-300: #e4e7e5;
+  --color-base-content: #072b1e;
 
-  --color-primary: oklch(28% 0.055 255);
-  --color-primary-content: oklch(98% 0.01 250);
+  --color-primary: #072b1e;
+  --color-primary-content: #fefefe;
 
-  --color-secondary: oklch(38% 0.03 250);
-  --color-secondary-content: oklch(97% 0.01 250);
+  --color-secondary: #1a3f32;
+  --color-secondary-content: #fefefe;
 
-  --color-accent: oklch(68% 0.09 78);
-  --color-accent-content: oklch(18% 0.03 255);
+  --color-accent: #a4864d;
+  --color-accent-content: #072b1e;
 
-  --color-neutral: oklch(26% 0.025 255);
-  --color-neutral-content: oklch(96% 0.008 250);
+  --color-neutral: #0d3326;
+  --color-neutral-content: #fefefe;
 
   --color-info: oklch(52% 0.07 240);
   --color-info-content: oklch(98% 0.01 240);
@@ -53,22 +54,22 @@
   prefersdark: true;
   color-scheme: dark;
 
-  --color-base-100: oklch(22% 0.028 255);
-  --color-base-200: oklch(18% 0.025 255);
-  --color-base-300: oklch(28% 0.032 255);
-  --color-base-content: oklch(93% 0.012 250);
+  --color-base-100: #0d1f18;
+  --color-base-200: #091610;
+  --color-base-300: #1a3328;
+  --color-base-content: #f3f6f4;
 
-  --color-primary: oklch(72% 0.09 78);
-  --color-primary-content: oklch(18% 0.03 255);
+  --color-primary: #a4864d;
+  --color-primary-content: #072b1e;
 
-  --color-secondary: oklch(35% 0.03 250);
-  --color-secondary-content: oklch(94% 0.01 250);
+  --color-secondary: #1a3f32;
+  --color-secondary-content: #f3f6f4;
 
-  --color-accent: oklch(70% 0.09 78);
-  --color-accent-content: oklch(18% 0.03 255);
+  --color-accent: #a4864d;
+  --color-accent-content: #072b1e;
 
-  --color-neutral: oklch(30% 0.025 255);
-  --color-neutral-content: oklch(94% 0.01 250);
+  --color-neutral: #143328;
+  --color-neutral-content: #f3f6f4;
 
   --color-info: oklch(62% 0.07 240);
   --color-info-content: oklch(18% 0.03 255);
@@ -125,44 +126,51 @@ body {
   backdrop-filter: saturate(1.2) blur(10px);
 }
 
-/* Dark ink sidebar — common in real practice-management UIs */
+/* Sidebar plate = BrandLogo PNG background (#FEFEFE) so the mark has no visible box */
 .app-sidebar {
-  --sidebar-ink: oklch(22% 0.045 255);
-  --sidebar-ink-deep: oklch(18% 0.04 255);
-  --sidebar-fg: oklch(94% 0.012 250);
-  --sidebar-muted: oklch(78% 0.02 250);
-  background:
-    linear-gradient(180deg, var(--sidebar-ink) 0%, var(--sidebar-ink-deep) 100%) !important;
+  --sidebar-plate: #fefefe;
+  --sidebar-fg: #072b1e;
+  --sidebar-muted: color-mix(in srgb, #072b1e 62%, #fefefe);
+  --sidebar-hover: color-mix(in srgb, #072b1e 6%, #fefefe);
+  --sidebar-active: color-mix(in srgb, #072b1e 9%, #fefefe);
+  --sidebar-line: color-mix(in srgb, #072b1e 12%, #fefefe);
+  --sidebar-gold: #a4864d;
+  background: var(--sidebar-plate) !important;
   color: var(--sidebar-fg);
-  border-right: 1px solid oklch(100% 0 0 / 0.06);
+  border-right: 1px solid var(--sidebar-line);
 }
 
 [data-theme="rebel-night"] .app-sidebar {
-  --sidebar-ink: oklch(16% 0.03 255);
-  --sidebar-ink-deep: oklch(14% 0.028 255);
+  /* Keep the logo plate so BrandLogo stays seamless in dark mode too */
+  --sidebar-plate: #fefefe;
+  --sidebar-fg: #072b1e;
+  --sidebar-muted: color-mix(in srgb, #072b1e 62%, #fefefe);
+  --sidebar-hover: color-mix(in srgb, #072b1e 6%, #fefefe);
+  --sidebar-active: color-mix(in srgb, #072b1e 9%, #fefefe);
+  --sidebar-line: color-mix(in srgb, #072b1e 14%, transparent);
 }
 
 .app-sidebar .text-primary,
 .app-sidebar .text-primary\/70 {
-  color: oklch(78% 0.08 78) !important;
+  color: var(--sidebar-gold) !important;
 }
 
 .app-sidebar-label {
-  color: oklch(70% 0.03 250);
+  color: color-mix(in srgb, #072b1e 48%, #fefefe);
 }
 
 .app-sidebar-foot {
-  background: oklch(100% 0 0 / 0.06);
-  border: 1px solid oklch(100% 0 0 / 0.1);
+  background: color-mix(in srgb, #072b1e 4%, #fefefe);
+  border: 1px solid var(--sidebar-line);
   color: var(--sidebar-muted);
 }
 
 .app-brand-mark {
   border-radius: 0.4rem;
-  box-shadow: inset 0 0 0 1px oklch(100% 0 0 / 0.12);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #072b1e 12%, transparent);
 }
 
-/* Nav rows tuned for dark sidebar */
+/* Nav rows on logo-plate sidebar */
 .nav-link {
   display: flex;
   width: 100%;
@@ -178,7 +186,7 @@ body {
 }
 
 .nav-link:hover {
-  background: oklch(100% 0 0 / 0.07);
+  background: var(--sidebar-hover);
   color: var(--sidebar-fg, inherit);
 }
 
@@ -187,20 +195,20 @@ body {
 }
 
 .nav-link:focus-visible {
-  box-shadow: 0 0 0 2px oklch(78% 0.08 78 / 0.55);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sidebar-gold) 55%, transparent);
 }
 
 .nav-link-active {
-  background: oklch(100% 0 0 / 0.12);
+  background: var(--sidebar-active);
   color: var(--sidebar-fg, inherit);
   font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  box-shadow: inset 3px 0 0 var(--sidebar-gold);
 }
 
 .nav-link-indent {
   margin-left: 0.5rem;
   padding-left: 1rem;
-  border-left: 2px solid oklch(100% 0 0 / 0.12);
+  border-left: 2px solid var(--sidebar-line);
 }
 
 .nav-link-indent.nav-link-active {
@@ -221,7 +229,7 @@ body {
 }
 
 .nav-section-btn:hover {
-  background: oklch(100% 0 0 / 0.07);
+  background: var(--sidebar-hover);
 }
 
 .nav-section-btn:focus {
@@ -229,22 +237,22 @@ body {
 }
 
 .nav-section-btn:focus-visible {
-  box-shadow: 0 0 0 2px oklch(78% 0.08 78 / 0.55);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sidebar-gold) 55%, transparent);
 }
 
 .nav-section-btn-active {
-  color: oklch(82% 0.08 78);
+  color: var(--sidebar-gold);
 }
 
 /* Product cards — hairline borders, quiet elevation */
 [data-theme="rebel-navy"] .card {
   background: var(--color-base-100);
-  border: 1px solid color-mix(in oklch, var(--color-base-content) 9%, transparent);
-  box-shadow: 0 1px 2px oklch(22% 0.03 255 / 0.04);
+  border: 1px solid color-mix(in srgb, var(--color-base-content) 9%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, #072b1e 6%, transparent);
 }
 
 [data-theme="rebel-navy"] .btn-primary {
-  box-shadow: 0 1px 2px oklch(22% 0.03 255 / 0.18);
+  box-shadow: 0 1px 2px color-mix(in srgb, #072b1e 22%, transparent);
 }
 
 [data-theme="rebel-navy"] .stat,
@@ -254,18 +262,18 @@ body {
   border-color: color-mix(in oklch, var(--color-base-content) 9%, transparent);
 }
 
-/* Login brand panel */
+/* Login brand panel uses logo ink + gold */
 .login-brand-panel {
   background:
-    linear-gradient(165deg, oklch(26% 0.05 255) 0%, oklch(18% 0.04 255) 55%, oklch(16% 0.035 250) 100%);
-  color: oklch(96% 0.01 250);
+    linear-gradient(165deg, #0d3326 0%, #072b1e 55%, #051f16 100%);
+  color: #fefefe;
 }
 
 .login-brand-panel .login-accent-line {
   width: 2.75rem;
   height: 3px;
   margin-top: 1rem;
-  background: oklch(72% 0.09 78);
+  background: #a4864d;
 }
 
 /* Consistent form field alignment */

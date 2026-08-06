@@ -15,7 +15,7 @@ export function BrandLogo({ variant = "header", href = "/dashboard" }: Props) {
     return (
       <Link
         href={href}
-        className="block px-1 mb-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary rounded-lg"
+        className="block mb-4 -mx-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary rounded-lg"
         aria-label={APP_NAME}
       >
         <Image
@@ -23,8 +23,9 @@ export function BrandLogo({ variant = "header", href = "/dashboard" }: Props) {
           alt={APP_NAME}
           width={220}
           height={260}
-          className="w-full max-w-[10.5rem] mx-auto h-auto object-contain"
+          className="w-full max-w-[11rem] mx-auto h-auto object-contain"
           priority
+          unoptimized
         />
       </Link>
     );
