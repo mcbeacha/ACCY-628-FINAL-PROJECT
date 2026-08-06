@@ -89,22 +89,22 @@ export function QuickActions() {
             <Link
               key={label}
               href={href}
-              className="btn btn-outline btn-sm h-auto justify-start gap-2 py-2.5 normal-case"
+              className="interactive-tile group btn btn-outline btn-sm h-auto justify-start gap-2 py-2.5 normal-case"
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className="interactive-tile-icon h-4 w-4 shrink-0" />
               <span className="truncate">{label}</span>
             </Link>
           ) : (
             <button
               key={label}
               type="button"
-              className="btn btn-outline btn-sm h-auto justify-start gap-2 py-2.5 normal-case"
+              className="interactive-tile group btn btn-outline btn-sm h-auto justify-start gap-2 py-2.5 normal-case"
               onClick={() => {
                 setResult(null);
                 setOpen(modal ?? null);
               }}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className="interactive-tile-icon h-4 w-4 shrink-0" />
               <span className="truncate">{label}</span>
             </button>
           )

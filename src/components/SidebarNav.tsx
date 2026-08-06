@@ -46,12 +46,10 @@ function NavLinkRow({
       href={href}
       onClick={onNavigate}
       className={[
-        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+        "nav-link-interactive flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        indented ? "ml-2 pl-4 border-l-2 border-base-300" : "",
-        active
-          ? "bg-primary/15 text-base-content font-semibold border-l-primary"
-          : "hover:bg-base-200 opacity-90",
+        indented ? "ml-2 pl-4" : "",
+        active ? "nav-active-indicator" : "opacity-90",
       ].join(" ")}
       aria-current={active ? "page" : undefined}
     >
@@ -91,8 +89,7 @@ function SidebarSection({
       <button
         type="button"
         className={[
-          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold",
-          "hover:bg-base-200 transition-colors",
+          "nav-link-interactive flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
           hasActiveChild ? "text-primary" : "",
         ].join(" ")}
@@ -101,7 +98,13 @@ function SidebarSection({
         aria-label={`${section.label} section`}
         onClick={onToggle}
       >
-        <Icon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+        <Icon
+          className={[
+            "nav-link-icon h-4 w-4 shrink-0",
+            hasActiveChild ? "opacity-100 text-primary" : "opacity-70",
+          ].join(" ")}
+          aria-hidden
+        />
         <span
           className="flex-1 text-left truncate transition-opacity duration-200"
           aria-live={titleLive ? "polite" : undefined}
@@ -201,17 +204,25 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
             href={dashboard.href}
             onClick={onNavigate}
             className={[
-              "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors",
+              "nav-link-interactive flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
               isNavLinkActive(pathname, dashboard.href, allHrefs)
-                ? "bg-primary/15 text-base-content"
-                : "hover:bg-base-200",
+                ? "nav-active-indicator"
+                : "",
             ].join(" ")}
             aria-current={
               isNavLinkActive(pathname, dashboard.href, allHrefs) ? "page" : undefined
             }
           >
-            <DashIcon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+            <DashIcon
+              className={[
+                "nav-link-icon h-4 w-4 shrink-0",
+                isNavLinkActive(pathname, dashboard.href, allHrefs)
+                  ? "opacity-100 text-primary"
+                  : "opacity-70",
+              ].join(" ")}
+              aria-hidden
+            />
             <span>{dashboard.label}</span>
           </Link>
         </div>
@@ -223,17 +234,25 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
             href={inbox.href}
             onClick={onNavigate}
             className={[
-              "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors",
+              "nav-link-interactive flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
               isNavLinkActive(pathname, inbox.href, allHrefs)
-                ? "bg-primary/15 text-base-content"
-                : "hover:bg-base-200",
+                ? "nav-active-indicator"
+                : "",
             ].join(" ")}
             aria-current={
               isNavLinkActive(pathname, inbox.href, allHrefs) ? "page" : undefined
             }
           >
-            <InboxIcon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+            <InboxIcon
+              className={[
+                "nav-link-icon h-4 w-4 shrink-0",
+                isNavLinkActive(pathname, inbox.href, allHrefs)
+                  ? "opacity-100 text-primary"
+                  : "opacity-70",
+              ].join(" ")}
+              aria-hidden
+            />
             <span>{inbox.label}</span>
           </Link>
         </div>

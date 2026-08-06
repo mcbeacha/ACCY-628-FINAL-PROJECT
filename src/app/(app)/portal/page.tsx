@@ -44,7 +44,7 @@ export default async function ClientPortalPage() {
       />
 
       {client ? (
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="interactive-card card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
             <h2 className="card-title text-base">Your profile</h2>
             <p className="text-sm">
@@ -72,23 +72,26 @@ export default async function ClientPortalPage() {
           ) : (
             <ul className="space-y-3">
               {matterRows.map((m) => (
-                <li key={m.id} className="border border-base-200 rounded-lg p-3">
-                  <div className="flex flex-wrap justify-between gap-2">
-                    <Link href={`/matters/${m.id}`} className="link link-hover font-semibold">
-                      {m.matter_name}
-                    </Link>
-                    <StatusBadge status={m.matter_status} />
-                  </div>
-                  <p className="text-xs opacity-60 mt-1">{m.matter_number}</p>
-                  <p className="text-sm mt-2">
-                    Lead attorney:{" "}
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <span className="font-medium">{(m as any).responsible?.full_name || "—"}</span>
-                  </p>
-                  <p className="text-sm opacity-70">
-                    Start {formatDate(m.engagement_start_date)} · Expected end{" "}
-                    {formatDate(m.expected_end_date)}
-                  </p>
+                <li key={m.id}>
+                  <Link
+                    href={`/matters/${m.id}`}
+                    className="interactive-card block border border-base-300 rounded-lg p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <span className="font-semibold link link-hover">{m.matter_name}</span>
+                      <StatusBadge status={m.matter_status} />
+                    </div>
+                    <p className="text-xs opacity-60 mt-1">{m.matter_number}</p>
+                    <p className="text-sm mt-2">
+                      Lead attorney:{" "}
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      <span className="font-medium">{(m as any).responsible?.full_name || "—"}</span>
+                    </p>
+                    <p className="text-sm opacity-70">
+                      Start {formatDate(m.engagement_start_date)} · Expected end{" "}
+                      {formatDate(m.expected_end_date)}
+                    </p>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -104,7 +107,10 @@ export default async function ClientPortalPage() {
           ) : (
             <ul className="space-y-2">
               {tasks.map((t) => (
-                <li key={t.id} className="text-sm flex justify-between gap-3">
+                <li
+                  key={t.id}
+                  className="interactive-row text-sm flex justify-between gap-3 rounded-lg px-2 py-2 -mx-2"
+                >
                   <span>{t.task_title}</span>
                   <StatusBadge status={t.task_status} />
                 </li>

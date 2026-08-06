@@ -3,6 +3,7 @@ import { canPrepareInvoices } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import { InteractiveTableRow } from "@/components/InteractiveTableRow";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Invoice } from "@/lib/billing-types";
 import Link from "next/link";
@@ -62,7 +63,7 @@ export default async function InvoicesPage() {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="hover">
+                  <InteractiveTableRow key={r.id} href={`/invoices/${r.id}`}>
                     <td>
                       <Link href={`/invoices/${r.id}`} className="link link-hover font-medium">
                         {r.invoice_number}
@@ -79,7 +80,7 @@ export default async function InvoicesPage() {
                     <td>
                       <StatusBadge status={r.approval_status} />
                     </td>
-                  </tr>
+                  </InteractiveTableRow>
                 ))}
               </tbody>
             </table>

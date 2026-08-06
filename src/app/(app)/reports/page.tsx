@@ -67,7 +67,7 @@ export default async function ReportsHubPage() {
           <Link
             key={r.slug}
             href={r.href || `/reports/${r.slug}`}
-            className="card bg-base-100 border border-base-300 shadow-sm hover:border-primary transition-colors"
+            className="interactive-tile card bg-base-100 border border-base-300 shadow-sm"
           >
             <div className="card-body p-4">
               <h2 className="font-semibold text-sm">{r.title}</h2>

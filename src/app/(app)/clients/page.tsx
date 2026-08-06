@@ -3,6 +3,7 @@ import { canCreateClients } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import { InteractiveTableRow } from "@/components/InteractiveTableRow";
 import { clientDisplayName, formatDate } from "@/lib/format";
 import type { Client } from "@/lib/types";
 import { CLIENT_STATUSES } from "@/lib/constants";
@@ -127,7 +128,7 @@ export default async function ClientsPage({
               </thead>
               <tbody>
                 {clients.map((c) => (
-                  <tr key={c.id} className="hover">
+                  <InteractiveTableRow key={c.id} href={`/clients/${c.id}`}>
                     <td>
                       <Link href={`/clients/${c.id}`} className="link link-hover font-medium">
                         {c.client_number}
@@ -140,7 +141,7 @@ export default async function ClientsPage({
                     </td>
                     <td className="text-sm">{c.email || "—"}</td>
                     <td className="text-sm">{formatDate(c.created_at)}</td>
-                  </tr>
+                  </InteractiveTableRow>
                 ))}
               </tbody>
             </table>

@@ -52,3 +52,224 @@ body {
 .page-shell {
   @apply space-y-6;
 }
+
+/* ── Shared interaction system ─────────────────────────────────────────── */
+
+.interactive-card {
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    opacity 200ms ease,
+    background-color 200ms ease;
+}
+
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 6px -1px oklch(var(--bc) / 0.08),
+    0 2px 4px -2px oklch(var(--bc) / 0.06);
+  border-color: oklch(var(--p) / 0.4);
+}
+
+.interactive-card:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.interactive-card:focus-visible,
+.interactive-card:focus-within:has(:focus-visible) {
+  outline: 2px solid oklch(var(--p));
+  outline-offset: 2px;
+}
+
+.interactive-row {
+  cursor: pointer;
+  position: relative;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.interactive-row:hover {
+  background-color: oklch(var(--b2) / 0.7);
+  box-shadow: inset 3px 0 0 0 oklch(var(--p));
+}
+
+.interactive-row:active {
+  background-color: oklch(var(--b2));
+}
+
+.interactive-row:focus-visible {
+  outline: 2px solid oklch(var(--p));
+  outline-offset: -2px;
+}
+
+.interactive-tile {
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+
+.interactive-tile:hover {
+  transform: translateY(-2px);
+  border-color: oklch(var(--p) / 0.45);
+  box-shadow: 0 4px 10px -3px oklch(var(--bc) / 0.1);
+}
+
+.interactive-tile:hover .interactive-tile-icon {
+  color: oklch(var(--p));
+  transform: translateX(2px);
+}
+
+.interactive-tile:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.interactive-tile-icon {
+  transition:
+    transform 200ms ease,
+    color 200ms ease;
+}
+
+.nav-link-interactive {
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    transform 100ms ease,
+    opacity 150ms ease;
+}
+
+.nav-link-interactive:hover {
+  background-color: oklch(var(--b2));
+}
+
+.nav-link-interactive:active {
+  transform: scale(0.98);
+  background-color: oklch(var(--b3));
+}
+
+.nav-active-indicator {
+  background-color: oklch(var(--p) / 0.15);
+  color: oklch(var(--bc));
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 0 oklch(var(--p));
+}
+
+.nav-active-indicator .nav-link-icon {
+  color: oklch(var(--p));
+  opacity: 1;
+}
+
+.nav-link-icon {
+  transition:
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.page-enter {
+  animation: page-enter 220ms ease-out both;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.hero-breathe {
+  animation: hero-breathe 8s ease-in-out infinite;
+}
+
+@keyframes cta-arrow-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
+.cta-arrow-nudge {
+  transition: transform 200ms ease;
+}
+
+.group:hover .cta-arrow-nudge,
+.btn:hover .cta-arrow-nudge {
+  transform: translateX(3px);
+}
+
+.underline-grow {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1.5px;
+  transition: background-size 200ms ease;
+}
+
+.underline-grow:hover {
+  background-size: 100% 1.5px;
+}
+
+.photo-zoom {
+  overflow: hidden;
+}
+
+.photo-zoom img {
+  transition: transform 300ms ease;
+}
+
+.photo-zoom:hover img,
+.group:hover .photo-zoom img {
+  transform: scale(1.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactive-card,
+  .interactive-row,
+  .interactive-tile,
+  .interactive-tile-icon,
+  .nav-link-interactive,
+  .nav-link-icon,
+  .cta-arrow-nudge,
+  .underline-grow,
+  .photo-zoom img {
+    transition: none !important;
+  }
+
+  .interactive-card:hover,
+  .interactive-card:active,
+  .interactive-tile:hover,
+  .interactive-tile:active,
+  .interactive-tile:hover .interactive-tile-icon,
+  .nav-link-interactive:active {
+    transform: none !important;
+  }
+
+  .page-enter,
+  .hero-breathe {
+    animation: none !important;
+  }
+
+  .photo-zoom:hover img,
+  .group:hover .photo-zoom img {
+    transform: none !important;
+  }
+}

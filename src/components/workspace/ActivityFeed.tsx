@@ -29,8 +29,8 @@ const ICONS: Record<ActivityKind, React.ComponentType<{ className?: string }>> =
 export function ActivityItem({ event }: { event: ActivityEvent }) {
   const Icon = ICONS[event.kind];
   return (
-    <li className="flex gap-3 py-3">
-      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-base-200 text-base-content/70">
+    <li className="interactive-row flex gap-3 rounded-lg px-2 py-3 -mx-2">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-base-200 text-base-content/70 transition-colors">
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0 flex-1">

@@ -253,7 +253,7 @@ export function InboxClient({
           {filtered.map((item) => (
             <li
               key={item.id}
-              className={`rounded-box border shadow-sm p-4 ${priorityTone(item.priority)}`}
+              className={`interactive-card rounded-box border shadow-sm p-4 ${priorityTone(item.priority)}`}
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 space-y-1">

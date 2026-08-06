@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import { InteractiveTableRow } from "@/components/InteractiveTableRow";
 import { formatCurrency, formatDate, clientDisplayName } from "@/lib/format";
 import type { Invoice } from "@/lib/billing-types";
 import Link from "next/link";
@@ -178,7 +179,7 @@ export default async function ARPage({
               </thead>
               <tbody>
                 {filtered.map((r) => (
-                  <tr key={r.id} className="hover">
+                  <InteractiveTableRow key={r.id} href={`/invoices/${r.id}`}>
                     <td>
                       <Link href={`/invoices/${r.id}`} className="link link-hover font-medium">
                         {(r as Invoice).invoice_number}
@@ -194,7 +195,7 @@ export default async function ARPage({
                     <td>
                       <StatusBadge status={r.invoice_status} />
                     </td>
-                  </tr>
+                  </InteractiveTableRow>
                 ))}
               </tbody>
             </table>
