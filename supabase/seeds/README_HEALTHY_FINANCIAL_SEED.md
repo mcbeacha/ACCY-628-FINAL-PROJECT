@@ -2,6 +2,16 @@
 
 This academic demo’s financial seed data lives primarily in the remote Supabase project (`xrsueubqclxddbbnntfu`). There is no separate competing local seed runner.
 
+## Attorney workspace prior data (Jordan Harper)
+
+Idempotent seed for the attorney demo profile only (`jharper@rebellaw.demo` / `a1000000-0000-4000-8000-000000000002`):
+
+- File: [`attorney_jordan_harper_workspace.sql`](attorney_jordan_harper_workspace.sql)
+- Inserts/updates `matter_tasks`, `matter_activity`, and court/filing dates on matters linked to Jordan (prefers `MT-2001` / `MT-2003` / `MT-2002`, else `MT-0500x` when present)
+- Safe to re-run (`af10…` stable UUIDs + `ON CONFLICT`)
+
+Apply in the Supabase SQL Editor against the demo project your app uses, or via MCP `execute_sql` / `apply_migration` when that project is linked.
+
 ## How seed data was revised
 
 Revisions were applied as idempotent remote migrations via the Supabase MCP (`apply_migration`), using stable demo UUIDs and `ON CONFLICT` upserts where practical.

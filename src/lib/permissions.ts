@@ -172,7 +172,7 @@ export function navForRole(role: UserRole): NavItem[] {
   switch (role) {
     case "managing_partner":
       return [
-        { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard", label: "Home" },
         { href: "/inbox", label: inboxNavLabel("managing_partner") },
         { href: "/case-evaluations", label: "Case Evaluations" },
         { href: "/costs", label: "Cost & Resources" },
@@ -207,7 +207,7 @@ export function navForRole(role: UserRole): NavItem[] {
       ];
     case "attorney":
       return [
-        { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard", label: "Home" },
         { href: "/inbox", label: inboxNavLabel("attorney") },
         { href: "/document-requests", label: "Document Requests" },
         { href: "/clients", label: "Clients" },
@@ -228,7 +228,7 @@ export function navForRole(role: UserRole): NavItem[] {
       ];
     case "paralegal":
       return [
-        { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard", label: "Home" },
         { href: "/inbox", label: inboxNavLabel("paralegal") },
         { href: "/document-requests", label: "Document Requests" },
         { href: "/case-evaluations", label: "Case Evaluations" },
@@ -244,7 +244,7 @@ export function navForRole(role: UserRole): NavItem[] {
       ];
     case "billing_staff":
       return [
-        { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard", label: "Home" },
         { href: "/inbox", label: inboxNavLabel("billing_staff") },
         { href: "/costs", label: "Cost & Resources" },
         { href: "/vendors", label: "Vendors" },
@@ -291,7 +291,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/potential-client", label: "Explore Rebel Law Group" },
       ];
     default:
-      return [{ href: "/dashboard", label: "Dashboard" }];
+      return [{ href: "/dashboard", label: "Home" }];
   }
 }
 

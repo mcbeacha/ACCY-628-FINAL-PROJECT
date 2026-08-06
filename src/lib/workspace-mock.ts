@@ -10,6 +10,9 @@
  * can replace the constants without touching the components that render them.
  */
 
+import type { UserRole } from "@/lib/types";
+import type { CalendarEvent, CalendarEventType } from "@/lib/calendar";
+
 export type Priority = "Critical" | "High" | "Medium" | "Low";
 
 export type FocusKind =
@@ -90,7 +93,7 @@ export type ActivityEvent = {
 export type {
   CalendarEvent,
   CalendarEventType,
-} from "@/lib/calendar";
+};
 
 export {
   CALENDAR_EVENTS,
@@ -1249,3 +1252,309 @@ export function searchWorkspace(query: string, limit = 8): SearchRecord[] {
     (r) => r.title.toLowerCase().includes(q) || r.subtitle.toLowerCase().includes(q)
   ).slice(0, limit);
 }
+
+/** Jordan Harper attorney-only calendar set (relative to today). */
+export function attorneyCalendarEvents(): CalendarEvent[] {
+  const roles: UserRole[] = ["attorney"];
+  return [
+    {
+      id: "atty-ev-1",
+      title: "Hearing prep call — Vale v. Northbound Motors",
+      type: "Client Meeting",
+      date: dayOffset(0),
+      startTime: "9:00 AM",
+      endTime: "9:45 AM",
+      location: "Video conference",
+      matterRef: "MT-2001",
+      roles,
+    },
+    {
+      id: "atty-ev-2",
+      title: "Motion hearing — discovery disputes",
+      type: "Hearing",
+      date: dayOffset(0),
+      startTime: "1:30 PM",
+      endTime: "3:00 PM",
+      location: "Lafayette County Circuit Court, Courtroom 3",
+      matterRef: "MT-2001",
+      roles,
+    },
+    {
+      id: "atty-ev-3",
+      title: "Estate inventory filing deadline",
+      type: "Filing Deadline",
+      date: dayOffset(2),
+      startTime: "5:00 PM",
+      endTime: "5:00 PM",
+      location: "E-filing portal",
+      matterRef: "MT-2003",
+      roles,
+    },
+    {
+      id: "atty-ev-4",
+      title: "Client update — Cruz estate administration",
+      type: "Client Meeting",
+      date: dayOffset(3),
+      startTime: "10:00 AM",
+      endTime: "10:45 AM",
+      location: "Oxford office",
+      matterRef: "MT-2003",
+      roles,
+    },
+    {
+      id: "atty-ev-5",
+      title: "Vendor dispute strategy conference",
+      type: "Internal Meeting",
+      date: dayOffset(4),
+      startTime: "8:30 AM",
+      endTime: "9:15 AM",
+      location: "Rebel Law Group, Conference Room B",
+      matterRef: "MT-2002",
+      roles,
+    },
+    {
+      id: "atty-ev-6",
+      title: "Deposition — Harbor Logistics witness",
+      type: "Deposition",
+      date: dayOffset(6),
+      startTime: "10:00 AM",
+      endTime: "2:00 PM",
+      location: "Rebel Law Group, Conference Room A",
+      matterRef: "MT-2002",
+      roles,
+    },
+    {
+      id: "atty-ev-7",
+      title: "Court appearance — status conference",
+      type: "Hearing",
+      date: dayOffset(11),
+      startTime: "9:00 AM",
+      endTime: "10:00 AM",
+      location: "Chancery Court",
+      matterRef: "MT-2003",
+      roles,
+    },
+    {
+      id: "atty-ev-8",
+      title: "CLE — Civil procedure update",
+      type: "CLE",
+      date: dayOffset(8),
+      startTime: "12:00 PM",
+      endTime: "1:00 PM",
+      location: "Webinar",
+      matterRef: "—",
+      roles,
+    },
+    {
+      id: "atty-ev-9",
+      title: "Statute check — negligence claim window",
+      type: "Statute Deadline",
+      date: dayOffset(14),
+      startTime: "All day",
+      endTime: "All day",
+      location: "Docket control",
+      matterRef: "MT-2001",
+      roles,
+    },
+  ];
+}
+
+/** Attorney-scoped mock tasks when live matter_tasks are empty. */
+export const ATTORNEY_TASKS: WorkspaceTask[] = [
+  {
+    id: "atty-tk-1",
+    name: "Draft opposition to motion to compel",
+    matterRef: "MT-2001",
+    matterName: "Vale v. Northbound Motors",
+    assignee: "Jordan Harper",
+    dueDate: dayOffset(-1),
+    priority: "High",
+    lane: "In Progress",
+    practiceArea: "Litigation",
+  },
+  {
+    id: "atty-tk-2",
+    name: "Confirm hearing exhibit list with client",
+    matterRef: "MT-2001",
+    matterName: "Vale v. Northbound Motors",
+    assignee: "Jordan Harper",
+    dueDate: dayOffset(0),
+    priority: "Critical",
+    lane: "To Do",
+    practiceArea: "Litigation",
+  },
+  {
+    id: "atty-tk-3",
+    name: "Prepare estate inventory summary",
+    matterRef: "MT-2003",
+    matterName: "Cruz estate administration",
+    assignee: "Jordan Harper",
+    dueDate: dayOffset(1),
+    priority: "Medium",
+    lane: "Waiting",
+    practiceArea: "Estates",
+  },
+  {
+    id: "atty-tk-4",
+    name: "Outline settlement demand letter",
+    matterRef: "MT-2002",
+    matterName: "Harbor Logistics vendor dispute",
+    assignee: "Jordan Harper",
+    dueDate: dayOffset(2),
+    priority: "High",
+    lane: "To Do",
+    practiceArea: "Litigation",
+  },
+  {
+    id: "atty-tk-5",
+    name: "Client status email — case strategy",
+    matterRef: "MT-2002",
+    matterName: "Harbor Logistics vendor dispute",
+    assignee: "Jordan Harper",
+    dueDate: dayOffset(0),
+    priority: "Critical",
+    lane: "In Progress",
+    practiceArea: "Litigation",
+  },
+  {
+    id: "atty-tk-6",
+    name: "Calendar deposition follow-ups",
+    matterRef: "MT-2002",
+    matterName: "Harbor Logistics vendor dispute",
+    assignee: "Jordan Harper",
+    dueDate: dayOffset(-3),
+    priority: "Medium",
+    lane: "Waiting",
+    practiceArea: "Litigation",
+  },
+];
+
+/** Attorney-scoped activity feed when live matter_activity is empty. */
+export const ATTORNEY_ACTIVITY: ActivityEvent[] = [
+  {
+    id: "atty-ac-1",
+    kind: "document_uploaded",
+    actor: "Jordan Harper",
+    description: "uploaded draft opposition brief for partner review",
+    matterRef: "MT-2001",
+    minutesAgo: 45,
+  },
+  {
+    id: "atty-ac-2",
+    kind: "task_completed",
+    actor: "Jordan Harper",
+    description: "completed conflict check confirmation for hearing exhibits",
+    matterRef: "MT-2001",
+    minutesAgo: 120,
+  },
+  {
+    id: "atty-ac-3",
+    kind: "note_added",
+    actor: "Jordan Harper",
+    description: "added note from client call regarding inventory documents",
+    matterRef: "MT-2003",
+    minutesAgo: 300,
+  },
+  {
+    id: "atty-ac-4",
+    kind: "time_logged",
+    actor: "Jordan Harper",
+    description: "logged 1.8 hours of settlement research",
+    matterRef: "MT-2002",
+    minutesAgo: 480,
+  },
+  {
+    id: "atty-ac-5",
+    kind: "status_changed",
+    actor: "Jordan Harper",
+    description: "updated matter status notes ahead of motion hearing",
+    matterRef: "MT-2001",
+    minutesAgo: 900,
+  },
+  {
+    id: "atty-ac-6",
+    kind: "deadline_created",
+    actor: "Jordan Harper",
+    description: "added filing deadline for estate inventory summary",
+    matterRef: "MT-2003",
+    minutesAgo: 1_200,
+  },
+  {
+    id: "atty-ac-7",
+    kind: "document_edited",
+    actor: "Jordan Harper",
+    description: "edited vendor contract chronology memorandum",
+    matterRef: "MT-2002",
+    minutesAgo: 2_000,
+  },
+  {
+    id: "atty-ac-8",
+    kind: "message_received",
+    actor: "Jordan Harper",
+    description: "sent message to client confirming exhibit list call",
+    matterRef: "MT-2001",
+    minutesAgo: 2_800,
+  },
+];
+
+/** Attorney-scoped focus list when live focus derivation is empty. */
+export const ATTORNEY_FOCUS_ITEMS: FocusItem[] = [
+  {
+    id: "atty-focus-1",
+    kind: "court",
+    title: "Motion hearing — discovery disputes",
+    matterRef: "MT-2001",
+    clientName: "Northvale / Vale",
+    dueDate: dayOffset(0),
+    dueTime: "1:30 PM",
+    priority: "Critical",
+    status: "Confirmed",
+    href: "/calendar",
+  },
+  {
+    id: "atty-focus-2",
+    kind: "task",
+    title: "Confirm hearing exhibit list with client",
+    matterRef: "MT-2001",
+    clientName: "Vale",
+    dueDate: dayOffset(0),
+    dueTime: "Morning",
+    priority: "Critical",
+    status: "To Do",
+    href: "/tasks",
+  },
+  {
+    id: "atty-focus-3",
+    kind: "deadline",
+    title: "Estate inventory filing deadline",
+    matterRef: "MT-2003",
+    clientName: "Cruz estate",
+    dueDate: dayOffset(2),
+    priority: "High",
+    status: "Upcoming",
+    href: "/calendar",
+  },
+  {
+    id: "atty-focus-4",
+    kind: "task",
+    title: "Client status email — case strategy",
+    matterRef: "MT-2002",
+    clientName: "Harbor Logistics",
+    dueDate: dayOffset(0),
+    priority: "High",
+    status: "In Progress",
+    href: "/tasks",
+  },
+  {
+    id: "atty-focus-5",
+    kind: "meeting",
+    title: "Hearing prep call — Vale v. Northbound Motors",
+    matterRef: "MT-2001",
+    clientName: "Vale",
+    dueDate: dayOffset(0),
+    dueTime: "9:00 AM",
+    priority: "Medium",
+    status: "Scheduled",
+    href: "/calendar",
+  },
+];

@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { canCreateClients } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
+import { OpenInExcelButton } from "@/components/OpenInExcelButton";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
 import { clientDisplayName, formatDate } from "@/lib/format";
@@ -54,13 +55,12 @@ export default async function ClientsPage({
         actions={
           <>
             {isAttorney ? (
-              <a
-                href="/api/attorney/clients-export"
+              <OpenInExcelButton
+                kind="clients"
                 className="btn btn-outline btn-sm"
-                title="Export all clients you can access to Excel"
-              >
-                Export to Excel
-              </a>
+                title="Open all clients you can access in Excel"
+                label="Export to Excel"
+              />
             ) : null}
             {canCreateClients(profile.role) ? (
               <Link href="/clients/new" className="btn btn-primary btn-sm">

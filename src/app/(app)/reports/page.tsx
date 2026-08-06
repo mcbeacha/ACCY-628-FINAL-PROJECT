@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { canViewReports } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
+import { OpenInExcelButton } from "@/components/OpenInExcelButton";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -32,17 +33,6 @@ export default async function ReportsHubPage() {
       <PageHeader
         title="Reports"
         description="Filterable operational and financial reports with CSV export. Exports only include records allowed by your login (RLS)."
-        actions={
-          isAttorney ? (
-            <a
-              href="/api/attorney/metrics-export"
-              className="btn btn-primary btn-sm"
-              title="Download a multi-sheet Excel workbook of your assigned-matter metrics and time"
-            >
-              Export metrics to Excel
-            </a>
-          ) : null
-        }
       />
       {isAttorney && (
         <div className="card bg-base-100 border border-base-300 shadow-sm">
@@ -54,9 +44,11 @@ export default async function ReportsHubPage() {
               invoices. Includes only records your login can access.
             </p>
             <div>
-              <a href="/api/attorney/metrics-export" className="btn btn-outline btn-sm">
-                Download attorney-metrics.xlsx
-              </a>
+              <OpenInExcelButton
+                kind="metrics"
+                className="btn btn-outline btn-sm"
+                label="Open attorney-metrics.xlsx in Excel"
+              />
             </div>
           </div>
         </div>
