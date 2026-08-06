@@ -106,9 +106,6 @@ export function TimeBillingSummary({ summary }: { summary: TimekeepingSummary })
           </Link>
         </div>
 
-        <p className="text-xs opacity-60">
-          The timer is a presentation aid. Save work through the time entry form to record it.
-        </p>
       </div>
     </div>
   );

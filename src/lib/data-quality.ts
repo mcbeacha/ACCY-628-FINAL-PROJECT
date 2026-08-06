@@ -96,6 +96,30 @@ export function buildDataQualityExceptions(
     }
     if (
       m.matter_status === "Active" &&
+      m.billing_method === "Contingency" &&
+      (m.contingency_percentage == null || n(m.contingency_percentage) <= 0)
+    ) {
+      exceptions.push({
+        severity: "high",
+        category: "ASC 606",
+        message: `${m.matter_number} contingency matter missing % (variable consideration)`,
+        href: `/matters/${m.id}?tab=engagement`,
+      });
+    }
+    if (
+      m.matter_status === "Active" &&
+      m.approval_status === "Approved" &&
+      !String(m.scope_summary || "").trim()
+    ) {
+      exceptions.push({
+        severity: "medium",
+        category: "ASC 606",
+        message: `${m.matter_number} approved engagement missing scope (Steps 1–2)`,
+        href: `/matters/${m.id}?tab=engagement`,
+      });
+    }
+    if (
+      m.matter_status === "Active" &&
       (m.billing_method === "Retainer-Funded Hourly" || n(m.initial_retainer_amount) > 0) &&
       !raw.retainers.some((r: any) => r.matter_id === m.id)
     ) {

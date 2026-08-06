@@ -145,7 +145,7 @@ export function NotificationCenter({ viewer: fallbackViewer }: { viewer: Messagi
                 <Link
                   href={item.href}
                   onClick={() => markRead(item.id)}
-                  className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-base-200 ${
+                  className={`interactive-row flex w-full gap-3 px-4 py-3 text-left transition-colors ${
                     item.unread ? "bg-primary/5" : ""
                   }`}
                 >

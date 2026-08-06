@@ -18,7 +18,7 @@ export function canCreateMatters(role: UserRole) {
 }
 
 export function canApproveMatters(role: UserRole) {
-  return role === "managing_partner";
+  return role === "managing_partner" || role === "attorney";
 }
 
 export function canAssignTeam(role: UserRole) {
@@ -58,7 +58,7 @@ export function canPrepareInvoices(role: UserRole) {
 }
 
 export function canApproveInvoices(role: UserRole) {
-  return role === "managing_partner";
+  return role === "managing_partner" || role === "billing_staff";
 }
 
 export function canPostPayments(role: UserRole) {
@@ -172,7 +172,7 @@ export function navForRole(role: UserRole): NavItem[] {
   switch (role) {
     case "managing_partner":
       return [
-        { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard", label: "Home" },
         { href: "/inbox", label: inboxNavLabel("managing_partner") },
         { href: "/case-evaluations", label: "Case Evaluations" },
         { href: "/costs", label: "Cost & Resources" },
@@ -190,6 +190,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/profitability/clients", label: "Client Profitability" },
         { href: "/profitability/practice-areas", label: "Practice Areas" },
         { href: "/productivity", label: "Attorney Productivity" },
+        { href: "/marketing", label: "Marketing Performance" },
         { href: "/reports", label: "Reports" },
         { href: "/data-quality", label: "Data Quality" },
         { href: "/controls", label: "Control Monitor" },
@@ -203,11 +204,12 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/retainers", label: "Retainers" },
         { href: "/trust-ledger", label: "Trust Ledger" },
         { href: "/journal", label: "Journal Entries" },
+        { href: "/exports", label: "Tax Info" },
         ...STAFF_FIRM,
       ];
     case "attorney":
       return [
-        { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard", label: "Home" },
         { href: "/inbox", label: inboxNavLabel("attorney") },
         { href: "/document-requests", label: "Document Requests" },
         { href: "/clients", label: "Clients" },
@@ -228,7 +230,7 @@ export function navForRole(role: UserRole): NavItem[] {
       ];
     case "paralegal":
       return [
-        { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard", label: "Home" },
         { href: "/inbox", label: inboxNavLabel("paralegal") },
         { href: "/document-requests", label: "Document Requests" },
         { href: "/case-evaluations", label: "Case Evaluations" },
@@ -244,7 +246,7 @@ export function navForRole(role: UserRole): NavItem[] {
       ];
     case "billing_staff":
       return [
-        { href: "/dashboard", label: "Dashboard" },
+        { href: "/dashboard", label: "Home" },
         { href: "/inbox", label: inboxNavLabel("billing_staff") },
         { href: "/costs", label: "Cost & Resources" },
         { href: "/vendors", label: "Vendors" },
@@ -259,6 +261,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/profitability/clients", label: "Client Profitability" },
         { href: "/profitability/practice-areas", label: "Practice Areas" },
         { href: "/productivity", label: "Attorney Productivity" },
+        { href: "/marketing", label: "Marketing Performance" },
         { href: "/reports", label: "Reports" },
         { href: "/data-quality", label: "Data Quality" },
         { href: "/controls", label: "Control Monitor" },
@@ -278,6 +281,7 @@ export function navForRole(role: UserRole): NavItem[] {
     case "client":
       return [
         { href: "/client-portal", label: "Client Dashboard" },
+        { href: "/calendar", label: "My Calendar" },
         { href: "/document-requests", label: "Document Requests" },
         { href: "/client-portal/matters", label: "My Matters" },
         { href: "/client-portal/invoices", label: "My Invoices" },
@@ -290,7 +294,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/potential-client", label: "Explore Rebel Law Group" },
       ];
     default:
-      return [{ href: "/dashboard", label: "Dashboard" }];
+      return [{ href: "/dashboard", label: "Home" }];
   }
 }
 

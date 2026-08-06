@@ -32,7 +32,7 @@ export default async function ClientPortalMattersPage() {
             return (
               <article
                 key={m.id}
-                className="rounded-box border border-base-300 bg-base-100 p-5 flex flex-col gap-3"
+                className="interactive-card rounded-box border border-base-300 bg-base-100 p-5 flex flex-col gap-3"
               >
                 <div className="flex flex-wrap justify-between gap-2">
                   <div>

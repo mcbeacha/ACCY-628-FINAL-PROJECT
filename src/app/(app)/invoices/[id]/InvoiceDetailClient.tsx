@@ -3,21 +3,28 @@
 import { StatusBadge } from "@/components/Badges";
 import type { Invoice, InvoiceLine } from "@/lib/billing-types";
 import {
+  approvalBadgeLabel,
+  viewerCanApprove,
+} from "@/lib/approval-tiers";
+import {
   ENGAGEMENT_BILLING_BLOCKED_MESSAGE,
   isMatterEngagementBillable,
 } from "@/lib/billing-gates";
+import { INVOICE_BILLING_APPROVE_MAX } from "@/lib/constants";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
+import type { UserRole } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-const HIGH_VALUE = 5000;
 
 type MatterEmbed = {
   matter_number: string;
   matter_name: string;
   matter_status?: string;
   approval_status?: string;
+  billing_method?: string | null;
+  practice_area?: string | null;
+  responsible_attorney_id?: string | null;
 } | null;
 
 type Props = {
@@ -94,7 +101,24 @@ export function InvoiceDetailClient(props: Props) {
 
   const locked = !!inv.finalized_at;
   const canPrepare = role === "managing_partner" || role === "billing_staff";
-  const canApprove = role === "managing_partner";
+  const matterCtx = inv.matters || null;
+  const invoiceApproval = viewerCanApprove({
+    kind: "invoice",
+    viewerRole: role as UserRole,
+    viewerId: userId,
+    matter: matterCtx,
+    amount: Number(inv.invoice_total),
+    preparerId: inv.created_by,
+  });
+  const writeOffApproval = viewerCanApprove({
+    kind: "write_off",
+    viewerRole: role as UserRole,
+    viewerId: userId,
+    matter: matterCtx,
+    amount: Number(writeOffAmt || 0),
+  });
+  const canApprove = invoiceApproval.allowed;
+  const canApproveWriteOff = writeOffApproval.allowed;
   const canPost = canPrepare;
   const canEditDraft = canPrepare && !locked && inv.approval_status === "Draft";
   const engagementBillable = isMatterEngagementBillable(inv.matters);
@@ -103,9 +127,10 @@ export function InvoiceDetailClient(props: Props) {
     !inv.finalized_at &&
     (inv.approval_status === "Approved" ||
       (canApprove && inv.approval_status === "Submitted"));
-  const isHighValue = Number(inv.invoice_total) >= HIGH_VALUE;
+  const isHighValue = Number(inv.invoice_total) >= INVOICE_BILLING_APPROVE_MAX;
   const selfApprovalFlag =
-    isHighValue && inv.created_by === userId && canApprove;
+    isHighValue && inv.created_by === userId && role === "managing_partner";
+  const approvalPolicyLabel = approvalBadgeLabel(invoiceApproval.decision);
 
   function syncEditForm(
     nextInv: typeof inv,
@@ -132,7 +157,7 @@ export function InvoiceDetailClient(props: Props) {
       supabase
         .from("invoices")
         .select(
-          "*, matters(matter_number, matter_name, matter_status, approval_status), clients(organization_name, first_name, last_name, client_number)"
+          "*, matters(matter_number, matter_name, matter_status, approval_status, billing_method, practice_area, responsible_attorney_id), clients(organization_name, first_name, last_name, client_number)"
         )
         .eq("id", inv.id)
         .single(),
@@ -342,7 +367,7 @@ export function InvoiceDetailClient(props: Props) {
     const { error: err } = await supabase.rpc("finalize_invoice", { p_invoice_id: inv.id });
     if (err) setError(err.message);
     else {
-      setMessage("Invoice finalized. Simulated AR journal entry created.");
+      setMessage("Invoice finalized. ASC 606: revenue recognized for satisfied performance obligations; simulated AR journal entry created.");
       await refresh();
     }
     setBusy(false);
@@ -364,7 +389,7 @@ export function InvoiceDetailClient(props: Props) {
     });
     if (err) setError(err.message);
     else {
-      setMessage("Retainer applied (simulated).");
+      setMessage("Retainer applied (ASC 606): contract liability reduced against earned invoice; simulated.");
       setRetainerAmt("");
       await refresh();
     }
@@ -467,7 +492,7 @@ export function InvoiceDetailClient(props: Props) {
   }
 
   async function approveWriteOff(id: string) {
-    if (Number(inv.invoice_total) >= HIGH_VALUE && inv.created_by === userId) {
+    if (Number(inv.invoice_total) >= INVOICE_BILLING_APPROVE_MAX && inv.created_by === userId) {
       if (!window.confirm("Self-approval flag on related high-value work. Continue?")) return;
     }
     setBusy(true);
@@ -502,7 +527,7 @@ export function InvoiceDetailClient(props: Props) {
         <div className="alert alert-warning text-sm">
           <span>
             Control flag: preparer is the same user as the potential approver on a high-value invoice
-            (≥ {formatCurrency(HIGH_VALUE)}).
+            (≥ {formatCurrency(INVOICE_BILLING_APPROVE_MAX)}).
           </span>
         </div>
       )}
@@ -653,7 +678,16 @@ export function InvoiceDetailClient(props: Props) {
       )}
 
       {canPrepare && !locked && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="badge badge-outline badge-sm">{approvalPolicyLabel}</span>
+            {!canApprove && inv.approval_status === "Submitted" ? (
+              <span className="text-xs opacity-70">
+                {invoiceApproval.blockedReason || invoiceApproval.decision.reason}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
           {inv.approval_status === "Draft" && (
             <button className="btn btn-primary btn-sm" disabled={busy} onClick={submitForApproval}>
               Submit for approval
@@ -692,6 +726,7 @@ export function InvoiceDetailClient(props: Props) {
               Approve draft
             </button>
           )}
+          </div>
         </div>
       )}
       {canPost && inv.finalized_at && Number(inv.balance_due) > 0 && (
@@ -905,7 +940,7 @@ export function InvoiceDetailClient(props: Props) {
                       {formatCurrency(Number(w.amount))} · {w.reason} ·{" "}
                       <StatusBadge status={w.approval_status} />
                     </span>
-                    {canApprove && w.approval_status !== "Approved" && (
+                    {canApproveWriteOff && w.approval_status !== "Approved" && (
                       <button className="btn btn-xs btn-primary" disabled={busy} onClick={() => approveWriteOff(w.id)}>
                         Approve write-off
                       </button>

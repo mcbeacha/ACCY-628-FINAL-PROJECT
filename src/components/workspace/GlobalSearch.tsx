@@ -6,20 +6,18 @@ import {
   type SearchCategory,
   type SearchRecord,
 } from "@/lib/workspace-mock";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
 const PLACEHOLDER = "Search matters, clients, documents, tasks, or contacts…";
-
-/** The keyboard hint never changes after load, so there is nothing to watch. */
-function subscribeToNothing(): () => void {
-  return () => {};
-}
-
-function getShortcut(): string {
-  return /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ K" : "Ctrl K";
-}
 
 function groupResults(results: SearchRecord[]): [SearchCategory, SearchRecord[]][] {
   return SEARCH_CATEGORY_ORDER.map(
@@ -29,80 +27,143 @@ function groupResults(results: SearchRecord[]): [SearchCategory, SearchRecord[]]
 
 export function GlobalSearch() {
   const router = useRouter();
+  const titleId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  // The platform is only known in the browser, so the server renders the
-  // Windows/Linux hint and the client swaps it during hydration.
-  const shortcut = useSyncExternalStore(subscribeToNothing, getShortcut, () => "Ctrl K");
+  const grouped = useMemo(() => groupResults(searchWorkspace(query, 12)), [query]);
+  const flatResults = useMemo(() => grouped.flatMap(([, records]) => records), [grouped]);
+
+  function openSearch() {
+    setOpen(true);
+  }
+
+  function closeSearch() {
+    setOpen(false);
+    setQuery("");
+    setActiveIndex(0);
+  }
 
   useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
+    function onKeyDown(event: globalThis.KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setOpen(true);
+        openSearch();
       }
-      if (event.key === "Escape") setOpen(false);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const grouped = useMemo(() => groupResults(searchWorkspace(query, 12)), [query]);
+  useEffect(() => {
+    if (!open) return;
+    const id = window.setTimeout(() => inputRef.current?.focus(), 10);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.clearTimeout(id);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query]);
 
   function go(href: string) {
-    setOpen(false);
-    setQuery("");
+    closeSearch();
     router.push(href);
+  }
+
+  function onInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeSearch();
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, Math.max(flatResults.length - 1, 0)));
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+      return;
+    }
+    if (event.key === "Enter" && flatResults[activeIndex]) {
+      event.preventDefault();
+      go(flatResults[activeIndex].href);
+    }
   }
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="btn btn-ghost btn-sm hidden md:flex w-64 lg:w-80 justify-start gap-2 border border-base-300 font-normal normal-case"
-        aria-label="Open global search"
-      >
-        <Search className="h-4 w-4 opacity-60 shrink-0" />
-        <span className="truncate opacity-60">Search matters, clients, documents…</span>
-        <kbd className="kbd kbd-xs ml-auto hidden lg:inline-flex">{shortcut}</kbd>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="btn btn-ghost btn-square btn-sm md:hidden"
-        aria-label="Open global search"
+        onClick={openSearch}
+        className="btn btn-ghost btn-square"
+        aria-label="Open search"
+        title="Search"
       >
         <Search className="h-5 w-5" />
       </button>
 
       {open && (
-        <dialog className="modal modal-open items-start" aria-label="Global search">
-          <div className="modal-box max-w-2xl mt-16 p-0 overflow-hidden">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]">
+          <button
+            type="button"
+            className="absolute inset-0 bg-base-content/40"
+            aria-label="Close search"
+            onClick={closeSearch}
+          />
+
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            className="relative z-[101] w-full max-w-xl overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-2xl"
+          >
             <div className="flex items-center gap-2 border-b border-base-300 px-4">
-              <Search className="h-4 w-4 opacity-60 shrink-0" aria-hidden="true" />
+              <Search className="h-4 w-4 shrink-0 opacity-60" aria-hidden="true" />
               <input
-                autoFocus
+                ref={inputRef}
+                type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onInputKeyDown}
                 placeholder={PLACEHOLDER}
                 aria-label={PLACEHOLDER}
-                className="input input-ghost w-full border-0 px-0 focus:outline-none"
+                className="h-12 w-full min-w-0 bg-transparent text-base outline-none placeholder:opacity-60"
               />
-              <kbd className="kbd kbd-xs">Esc</kbd>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm btn-square"
+                aria-label="Close search"
+                onClick={closeSearch}
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
-            <div className="max-h-96 overflow-y-auto p-2">
+            <p id={titleId} className="sr-only">
+              Workspace search
+            </p>
+
+            <div className="max-h-[50vh] overflow-y-auto p-2">
               {query.trim() === "" ? (
-                <p className="p-6 text-center text-sm opacity-60">
-                  Start typing to search matters, clients, documents, tasks, contacts, and attorneys.
+                <p className="p-6 text-center text-sm opacity-70">
+                  Type to search matters, clients, documents, tasks, contacts, and attorneys.
+                  <span className="mt-2 block text-xs opacity-60">
+                    Try “matter”, “harbor”, or “engagement”.
+                  </span>
                 </p>
               ) : grouped.length === 0 ? (
                 <div className="p-6 text-center">
                   <p className="font-medium">No matches for “{query}”</p>
-                  <p className="text-sm opacity-60 mt-1">
+                  <p className="mt-1 text-sm opacity-60">
                     Try a matter number, client name, or document title.
                   </p>
                 </div>
@@ -113,35 +174,36 @@ export function GlobalSearch() {
                       {category}
                     </p>
                     <ul>
-                      {records.map((record) => (
-                        <li key={record.id}>
-                          <button
-                            type="button"
-                            onClick={() => go(record.href)}
-                            className="w-full rounded-btn px-3 py-2 text-left hover:bg-base-200"
-                          >
-                            <span className="block text-sm font-medium truncate">
-                              {record.title}
-                            </span>
-                            <span className="block text-xs opacity-60 truncate">
-                              {record.subtitle}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
+                      {records.map((record) => {
+                        const index = flatResults.indexOf(record);
+                        const active = index === activeIndex;
+                        return (
+                          <li key={record.id}>
+                            <button
+                              type="button"
+                              onMouseEnter={() => setActiveIndex(index)}
+                              onClick={() => go(record.href)}
+                              className={`w-full rounded-btn px-3 py-2.5 text-left ${
+                                active ? "bg-base-200" : "hover:bg-base-200"
+                              }`}
+                            >
+                              <span className="block truncate text-sm font-medium">
+                                {record.title}
+                              </span>
+                              <span className="block truncate text-xs opacity-60">
+                                {record.subtitle}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </section>
                 ))
               )}
             </div>
           </div>
-          <button
-            type="button"
-            className="modal-backdrop"
-            onClick={() => setOpen(false)}
-            aria-label="Close search"
-          />
-        </dialog>
+        </div>
       )}
     </>
   );

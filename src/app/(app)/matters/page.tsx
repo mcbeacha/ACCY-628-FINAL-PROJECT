@@ -3,6 +3,7 @@ import { canCreateMatters } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import { InteractiveTableRow } from "@/components/InteractiveTableRow";
 import { clientDisplayName, formatDate } from "@/lib/format";
 import {
   BILLING_METHODS,
@@ -181,7 +182,7 @@ export default async function MattersPage({
               </thead>
               <tbody>
                 {matters.map((m) => (
-                  <tr key={m.id} className="hover">
+                  <InteractiveTableRow key={m.id} href={`/matters/${m.id}`}>
                     <td>
                       <Link href={`/matters/${m.id}`} className="link link-hover font-medium">
                         {m.matter_number}
@@ -199,7 +200,7 @@ export default async function MattersPage({
                       <td className="text-sm">{m.billing_method || "—"}</td>
                     )}
                     <td className="text-sm">{formatDate(m.expected_end_date)}</td>
-                  </tr>
+                  </InteractiveTableRow>
                 ))}
               </tbody>
             </table>

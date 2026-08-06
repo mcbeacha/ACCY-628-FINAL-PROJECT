@@ -24,16 +24,25 @@ export function TaskRow({
   const due = dueLabel(task);
 
   return (
-    <li className="flex items-start gap-3 py-3">
+    <li
+      className={`interactive-row flex items-start gap-3 rounded-lg px-2 py-3 -mx-2 transition-opacity duration-200 ${
+        done ? "opacity-60" : ""
+      }`}
+    >
       <input
         type="checkbox"
         className="checkbox checkbox-sm mt-1"
         checked={done}
         onChange={() => onToggle(task.id)}
         aria-label={`Mark ${task.name} as complete`}
+        onClick={(e) => e.stopPropagation()}
       />
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium leading-snug ${done ? "line-through opacity-60" : ""}`}>
+        <p
+          className={`text-sm font-medium leading-snug transition-all duration-200 ${
+            done ? "line-through opacity-70" : ""
+          }`}
+        >
           {task.name}
         </p>
         <p className="text-xs opacity-60 mt-0.5 truncate">

@@ -57,13 +57,12 @@ function NavLinkRow({
   const showBadge = typeof badgeCount === "number" && badgeCount > 0;
   const ariaLabel = showBadge ? `${label}, ${badgeCount} pending` : undefined;
   const className = [
-    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors w-full text-left",
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-    indented ? "ml-2 pl-4 border-l-2 border-base-300" : "",
-    active
-      ? "bg-primary/15 text-base-content font-semibold border-l-primary"
-      : "hover:bg-base-200 opacity-90",
-  ].join(" ");
+    "nav-link",
+    indented ? "nav-link-indent" : "",
+    active ? "nav-link-active" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   if (onDemoSwitch) {
     return (
@@ -78,11 +77,11 @@ function NavLinkRow({
         aria-label={ariaLabel}
       >
         {active && (
-          <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+          <span className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" aria-hidden />
         )}
         <span className="truncate flex-1">{label}</span>
         {showBadge && (
-          <span className="badge badge-warning badge-sm shrink-0" aria-hidden>
+          <span className="badge badge-sm shrink-0 border-0 bg-accent/90 text-accent-content" aria-hidden>
             {badgeCount}
           </span>
         )}
@@ -99,11 +98,11 @@ function NavLinkRow({
       aria-label={ariaLabel}
     >
       {active && (
-        <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+        <span className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" aria-hidden />
       )}
       <span className="truncate flex-1">{label}</span>
       {showBadge && (
-        <span className="badge badge-warning badge-sm shrink-0" aria-hidden>
+        <span className="badge badge-sm shrink-0 border-0 bg-accent/90 text-accent-content" aria-hidden>
           {badgeCount}
         </span>
       )}
@@ -143,17 +142,21 @@ function SidebarSection({
       <button
         type="button"
         className={[
-          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold",
-          "hover:bg-base-200 transition-colors",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-          hasActiveChild ? "text-primary" : "",
+          "nav-section-btn",
+          hasActiveChild ? "nav-section-btn-active" : "",
         ].join(" ")}
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={`${section.label} section`}
         onClick={onToggle}
       >
-        <Icon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+        <Icon
+          className={[
+            "nav-link-icon h-4 w-4 shrink-0",
+            hasActiveChild ? "opacity-100 text-primary" : "opacity-70",
+          ].join(" ")}
+          aria-hidden
+        />
         <span
           className="flex-1 text-left truncate transition-opacity duration-200"
           aria-live={titleLive ? "polite" : undefined}
@@ -304,18 +307,15 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
             href={dashboard.href}
             onClick={onNavigate}
             className={[
-              "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-              isNavLinkActive(pathname, dashboard.href, allHrefs)
-                ? "bg-primary/15 text-base-content"
-                : "hover:bg-base-200",
+              "nav-link",
+              isNavLinkActive(pathname, dashboard.href, allHrefs) ? "nav-link-active" : "",
             ].join(" ")}
             aria-current={
               isNavLinkActive(pathname, dashboard.href, allHrefs) ? "page" : undefined
             }
           >
-            <DashIcon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
-            <span>{dashboard.label}</span>
+            <DashIcon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+            <span className="font-semibold">{dashboard.label}</span>
           </Link>
         </div>
       )}
@@ -326,18 +326,15 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
             href={inbox.href}
             onClick={onNavigate}
             className={[
-              "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-              isNavLinkActive(pathname, inbox.href, allHrefs)
-                ? "bg-primary/15 text-base-content"
-                : "hover:bg-base-200",
+              "nav-link",
+              isNavLinkActive(pathname, inbox.href, allHrefs) ? "nav-link-active" : "",
             ].join(" ")}
             aria-current={
               isNavLinkActive(pathname, inbox.href, allHrefs) ? "page" : undefined
             }
           >
-            <InboxIcon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
-            <span>{inbox.label}</span>
+            <InboxIcon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+            <span className="font-semibold">{inbox.label}</span>
           </Link>
         </div>
       )}

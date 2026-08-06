@@ -132,12 +132,18 @@ export const RETAINER_TXN_TYPES = [
 export const EXPENSE_RECEIPT_THRESHOLD = 75;
 export const EXPENSE_HIGH_VALUE_THRESHOLD = 1000;
 
-export const LIGHT_THEME = "corporate";
-export const DARK_THEME = "business";
+/** Case-type approval matrix thresholds (academic demo). */
+export const INVOICE_BILLING_APPROVE_MAX = 5000;
+export const EXPENSE_ELEVATED_MP_THRESHOLD = 500;
+export const COST_ROUTINE_MP_THRESHOLD = EXPENSE_HIGH_VALUE_THRESHOLD;
+export const COST_ELEVATED_MP_THRESHOLD = EXPENSE_ELEVATED_MP_THRESHOLD;
+
+export const LIGHT_THEME = "rebel-navy";
+export const DARK_THEME = "rebel-night";
 
 export const THEMES = [
-  { id: LIGHT_THEME, label: "Light" },
-  { id: DARK_THEME, label: "Dark" },
+  { id: LIGHT_THEME, label: "Navy & Gold" },
+  { id: DARK_THEME, label: "Night" },
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]["id"];
@@ -149,7 +155,8 @@ export const THEME_STORAGE_KEY = "rlg-theme";
 /** Older builds stored other daisyUI themes; map them onto the light/dark pair. */
 export function normalizeTheme(value: string | null | undefined): ThemeId {
   if (value === LIGHT_THEME || value === DARK_THEME) return value;
-  const legacyDark = ["night", "dim", "luxury", "dark", "nord"];
+  const legacyDark = ["night", "dim", "luxury", "dark", "nord", "business"];
+  if (value === "corporate") return LIGHT_THEME;
   return value && legacyDark.includes(value) ? DARK_THEME : DEFAULT_THEME;
 }
 
@@ -159,17 +166,20 @@ export function statusBadgeClass(status: string): string {
     case "Approved":
     case "Completed":
     case "Ready":
+    case "Compliant":
       return "badge-success";
     case "Pending Approval":
     case "On Hold":
     case "Needs Review":
     case "Waiting":
     case "Missing Information":
+    case "Needs Attention":
     case "Prospective":
       return "badge-warning";
     case "Canceled":
     case "Rejected":
     case "Returned for Correction":
+    case "Not Ready":
       return "badge-error";
     case "Draft":
     case "Closed":

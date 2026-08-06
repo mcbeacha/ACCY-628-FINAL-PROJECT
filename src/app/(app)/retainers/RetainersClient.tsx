@@ -119,7 +119,7 @@ export function RetainersClient({ userId }: { userId: string }) {
     <>
       <PageHeader
         title="Retainers"
-        description="Simulated retainer accounts and transactions. Balances recalculate from approved transactions only."
+        description="ASC 606 contract liabilities: retainer deposits are advances held for future services—not revenue when received. Balances fall when applied to finalized invoices (performance obligations satisfied)."
       />
 
       {message && (

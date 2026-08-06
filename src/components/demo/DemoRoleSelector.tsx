@@ -49,8 +49,8 @@ export function DemoRoleSelector() {
         ))}
       </select>
 
-      <span className="badge badge-warning badge-sm whitespace-nowrap hidden sm:inline-flex">
-        Demo Mode
+      <span className="badge badge-sm whitespace-nowrap hidden sm:inline-flex border border-base-content/15 bg-base-200 text-base-content/80 font-medium">
+        Demo
       </span>
 
       <button
@@ -89,7 +89,7 @@ export function DemoModeToast() {
 
 export function DemoModeNoticeBar() {
   return (
-    <div className="bg-warning/20 text-warning-content border-b border-warning/30 px-4 py-1.5 text-center text-xs sm:text-sm">
+    <div className="bg-primary text-primary-content border-b border-primary px-4 py-1.5 text-center text-xs sm:text-sm">
       {DEMO_MODE_NOTICE}
     </div>
   );

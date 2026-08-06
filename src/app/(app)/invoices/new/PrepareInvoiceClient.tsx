@@ -2,6 +2,13 @@
 
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  canEnableCreateDraftInvoice,
+  formatPrepareInvoiceMatterOption,
+  hasEligibleInvoiceActivity,
+  isOrdinaryInvoiceMethod,
+  PREPARE_INVOICE_MATTER_STATUSES,
+} from "@/lib/billing/prepare-invoice-matters";
 import { calcBillableAmount } from "@/lib/phase2-types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
@@ -14,6 +21,7 @@ import {
 } from "@/lib/invoice-controls";
 import { createClient } from "@/lib/supabase/client";
 import type { ExpenseEntry, TimeEntry } from "@/lib/phase2-types";
+import type { Client } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -27,6 +35,9 @@ type MatterRow = {
   engagement_start_date: string | null;
   payment_terms_days: number | null;
   billing_method: string | null;
+  fixed_fee_amount: number | null;
+  hourly_rate: number | null;
+  clients?: Partial<Client> | null;
 };
 
 const HIGH_VALUE = 5000;
@@ -40,6 +51,8 @@ export function PrepareInvoiceClient({
 }) {
   const router = useRouter();
   const [matters, setMatters] = useState<MatterRow[]>([]);
+  const [mattersLoading, setMattersLoading] = useState(true);
+  const [mattersError, setMattersError] = useState<string | null>(null);
   const [matterId, setMatterId] = useState("");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
@@ -52,6 +65,7 @@ export function PrepareInvoiceClient({
   const [fixedDesc, setFixedDesc] = useState("Authorized fixed-fee installment");
   const [timeRows, setTimeRows] = useState<TimeEntry[]>([]);
   const [expRows, setExpRows] = useState<ExpenseEntry[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [selTime, setSelTime] = useState<Record<string, boolean>>({});
   const [selExp, setSelExp] = useState<Record<string, boolean>>({});
   const [writeDowns, setWriteDowns] = useState<Record<string, string>>({});
@@ -59,36 +73,80 @@ export function PrepareInvoiceClient({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const selectedMatter = useMemo(
+    () => matters.find((x) => x.id === matterId) || null,
+    [matters, matterId]
+  );
+
   useEffect(() => {
     (async () => {
+      setMattersLoading(true);
+      setMattersError(null);
       const supabase = createClient();
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from("matters")
         .select(
-          "id, matter_number, matter_name, client_id, matter_status, approval_status, engagement_start_date, payment_terms_days, billing_method"
+          "id, matter_number, matter_name, client_id, matter_status, approval_status, engagement_start_date, payment_terms_days, billing_method, fixed_fee_amount, hourly_rate, clients(id, client_type, first_name, last_name, organization_name, primary_contact_name)"
         )
-        .in("approval_status", ["Approved"])
-        .in("matter_status", ["Active", "Approved", "Closed"])
+        .eq("approval_status", "Approved")
+        .in("matter_status", [...PREPARE_INVOICE_MATTER_STATUSES])
         .order("matter_number");
-      setMatters((data || []) as MatterRow[]);
+      if (qErr) {
+        setMattersError(qErr.message);
+        setMatters([]);
+      } else {
+        const rows = ((data || []) as MatterRow[]).filter((m) =>
+          isOrdinaryInvoiceMethod({
+            billing_method: m.billing_method,
+            fixed_fee_amount: m.fixed_fee_amount,
+            hourly_rate: m.hourly_rate,
+          })
+        );
+        setMatters(rows);
+      }
+      setMattersLoading(false);
     })();
   }, []);
 
-  useEffect(() => {
-    if (!matterId) {
-      setTimeRows([]);
-      setExpRows([]);
-      setRetainerBal(null);
+  function clearMatterDependentState() {
+    setTimeRows([]);
+    setExpRows([]);
+    setRetainerBal(null);
+    setFixedFee("");
+    setSelTime({});
+    setSelExp({});
+    setWriteDowns({});
+    setActivityLoading(false);
+  }
+
+  function onMatterChange(nextId: string) {
+    setMatterId(nextId);
+    if (!nextId) {
+      clearMatterDependentState();
       return;
     }
-    const m = matters.find((x) => x.id === matterId);
-    if (m && !dueDate) {
+    const m = matters.find((x) => x.id === nextId);
+    if (m) {
       const terms = m.payment_terms_days || 30;
       const d = new Date(`${invoiceDate}T00:00:00`);
       d.setDate(d.getDate() + terms);
       setDueDate(d.toISOString().slice(0, 10));
+      if (
+        (m.billing_method === "Fixed Fee" || m.billing_method === "Hybrid") &&
+        Number(m.fixed_fee_amount) > 0
+      ) {
+        setFixedFee(String(m.fixed_fee_amount));
+      } else {
+        setFixedFee("");
+      }
     }
+  }
+
+  useEffect(() => {
+    if (!matterId) return;
+    let cancelled = false;
     (async () => {
+      setActivityLoading(true);
       const supabase = createClient();
       let tq = supabase
         .from("time_entries")
@@ -125,15 +183,19 @@ export function PrepareInvoiceClient({
           .limit(1)
           .maybeSingle(),
       ]);
+      if (cancelled) return;
       setTimeRows((t || []) as TimeEntry[]);
       setExpRows((e || []) as ExpenseEntry[]);
       setRetainerBal(ra ? Number(ra.current_balance) : null);
       setSelTime({});
       setSelExp({});
       setWriteDowns({});
+      setActivityLoading(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matterId, periodStart, periodEnd, matters, invoiceDate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [matterId, periodStart, periodEnd]);
 
   const preview = useMemo(() => {
     let timeOrig = 0;
@@ -157,12 +219,49 @@ export function PrepareInvoiceClient({
     return { timeOrig, timeFinal, expTotal, fixed, wd, subtotal };
   }, [timeRows, expRows, selTime, selExp, writeDowns, fixedFee]);
 
+  const hasSelectedLines = useMemo(() => {
+    return (
+      Object.values(selTime).some(Boolean) || Object.values(selExp).some(Boolean)
+    );
+  }, [selTime, selExp]);
+
+  const draftEnabled = canEnableCreateDraftInvoice({
+    matterSelected: !!selectedMatter,
+    billingMethod: selectedMatter?.billing_method,
+    fixedFeeAmountOnMatter: selectedMatter?.fixed_fee_amount,
+    hourlyRateOnMatter: selectedMatter?.hourly_rate,
+    invoiceDate,
+    dueDate,
+    invoiceTotal: preview.subtotal,
+    hasSelectedTimeOrExpense: hasSelectedLines,
+    fixedFeeLineAmount: Number(fixedFee) || 0,
+  });
+
+  const showNoActivityMessage =
+    !!selectedMatter &&
+    !activityLoading &&
+    !hasEligibleInvoiceActivity({
+      timeCount: timeRows.length,
+      expenseCount: expRows.length,
+      fixedFeeLineAmount: Number(fixedFee) || 0,
+    });
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     const m = matters.find((x) => x.id === matterId);
     if (!m) {
       setError("Select a matter.");
+      return;
+    }
+    if (
+      !isOrdinaryInvoiceMethod({
+        billing_method: m.billing_method,
+        fixed_fee_amount: m.fixed_fee_amount,
+        hourly_rate: m.hourly_rate,
+      })
+    ) {
+      setError("This matter's billing method does not permit an ordinary invoice.");
       return;
     }
     if (m.matter_status === "Canceled" || m.approval_status === "Rejected") {
@@ -200,6 +299,10 @@ export function PrepareInvoiceClient({
     const fixed = Number(fixedFee) || 0;
     if (!times.length && !exps.length && fixed <= 0) {
       setError("Select at least one approved unbilled entry or a fixed-fee line.");
+      return;
+    }
+    if (preview.subtotal <= 0) {
+      setError("Invoice total must be greater than zero.");
       return;
     }
     if (preview.subtotal >= HIGH_VALUE && role === "managing_partner") {
@@ -380,6 +483,11 @@ export function PrepareInvoiceClient({
           <span>{error}</span>
         </div>
       )}
+      {mattersError && (
+        <div className="alert alert-error text-sm">
+          <span>Could not load matters: {mattersError}</span>
+        </div>
+      )}
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body grid gap-3 md:grid-cols-2">
@@ -388,23 +496,50 @@ export function PrepareInvoiceClient({
               <select
                 className="select select-bordered"
                 value={matterId}
-                onChange={(e) => setMatterId(e.target.value)}
+                onChange={(e) => onMatterChange(e.target.value)}
                 required
+                disabled={mattersLoading || !!mattersError}
               >
-                <option value="">Select approved matter…</option>
-                {matters.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.matter_number} · {m.matter_name} ({m.matter_status})
-                  </option>
-                ))}
+                <option value="">
+                  {mattersLoading
+                    ? "Loading matters…"
+                    : mattersError
+                      ? "Unable to load matters"
+                      : "Select approved matter…"}
+                </option>
+                {!mattersLoading &&
+                  !mattersError &&
+                  matters.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {formatPrepareInvoiceMatterOption({
+                        matter_number: m.matter_number,
+                        matter_name: m.matter_name,
+                        client: m.clients,
+                      })}
+                    </option>
+                  ))}
               </select>
+              {!mattersLoading && !mattersError && matters.length === 0 && (
+                <span className="label-text-alt opacity-70">
+                  No ordinary invoice-eligible matters found. Contingency and Pro Bono matters are
+                  excluded.
+                </span>
+              )}
             </label>
-            <div className="text-sm opacity-70 self-end">
-              Retainer available:{" "}
-              <span className="font-semibold">
-                {retainerBal == null ? "—" : formatCurrency(retainerBal)}
-              </span>{" "}
-              (apply after finalization)
+            <div className="text-sm opacity-70 self-end space-y-1">
+              {selectedMatter && (
+                <div>
+                  Billing method:{" "}
+                  <span className="font-semibold">{selectedMatter.billing_method || "—"}</span>
+                </div>
+              )}
+              <div>
+                Retainer available:{" "}
+                <span className="font-semibold">
+                  {retainerBal == null ? "—" : formatCurrency(retainerBal)}
+                </span>{" "}
+                (apply after finalization)
+              </div>
             </div>
             <label className="form-control">
               <span className="label-text">Billing period start</span>
@@ -477,10 +612,22 @@ export function PrepareInvoiceClient({
           </div>
         </div>
 
+        {showNoActivityMessage && (
+          <div className="alert alert-warning text-sm">
+            <span>
+              This matter has no eligible approved unbilled time, reimbursable expenses, or
+              authorized fixed-fee amount for the selected period. Nothing can be added to an
+              ordinary invoice until eligible activity exists.
+            </span>
+          </div>
+        )}
+
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
             <h2 className="card-title text-base">Approved unbilled time</h2>
-            {timeRows.length === 0 ? (
+            {activityLoading ? (
+              <p className="text-sm opacity-70">Loading time entries…</p>
+            ) : timeRows.length === 0 ? (
               <EmptyState title="No eligible time for this matter/period." />
             ) : (
               <div className="table-wrap">
@@ -546,7 +693,9 @@ export function PrepareInvoiceClient({
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
             <h2 className="card-title text-base">Approved unbilled reimbursable expenses</h2>
-            {expRows.length === 0 ? (
+            {activityLoading ? (
+              <p className="text-sm opacity-70">Loading expenses…</p>
+            ) : expRows.length === 0 ? (
               <EmptyState title="No eligible expenses for this matter/period." />
             ) : (
               <div className="table-wrap">
@@ -629,7 +778,11 @@ export function PrepareInvoiceClient({
                 the detail page.
               </div>
             )}
-            <button type="submit" className="btn btn-primary mt-3 w-fit" disabled={busy}>
+            <button
+              type="submit"
+              className="btn btn-primary mt-3 w-fit"
+              disabled={busy || !draftEnabled}
+            >
               {busy ? "Saving…" : "Create draft invoice"}
             </button>
           </div>

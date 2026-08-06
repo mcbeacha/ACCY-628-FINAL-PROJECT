@@ -69,7 +69,7 @@ function hydrateResponsible(
         email: seeded.email,
         job_title: seeded.job_title,
       },
-    };
+    } as ClientPortalBundle["matters"][number];
   });
 }
 

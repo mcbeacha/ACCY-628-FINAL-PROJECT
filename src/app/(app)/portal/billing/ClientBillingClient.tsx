@@ -131,7 +131,9 @@ export function ClientBillingClient({
                   <li key={i.id}>
                     <button
                       type="button"
-                      className={`w-full text-left border rounded-lg p-3 ${selected === i.id ? "border-primary" : "border-base-200"}`}
+                      className={`interactive-card w-full text-left border rounded-lg p-3 ${
+                        selected === i.id ? "border-primary shadow-md" : "border-base-300"
+                      }`}
                       onClick={() => setSelected(i.id)}
                     >
                       <div className="flex justify-between gap-2">

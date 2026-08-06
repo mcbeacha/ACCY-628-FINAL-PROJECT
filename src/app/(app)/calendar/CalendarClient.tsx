@@ -1,24 +1,48 @@
 "use client";
 
 import { EmptyState } from "@/components/EmptyState";
-import { formatDate } from "@/lib/format";
+import { useDemoRole } from "@/components/demo/DemoRoleProvider";
 import {
-  CALENDAR_EVENTS,
+  calendarConfigForRole,
+  eventsForRole,
+  isMeetingEvent,
+  isVirtualMeeting,
   type CalendarEvent,
   type CalendarEventType,
-} from "@/lib/workspace-mock";
+} from "@/lib/calendar";
+import {
+  buildGoogleCalendarUrl,
+  buildIcsCalendar,
+  buildMeetingReminderMailto,
+  buildTeamsOutlookCalendarUrl,
+  downloadIcsFile,
+} from "@/lib/calendar-export";
+import { formatDate } from "@/lib/format";
+import type { UserRole } from "@/lib/types";
 import {
   AlarmClock,
+  Apple,
   Building2,
+  CalendarPlus,
   ChevronLeft,
   ChevronRight,
+  ClipboardSignature,
+  CreditCard,
+  Download,
+  FileCheck2,
   FileUp,
+  Flag,
   Gavel,
   GraduationCap,
+  Mail,
   MessageSquare,
+  Receipt,
   Users,
+  Video,
+  Wallet,
+  X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 type ViewMode = "Month" | "Week" | "Agenda";
 
@@ -33,9 +57,15 @@ const EVENT_META: Record<
   "Statute Deadline": { badge: "badge-error", dot: "bg-error", Icon: AlarmClock },
   "Internal Meeting": { badge: "badge-ghost", dot: "bg-base-content/40", Icon: Building2 },
   CLE: { badge: "badge-accent", dot: "bg-accent", Icon: GraduationCap },
+  "Document Due": { badge: "badge-warning", dot: "bg-warning", Icon: FileCheck2 },
+  "Payment Due": { badge: "badge-secondary", dot: "bg-secondary", Icon: CreditCard },
+  "Invoice Review": { badge: "badge-primary", dot: "bg-primary", Icon: Receipt },
+  "Billing Cutoff": { badge: "badge-error", dot: "bg-error", Icon: AlarmClock },
+  "Retainer Alert": { badge: "badge-warning", dot: "bg-warning", Icon: Wallet },
+  "Signature Needed": { badge: "badge-accent", dot: "bg-accent", Icon: ClipboardSignature },
+  Milestone: { badge: "badge-info", dot: "bg-info", Icon: Flag },
 };
 
-const EVENT_TYPES = Object.keys(EVENT_META) as CalendarEventType[];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function isoOf(date: Date): string {
@@ -50,7 +80,6 @@ function startOfToday(): Date {
   return d;
 }
 
-/** Six full weeks starting on the Sunday before the first of the month. */
 function monthGrid(anchor: Date): Date[] {
   const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   const start = new Date(first);
@@ -72,36 +101,41 @@ function weekGrid(anchor: Date): Date[] {
   });
 }
 
-export function CalendarClient() {
+export function CalendarClient({ role: fallbackRole }: { role: UserRole }) {
+  const demo = useDemoRole();
+  const role = (demo?.activeIdentity.role ?? fallbackRole) as UserRole;
+  const config = calendarConfigForRole(role);
+  const roleEvents = eventsForRole(role);
+  const filterTypes = config.filterTypes;
+
   const [view, setView] = useState<ViewMode>("Month");
   const [offset, setOffset] = useState(0);
   const [hidden, setHidden] = useState<CalendarEventType[]>([]);
+  const [selected, setSelected] = useState<CalendarEvent | null>(null);
+
+  const activeHidden = hidden.filter((type) => filterTypes.includes(type));
 
   const today = startOfToday();
   const todayIso = isoOf(today);
 
-  const anchor = useMemo(() => {
-    const base = startOfToday();
-    if (view === "Month") return new Date(base.getFullYear(), base.getMonth() + offset, 1);
-    const shifted = new Date(base);
-    shifted.setDate(shifted.getDate() + offset * 7);
-    return shifted;
-  }, [view, offset]);
+  const base = startOfToday();
+  const anchor =
+    view === "Month"
+      ? new Date(base.getFullYear(), base.getMonth() + offset, 1)
+      : (() => {
+          const shifted = new Date(base);
+          shifted.setDate(shifted.getDate() + offset * 7);
+          return shifted;
+        })();
 
-  const visibleEvents = useMemo(
-    () => CALENDAR_EVENTS.filter((e) => !hidden.includes(e.type)),
-    [hidden]
-  );
+  const visibleEvents = roleEvents.filter((e) => !activeHidden.includes(e.type));
 
-  const byDate = useMemo(() => {
-    const map = new Map<string, CalendarEvent[]>();
-    for (const event of visibleEvents) {
-      const list = map.get(event.date) ?? [];
-      list.push(event);
-      map.set(event.date, list);
-    }
-    return map;
-  }, [visibleEvents]);
+  const byDate = new Map<string, CalendarEvent[]>();
+  for (const event of visibleEvents) {
+    const list = byDate.get(event.date) ?? [];
+    list.push(event);
+    byDate.set(event.date, list);
+  }
 
   function toggleType(type: CalendarEventType) {
     setHidden((current) =>
@@ -115,6 +149,13 @@ export function CalendarClient() {
       : view === "Week"
         ? `Week of ${formatDate(isoOf(weekGrid(anchor)[0]))}`
         : "Next 60 days";
+
+  function exportAppleCalendar() {
+    downloadIcsFile(
+      `rebel-calendar-${role}.ics`,
+      buildIcsCalendar(visibleEvents, config.title)
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -139,7 +180,7 @@ export function CalendarClient() {
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {view !== "Agenda" && (
                 <>
                   <button
@@ -168,21 +209,28 @@ export function CalendarClient() {
                 </>
               )}
               <span className="font-display text-lg font-semibold ml-1">{periodLabel}</span>
+              <CalendarExportMenu
+                events={visibleEvents}
+                calName={config.title}
+                onApple={exportAppleCalendar}
+              />
             </div>
           </div>
 
           <fieldset className="flex flex-wrap gap-2">
             <legend className="sr-only">Filter event types</legend>
-            {EVENT_TYPES.map((type) => {
+            {filterTypes.map((type) => {
               const { Icon, dot } = EVENT_META[type];
-              const active = !hidden.includes(type);
+              const active = !activeHidden.includes(type);
               return (
                 <button
                   key={type}
                   type="button"
                   aria-pressed={active}
                   onClick={() => toggleType(type)}
-                  className={`btn btn-xs gap-1.5 normal-case ${active ? "btn-outline" : "btn-ghost opacity-50"}`}
+                  className={`btn btn-xs gap-1.5 normal-case ${
+                    active ? "btn-outline" : "btn-ghost opacity-50"
+                  }`}
                 >
                   <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />
                   <Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -195,20 +243,294 @@ export function CalendarClient() {
       </div>
 
       {view === "Month" && (
-        <MonthView grid={monthGrid(anchor)} anchor={anchor} byDate={byDate} todayIso={todayIso} />
+        <MonthView
+          grid={monthGrid(anchor)}
+          anchor={anchor}
+          byDate={byDate}
+          todayIso={todayIso}
+          onSelect={setSelected}
+        />
       )}
-      {view === "Week" && <WeekView grid={weekGrid(anchor)} byDate={byDate} todayIso={todayIso} />}
-      {view === "Agenda" && <AgendaView events={visibleEvents} todayIso={todayIso} />}
+      {view === "Week" && (
+        <WeekView grid={weekGrid(anchor)} byDate={byDate} todayIso={todayIso} onSelect={setSelected} />
+      )}
+      {view === "Agenda" && (
+        <AgendaView events={visibleEvents} todayIso={todayIso} onSelect={setSelected} />
+      )}
+
+      {selected && (
+        <EventDetailDialog event={selected} onClose={() => setSelected(null)} />
+      )}
     </div>
   );
 }
 
-function EventChip({ event }: { event: CalendarEvent }) {
+function CalendarExportMenu({
+  events,
+  calName,
+  onApple,
+}: {
+  events: CalendarEvent[];
+  calName: string;
+  onApple: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!menuRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  function exportFirstToGoogle() {
+    if (events[0]) window.open(buildGoogleCalendarUrl(events[0]), "_blank", "noopener,noreferrer");
+  }
+
+  function exportFirstToTeams() {
+    if (events[0])
+      window.open(buildTeamsOutlookCalendarUrl(events[0]), "_blank", "noopener,noreferrer");
+  }
+
+  return (
+    <div className="dropdown dropdown-end" ref={menuRef}>
+      <button
+        type="button"
+        className="btn btn-outline btn-sm gap-1.5"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <CalendarPlus className="h-4 w-4" />
+        Export
+      </button>
+      {open && (
+        <ul
+          role="menu"
+          className="menu dropdown-content z-30 mt-2 w-64 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg"
+        >
+          <li className="menu-title px-2 pt-1">
+            <span>Add visible events</span>
+          </li>
+          <li>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onApple();
+                setOpen(false);
+              }}
+            >
+              <Apple className="h-4 w-4" />
+              Apple Calendar (.ics)
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                downloadIcsFile(
+                  `rebel-calendar.ics`,
+                  buildIcsCalendar(events, calName)
+                );
+                setOpen(false);
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Download .ics (Google / Teams import)
+            </button>
+          </li>
+          <li className="menu-title px-2 pt-2">
+            <span>Quick-add next event</span>
+          </li>
+          <li>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={!events.length}
+              onClick={() => {
+                exportFirstToGoogle();
+                setOpen(false);
+              }}
+            >
+              Google Calendar
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={!events.length}
+              onClick={() => {
+                exportFirstToTeams();
+                setOpen(false);
+              }}
+            >
+              Teams / Outlook Calendar
+            </button>
+          </li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function EventDetailDialog({
+  event,
+  onClose,
+}: {
+  event: CalendarEvent;
+  onClose: () => void;
+}) {
+  const titleId = useId();
+  const meeting = isMeetingEvent(event);
+  const virtual = isVirtualMeeting(event);
+  const [includeTeams, setIncludeTeams] = useState(Boolean(event.teamsLink) && virtual);
+  const { badge, Icon } = EVENT_META[event.type];
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function sendReminder() {
+    window.location.href = buildMeetingReminderMailto(event, {
+      includeTeamsLink: includeTeams && Boolean(event.teamsLink),
+    });
+  }
+
+  return (
+    <div className="modal modal-open" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div className="modal-box max-w-lg space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className={`badge ${badge} badge-sm gap-1 mb-2`}>
+              <Icon className="h-3 w-3" />
+              {event.type}
+            </p>
+            <h2 id={titleId} className="font-display text-xl font-semibold leading-snug">
+              {event.title}
+            </h2>
+            <p className="text-sm opacity-70 mt-1">
+              {formatDate(event.date)} · {event.startTime}–{event.endTime}
+            </p>
+            <p className="text-sm opacity-70">
+              {event.location}
+              {event.matterRef !== "—" ? ` · ${event.matterRef}` : ""}
+            </p>
+          </div>
+          <button type="button" className="btn btn-ghost btn-sm btn-square" onClick={onClose} aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {virtual && event.teamsLink && (
+          <a
+            href={event.teamsLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-outline btn-sm gap-2 w-full justify-start"
+          >
+            <Video className="h-4 w-4" />
+            Join Teams meeting
+          </a>
+        )}
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide opacity-60 mb-2">
+            Add to calendar
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={buildGoogleCalendarUrl(event)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline btn-sm"
+            >
+              Google
+            </a>
+            <a
+              href={buildTeamsOutlookCalendarUrl(event)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline btn-sm"
+            >
+              Teams / Outlook
+            </a>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm gap-1"
+              onClick={() =>
+                downloadIcsFile(
+                  `${event.id}.ics`,
+                  buildIcsCalendar([event], event.title)
+                )
+              }
+            >
+              <Apple className="h-3.5 w-3.5" />
+              Apple (.ics)
+            </button>
+          </div>
+        </div>
+
+        {meeting && (
+          <div className="rounded-box border border-base-300 bg-base-200/40 p-3 space-y-3">
+            <p className="text-sm font-medium">Email reminder</p>
+            {virtual && event.teamsLink && (
+              <label className="label cursor-pointer justify-start gap-3 py-0">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-sm checkbox-primary"
+                  checked={includeTeams}
+                  onChange={(e) => setIncludeTeams(e.target.checked)}
+                />
+                <span className="label-text text-sm">Include Teams join link</span>
+              </label>
+            )}
+            <button type="button" className="btn btn-primary btn-sm gap-2" onClick={sendReminder}>
+              <Mail className="h-4 w-4" />
+              Send email reminder
+            </button>
+            {event.reminderEmails?.length ? (
+              <p className="text-xs opacity-60">To: {event.reminderEmails.join(", ")}</p>
+            ) : (
+              <p className="text-xs opacity-60">Opens your mail app with a draft reminder.</p>
+            )}
+          </div>
+        )}
+
+        <div className="modal-action mt-0">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+      <button type="button" className="modal-backdrop bg-base-content/40" aria-label="Close" onClick={onClose} />
+    </div>
+  );
+}
+
+function EventChip({
+  event,
+  onSelect,
+}: {
+  event: CalendarEvent;
+  onSelect: (event: CalendarEvent) => void;
+}) {
   const { Icon, dot } = EVENT_META[event.type];
   return (
-    <div
-      className="flex items-start gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-base-200"
+    <button
+      type="button"
+      className="flex w-full items-start gap-1.5 rounded px-1.5 py-1 text-left text-xs hover:bg-base-200"
       title={`${event.title} · ${event.startTime} · ${event.location}`}
+      onClick={() => onSelect(event)}
     >
       <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
       <span className="min-w-0">
@@ -216,9 +538,10 @@ function EventChip({ event }: { event: CalendarEvent }) {
         <span className="flex items-center gap-1 opacity-60">
           <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
           {event.startTime}
+          {isVirtualMeeting(event) && <Video className="h-3 w-3" aria-label="Virtual" />}
         </span>
       </span>
-    </div>
+    </button>
   );
 }
 
@@ -227,11 +550,13 @@ function MonthView({
   anchor,
   byDate,
   todayIso,
+  onSelect,
 }: {
   grid: Date[];
   anchor: Date;
   byDate: Map<string, CalendarEvent[]>;
   todayIso: string;
+  onSelect: (event: CalendarEvent) => void;
 }) {
   return (
     <div className="card bg-base-100 border border-base-300 shadow-sm overflow-hidden">
@@ -256,14 +581,18 @@ function MonthView({
             >
               <div
                 className={`mb-1 text-xs ${
-                  iso === todayIso ? "font-bold text-primary" : outside ? "opacity-40" : "opacity-70"
+                  iso === todayIso
+                    ? "font-bold text-primary"
+                    : outside
+                      ? "opacity-40"
+                      : "opacity-70"
                 }`}
               >
                 {day.getDate()}
               </div>
               <div className="space-y-0.5">
                 {events.slice(0, 3).map((event) => (
-                  <EventChip key={event.id} event={event} />
+                  <EventChip key={event.id} event={event} onSelect={onSelect} />
                 ))}
                 {events.length > 3 && (
                   <p className="px-1.5 text-xs opacity-60">+{events.length - 3} more</p>
@@ -281,10 +610,12 @@ function WeekView({
   grid,
   byDate,
   todayIso,
+  onSelect,
 }: {
   grid: Date[];
   byDate: Map<string, CalendarEvent[]>;
   todayIso: string;
+  onSelect: (event: CalendarEvent) => void;
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
@@ -311,7 +642,7 @@ function WeekView({
                 <ul className="space-y-1.5">
                   {events.map((event) => (
                     <li key={event.id}>
-                      <EventChip event={event} />
+                      <EventChip event={event} onSelect={onSelect} />
                     </li>
                   ))}
                 </ul>
@@ -324,18 +655,21 @@ function WeekView({
   );
 }
 
-function AgendaView({ events, todayIso }: { events: CalendarEvent[]; todayIso: string }) {
+function AgendaView({
+  events,
+  todayIso,
+  onSelect,
+}: {
+  events: CalendarEvent[];
+  todayIso: string;
+  onSelect: (event: CalendarEvent) => void;
+}) {
   const upcoming = events
     .filter((e) => e.date >= todayIso)
     .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
 
   if (upcoming.length === 0) {
-    return (
-      <EmptyState
-        title="Nothing scheduled"
-        description="No upcoming events match the selected event types."
-      />
-    );
+    return <EmptyState title="Nothing scheduled" />;
   }
 
   const days = [...new Set(upcoming.map((e) => e.date))];
@@ -355,18 +689,25 @@ function AgendaView({ events, todayIso }: { events: CalendarEvent[]; todayIso: s
                 .map((event) => {
                   const { badge, Icon } = EVENT_META[event.type];
                   return (
-                    <li key={event.id} className="flex flex-wrap items-start gap-3 py-3">
-                      <span className="w-24 shrink-0 text-sm opacity-70">{event.startTime}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-medium">{event.title}</span>
-                        <span className="block text-xs opacity-60">
-                          {event.location} · {event.matterRef}
+                    <li key={event.id}>
+                      <button
+                        type="button"
+                        className="flex w-full flex-wrap items-start gap-3 py-3 text-left hover:bg-base-200/60 rounded"
+                        onClick={() => onSelect(event)}
+                      >
+                        <span className="w-24 shrink-0 text-sm opacity-70">{event.startTime}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-medium">{event.title}</span>
+                          <span className="block text-xs opacity-60">
+                            {event.location} · {event.matterRef}
+                            {isVirtualMeeting(event) ? " · Virtual" : ""}
+                          </span>
                         </span>
-                      </span>
-                      <span className={`badge ${badge} badge-sm gap-1`}>
-                        <Icon className="h-3 w-3" aria-hidden="true" />
-                        {event.type}
-                      </span>
+                        <span className={`badge ${badge} badge-sm gap-1`}>
+                          <Icon className="h-3 w-3" aria-hidden="true" />
+                          {event.type}
+                        </span>
+                      </button>
                     </li>
                   );
                 })}

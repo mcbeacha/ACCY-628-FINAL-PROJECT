@@ -2,8 +2,14 @@ import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { MessagesClient } from "./MessagesClient";
 
-export default async function MessagesPage() {
+export default async function MessagesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ thread?: string }>;
+}) {
   const { profile } = await requireUser();
+  const params = await searchParams;
+  const initialThreadId = params.thread?.trim() || null;
 
   return (
     <>
@@ -24,6 +30,7 @@ export default async function MessagesPage() {
           role: profile.role,
           kind: profile.role === "client" ? "client" : "staff",
         }}
+        initialThreadId={initialThreadId}
       />
     </>
   );

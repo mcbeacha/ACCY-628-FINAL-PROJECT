@@ -14,8 +14,10 @@ export function SectionHeader({
       <div className="flex items-start gap-2 min-w-0">
         {icon && <span className="text-primary mt-0.5 shrink-0">{icon}</span>}
         <div className="min-w-0">
-          <h2 className="font-display text-xl font-semibold tracking-tight truncate">{title}</h2>
-          {description && <p className="text-sm opacity-70">{description}</p>}
+          <h2 className="font-display text-lg tracking-tight truncate">{title}</h2>
+          {description && (
+            <p className="text-sm text-base-content/60 mt-0.5">{description}</p>
+          )}
         </div>
       </div>
       {action && <div className="flex flex-wrap gap-2 shrink-0">{action}</div>}

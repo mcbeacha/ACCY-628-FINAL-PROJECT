@@ -1,5 +1,5 @@
--- Add billing_code to time_entries for matter+activity codes (e.g. MT-05001-1002).
--- Run on the live ACCY628 Supabase project used by Vercel/local (.env.local).
+﻿-- Add billing_code to time_entries for matter+activity codes (e.g. MT-05001-1002).
+-- Applied remotely to ACC628-Final-Project; kept for repo parity.
 
 alter table public.time_entries
   add column if not exists billing_code text;

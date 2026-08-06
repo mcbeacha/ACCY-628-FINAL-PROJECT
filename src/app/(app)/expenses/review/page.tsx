@@ -6,5 +6,5 @@ import { redirect } from "next/navigation";
 export default async function ExpenseReviewPage() {
   const { profile } = await requireUser();
   if (!canApproveExpenses(profile.role)) redirect("/dashboard");
-  return <ExpenseReviewClient userId={profile.id} />;
+  return <ExpenseReviewClient userId={profile.id} role={profile.role} />;
 }

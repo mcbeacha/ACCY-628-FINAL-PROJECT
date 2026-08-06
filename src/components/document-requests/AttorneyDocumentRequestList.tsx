@@ -5,7 +5,6 @@ import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import {
   documentRequestTone,
-  isOpenDocumentRequest,
   nowIso,
   upsertDocumentRequest,
 } from "@/lib/document-requests";
@@ -51,13 +50,13 @@ export function AttorneyDocumentRequestList({ profile }: Props) {
     <div className="card bg-base-100 border border-base-300 shadow-sm">
       <div className="card-body gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="card-title text-base">Your document requests</h2>
+          <h2 className="card-title text-base">Document requests</h2>
           <Link href="/document-requests" className="link text-sm">
             View all
           </Link>
         </div>
         {mine.length === 0 ? (
-          <EmptyState title="You have not sent any document requests yet." />
+          <EmptyState title="No document requests yet." />
         ) : (
           <ul className="space-y-3">
             {mine.slice(0, 8).map((req) => {
@@ -103,13 +102,9 @@ export function AttorneyDocumentRequestList({ profile }: Props) {
         )}
         {readyForMe.length > 0 && (
           <p className="text-xs text-success">
-            {readyForMe.length} request{readyForMe.length === 1 ? "" : "s"} organized and ready for
-            you.
+            {readyForMe.length} ready for review
           </p>
         )}
-        <p className="text-xs opacity-50">
-          Open requests: {mine.filter((r) => isOpenDocumentRequest(r.status)).length}
-        </p>
       </div>
     </div>
   );

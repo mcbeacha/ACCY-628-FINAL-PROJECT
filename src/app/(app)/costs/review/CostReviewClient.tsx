@@ -3,14 +3,27 @@
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  approvalBadgeLabel,
+  viewerCanApprove,
+  type ApprovalMatterContext,
+} from "@/lib/approval-tiers";
 import { HIGH_VALUE_COST_THRESHOLD, type MatterCostEntry } from "@/lib/cost-types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
 import { useEffect, useState } from "react";
 
-export function CostReviewClient({ userId }: { userId: string; role: UserRole }) {
-  const [rows, setRows] = useState<MatterCostEntry[]>([]);
+type CostRow = MatterCostEntry & {
+  matters?: ApprovalMatterContext & {
+    id?: string;
+    matter_number?: string;
+    matter_name?: string;
+  } | null;
+};
+
+export function CostReviewClient({ userId, role }: { userId: string; role: UserRole }) {
+  const [rows, setRows] = useState<CostRow[]>([]);
   const [status, setStatus] = useState("Submitted");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,12 +34,12 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
     let q = supabase
       .from("matter_cost_entries")
       .select(
-        "*, matters(id, matter_number, matter_name), cost_categories(category_name), vendors(vendor_name), creator:profiles!matter_cost_entries_created_by_fkey(full_name)"
+        "*, matters(id, matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), cost_categories(category_name), vendors(vendor_name), creator:profiles!matter_cost_entries_created_by_fkey(full_name)"
       )
       .order("cost_date", { ascending: false });
     if (status) q = q.eq("approval_status", status);
     const { data } = await q;
-    setRows((data || []) as MatterCostEntry[]);
+    setRows((data || []) as CostRow[]);
   }
 
   useEffect(() => {
@@ -34,11 +47,21 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  async function decide(row: MatterCostEntry, decision: "Approved" | "Rejected") {
-    if (decision === "Approved" && row.created_by === userId) {
-      setError(
-        "You cannot approve a cost you submitted. Another reviewer must approve it."
-      );
+  function rowGate(row: CostRow) {
+    return viewerCanApprove({
+      kind: "cost",
+      viewerRole: role,
+      viewerId: userId,
+      matter: row.matters,
+      amount: Number(row.total_cost),
+      preparerId: row.created_by,
+    });
+  }
+
+  async function decide(row: CostRow, decision: "Approved" | "Rejected") {
+    const gate = rowGate(row);
+    if (!gate.allowed) {
+      setError(gate.blockedReason || gate.decision.reason);
       setMessage(null);
       return;
     }
@@ -98,7 +121,7 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
     <>
       <PageHeader
         title="Cost Approval"
-        description="Review submitted matter cost entries. You cannot approve a cost you submitted; another Billing Staff or Managing Partner must approve it."
+        description="Billing approves routine costs under threshold; Contingency / Personal Injury and high-value costs escalate to the Managing Partner. You cannot approve a cost you submitted."
       />
 
       <select
@@ -146,14 +169,12 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
               </thead>
               <tbody>
                 {rows.map((r) => {
+                  const gate = rowGate(r);
                   const isOwnSubmission = r.created_by === userId;
                   return (
                     <tr key={r.id} className={r.self_approval_flag ? "bg-warning/5" : ""}>
                       <td className="text-sm">{formatDate(r.cost_date)}</td>
-                      <td className="text-sm">
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        {(r as any).matters?.matter_number}
-                      </td>
+                      <td className="text-sm">{r.matters?.matter_number}</td>
                       <td className="text-sm">{r.cost_source}</td>
                       <td className="text-sm">{r.cost_categories?.category_name || "—"}</td>
                       <td className="text-sm max-w-[12rem]">
@@ -180,24 +201,29 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
                         )}
                       </td>
                       <td>
-                        <StatusBadge status={r.approval_status} />
-                        {r.self_approval_flag && (
-                          <span className="badge badge-warning badge-xs ml-1">Self</span>
-                        )}
+                        <div className="flex flex-col gap-1 items-start">
+                          <StatusBadge status={r.approval_status} />
+                          {r.self_approval_flag && (
+                            <span className="badge badge-warning badge-xs">Self</span>
+                          )}
+                          {r.approval_status === "Submitted" && (
+                            <span className="badge badge-ghost badge-sm">
+                              {approvalBadgeLabel(gate.decision)}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>
-                        {r.approval_status === "Submitted" && (
+                        {r.approval_status === "Submitted" && gate.allowed && (
                           <div className="flex flex-wrap gap-1 items-center">
-                            {!isOwnSubmission && (
-                              <button
-                                type="button"
-                                className="btn btn-success btn-xs"
-                                disabled={busy}
-                                onClick={() => decide(r, "Approved")}
-                              >
-                                Approve
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              className="btn btn-success btn-xs"
+                              disabled={busy}
+                              onClick={() => decide(r, "Approved")}
+                            >
+                              Approve
+                            </button>
                             <button
                               type="button"
                               className="btn btn-error btn-xs"
@@ -207,6 +233,11 @@ export function CostReviewClient({ userId }: { userId: string; role: UserRole })
                               Reject
                             </button>
                           </div>
+                        )}
+                        {r.approval_status === "Submitted" && !gate.allowed && (
+                          <span className="text-xs opacity-60 max-w-[9rem] inline-block">
+                            {gate.blockedReason}
+                          </span>
                         )}
                       </td>
                     </tr>

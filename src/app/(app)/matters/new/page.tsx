@@ -21,21 +21,35 @@ function NewMatterForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [teamIds, setTeamIds] = useState<string[]>([]);
+  const [leadSources, setLeadSources] = useState<{ id: string; source_name: string }[]>([]);
+  const [campaigns, setCampaigns] = useState<
+    { id: string; campaign_name: string; lead_source_id: string }[]
+  >([]);
+  const [leadSourceId, setLeadSourceId] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
     (async () => {
-      const [{ data: clientData }, { data: staffData }] = await Promise.all([
-        supabase.from("clients").select("*").order("created_at", { ascending: false }),
-        supabase
-          .from("profiles")
-          .select("*")
-          .in("role", ["managing_partner", "attorney", "paralegal", "billing_staff"])
-          .eq("active_status", true)
-          .order("full_name"),
-      ]);
+      const [{ data: clientData }, { data: staffData }, { data: sources }, { data: camps }] =
+        await Promise.all([
+          supabase.from("clients").select("*").order("created_at", { ascending: false }),
+          supabase
+            .from("profiles")
+            .select("*")
+            .in("role", ["managing_partner", "attorney", "paralegal", "billing_staff"])
+            .eq("active_status", true)
+            .order("full_name"),
+          supabase.from("lead_sources").select("id, source_name").eq("active_status", true).order("display_order"),
+          supabase
+            .from("marketing_campaigns")
+            .select("id, campaign_name, lead_source_id")
+            .eq("status", "Active")
+            .order("campaign_name"),
+        ]);
       setClients((clientData || []) as Client[]);
       setStaff((staffData || []) as Profile[]);
+      setLeadSources(sources || []);
+      setCampaigns(camps || []);
     })();
   }, []);
 
@@ -107,6 +121,8 @@ function NewMatterForm() {
     }
     for (const key of [
       "hourly_rate",
+      "court_hourly_rate",
+      "maximum_fee_amount",
       "fixed_fee_amount",
       "initial_retainer_amount",
       "matter_budget",
@@ -141,10 +157,12 @@ function NewMatterForm() {
       originating_attorney_id: String(fd.get("originating_attorney_id") || "") || null,
       billing_method: billingMethod || null,
       hourly_rate: num("hourly_rate"),
+      court_hourly_rate: num("court_hourly_rate"),
       fixed_fee_amount: num("fixed_fee_amount"),
       contingency_percentage: num("contingency_percentage"),
       initial_retainer_amount: num("initial_retainer_amount"),
       retainer_replenishment_threshold: num("retainer_replenishment_threshold"),
+      maximum_fee_amount: num("maximum_fee_amount"),
       estimated_matter_value: num("estimated_matter_value"),
       matter_budget: num("matter_budget"),
       billing_frequency: String(fd.get("billing_frequency") || "") || null,
@@ -158,6 +176,8 @@ function NewMatterForm() {
       approval_status: submitForApproval ? "Pending Approval" : "Draft",
       approval_notes: String(fd.get("approval_notes") || "").trim() || null,
       created_by: user.id,
+      lead_source_id: String(fd.get("lead_source_id") || "").trim() || null,
+      campaign_id: String(fd.get("campaign_id") || "").trim() || null,
     };
 
     const { data: matter, error: insertError } = await supabase
@@ -297,6 +317,40 @@ function NewMatterForm() {
                   {PRACTICE_AREAS.map((p) => (
                     <option key={p}>{p}</option>
                   ))}
+                </select>
+              </div>
+              <label className="label-cell" htmlFor="lead_source_id">
+                Lead source
+              </label>
+              <div className="field-cell">
+                <select
+                  id="lead_source_id"
+                  name="lead_source_id"
+                  className="select select-bordered w-full"
+                  value={leadSourceId}
+                  onChange={(e) => setLeadSourceId(e.target.value)}
+                >
+                  <option value="">Unattributed</option>
+                  {leadSources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.source_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label className="label-cell" htmlFor="campaign_id">
+                Marketing campaign
+              </label>
+              <div className="field-cell">
+                <select id="campaign_id" name="campaign_id" className="select select-bordered w-full" defaultValue="">
+                  <option value="">None</option>
+                  {campaigns
+                    .filter((c) => !leadSourceId || c.lead_source_id === leadSourceId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.campaign_name}
+                      </option>
+                    ))}
                 </select>
               </div>
               <label className="label-cell" htmlFor="engagement_start_date">
@@ -443,10 +497,27 @@ function NewMatterForm() {
               {["Hourly", "Retainer-Funded Hourly", "Hybrid"].includes(billingMethod) && (
                 <>
                   <label className="label-cell" htmlFor="hourly_rate">
-                    Hourly rate {billingMethod !== "Hybrid" ? "*" : ""}
+                    Hourly charge {billingMethod !== "Hybrid" ? "*" : ""}
                   </label>
                   <div className="field-cell">
                     <input id="hourly_rate" name="hourly_rate" type="number" min="0" step="0.01" className="input input-bordered w-full" />
+                    <p className="text-xs opacity-60 mt-1">Standard office, research, and drafting time.</p>
+                  </div>
+                  <label className="label-cell" htmlFor="court_hourly_rate">
+                    Court hourly charge
+                  </label>
+                  <div className="field-cell">
+                    <input id="court_hourly_rate" name="court_hourly_rate" type="number" min="0" step="0.01" className="input input-bordered w-full" placeholder="Higher than standard" />
+                    <p className="text-xs opacity-60 mt-1">
+                      Court, hearing, and appearance time is billed higher than ordinary fees. Leave blank to default to 1.5× the hourly charge.
+                    </p>
+                  </div>
+                  <label className="label-cell" htmlFor="maximum_fee_amount">
+                    Maximum charge
+                  </label>
+                  <div className="field-cell">
+                    <input id="maximum_fee_amount" name="maximum_fee_amount" type="number" min="0" step="0.01" className="input input-bordered w-full" />
+                    <p className="text-xs opacity-60 mt-1">Not-to-exceed professional fees without prior client approval.</p>
                   </div>
                 </>
               )}
@@ -487,12 +558,18 @@ function NewMatterForm() {
                   </label>
                   <div className="field-cell">
                     <input id="initial_retainer_amount" name="initial_retainer_amount" type="number" min="0" step="0.01" className="input input-bordered w-full" />
+                    <p className="text-xs opacity-60 mt-1">
+                      Advance deposit held for future services—not earned when received. Applied to invoices as work is billed; unused balance is refunded or carried forward when the matter closes.
+                    </p>
                   </div>
                   <label className="label-cell" htmlFor="retainer_replenishment_threshold">
                     Replenishment threshold
                   </label>
                   <div className="field-cell">
                     <input id="retainer_replenishment_threshold" name="retainer_replenishment_threshold" type="number" min="0" step="0.01" className="input input-bordered w-full" />
+                    <p className="text-xs opacity-60 mt-1">
+                      When the retainer falls to this amount, the client agrees to deposit additional funds so work can continue.
+                    </p>
                   </div>
                 </>
               )}

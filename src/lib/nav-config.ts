@@ -98,6 +98,7 @@ export const NAV_SECTIONS: NavSectionDef[] = [
       { href: "/profitability/clients", label: "Client Profitability" },
       { href: "/profitability/practice-areas", label: "Practice Areas" },
       { href: "/productivity", label: "Attorney Productivity" },
+      { href: "/marketing", label: "Marketing Performance" },
       { href: "/reports", label: "Reports" },
       { href: "/data-quality", label: "Data Quality" },
       { href: "/controls", label: "Control Monitor" },
@@ -130,7 +131,7 @@ export const HEADER_ONLY_HREFS = new Set<string>(["/messages"]);
 
 export const DASHBOARD_LINK: NavLinkDef = {
   href: "/dashboard",
-  label: "Dashboard",
+  label: "Home",
 };
 
 export const DASHBOARD_ICON = LayoutDashboard;
@@ -191,7 +192,12 @@ function buildFromAllowed(
   inbox: NavItem | null;
   sections: ResolvedNavSection[];
 } {
-  const allowed = allowedItems.filter((item) => !HEADER_ONLY_HREFS.has(item.href));
+  // Staff open Messages from the header icon; clients keep it in the portal sidebar.
+  const allowed = allowedItems.filter(
+    (item) =>
+      !HEADER_ONLY_HREFS.has(item.href) ||
+      (role === "client" && item.href === "/messages")
+  );
   const byHref = new Map(allowed.map((item) => [item.href, item]));
 
   const dashboard =
@@ -280,7 +286,7 @@ export function buildNavSectionsForDemoKey(key: DemoRoleKey | UserRole): {
   }
   if (key === "current_client" || key === "client") {
     const allowed = navForDemoKey("current_client").filter(
-      (item) => !HEADER_ONLY_HREFS.has(item.href)
+      (item) => !HEADER_ONLY_HREFS.has(item.href) || item.href === "/messages"
     );
     const home = allowed.find((i) => i.href === "/client-portal") ?? null;
     const rest = allowed.filter(

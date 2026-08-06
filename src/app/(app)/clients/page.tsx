@@ -1,8 +1,10 @@
 import { requireUser } from "@/lib/auth";
 import { canCreateClients } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
+import { OpenInExcelButton } from "@/components/OpenInExcelButton";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import { InteractiveTableRow } from "@/components/InteractiveTableRow";
 import { clientDisplayName, formatDate } from "@/lib/format";
 import type { Client } from "@/lib/types";
 import { CLIENT_STATUSES } from "@/lib/constants";
@@ -54,13 +56,12 @@ export default async function ClientsPage({
         actions={
           <>
             {isAttorney ? (
-              <a
-                href="/api/attorney/clients-export"
+              <OpenInExcelButton
+                kind="clients"
                 className="btn btn-outline btn-sm"
-                title="Export all clients you can access to Excel"
-              >
-                Export to Excel
-              </a>
+                title="Download all clients you can access to Excel"
+                label="Export to Excel"
+              />
             ) : null}
             {canCreateClients(profile.role) ? (
               <Link href="/clients/new" className="btn btn-primary btn-sm">
@@ -127,7 +128,7 @@ export default async function ClientsPage({
               </thead>
               <tbody>
                 {clients.map((c) => (
-                  <tr key={c.id} className="hover">
+                  <InteractiveTableRow key={c.id} href={`/clients/${c.id}`}>
                     <td>
                       <Link href={`/clients/${c.id}`} className="link link-hover font-medium">
                         {c.client_number}
@@ -140,7 +141,7 @@ export default async function ClientsPage({
                     </td>
                     <td className="text-sm">{c.email || "—"}</td>
                     <td className="text-sm">{formatDate(c.created_at)}</td>
-                  </tr>
+                  </InteractiveTableRow>
                 ))}
               </tbody>
             </table>

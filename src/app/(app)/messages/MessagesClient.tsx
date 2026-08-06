@@ -25,11 +25,17 @@ import {
 } from "@/lib/messaging-store";
 import { relativeTime } from "@/lib/workspace-mock";
 import { MessageSquarePlus, RotateCcw, Search, Send, Users } from "lucide-react";
-import { useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 type FilterMode = "all" | "unread" | "staff" | "client";
 
-export function MessagesClient({ viewer: fallbackViewer }: { viewer: MessagingPerson }) {
+export function MessagesClient({
+  viewer: fallbackViewer,
+  initialThreadId = null,
+}: {
+  viewer: MessagingPerson;
+  initialThreadId?: string | null;
+}) {
   const demo = useDemoRole();
   const viewer = resolveMessagingViewer(
     fallbackViewer,
@@ -44,7 +50,7 @@ export function MessagesClient({ viewer: fallbackViewer }: { viewer: MessagingPe
   );
   const store = useMemo(() => readStore(rawStore), [rawStore]);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialThreadId);
   const [filter, setFilter] = useState<FilterMode>("all");
   const [query, setQuery] = useState("");
   const [reply, setReply] = useState("");
@@ -58,6 +64,12 @@ export function MessagesClient({ viewer: fallbackViewer }: { viewer: MessagingPe
     () => conversationsFor(store, viewer.id),
     [store, viewer.id]
   );
+
+  useEffect(() => {
+    if (!initialThreadId) return;
+    if (!conversations.some((conversation) => conversation.id === initialThreadId)) return;
+    setSelectedId(initialThreadId);
+  }, [conversations, initialThreadId]);
 
   const filteredConversations = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();

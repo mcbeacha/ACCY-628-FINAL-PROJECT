@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import { Libre_Baskerville, Source_Sans_3 } from "next/font/google";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 
-const sourceSans = Source_Sans_3({
-  variable: "--font-source-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
-});
-
-const libre = Libre_Baskerville({
-  variable: "--font-libre",
-  weight: ["400", "700"],
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -23,8 +18,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      data-theme="corporate"
-      className={`${sourceSans.variable} ${libre.variable} h-full`}
+      data-theme="rebel-navy"
+      className={`${manrope.variable} h-full`}
       suppressHydrationWarning
     >
       <body className="min-h-full antialiased">
@@ -32,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             in sync with THEME_STORAGE_KEY / LIGHT_THEME / DARK_THEME. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("rlg-theme");document.documentElement.setAttribute("data-theme",t==="business"?"business":"corporate")}catch(e){}`,
+            __html: `try{var t=localStorage.getItem("rlg-theme");document.documentElement.setAttribute("data-theme",t==="rebel-night"||t==="business"?"rebel-night":"rebel-navy")}catch(e){}`,
           }}
         />
         {children}

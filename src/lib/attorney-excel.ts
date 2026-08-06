@@ -82,8 +82,11 @@ export function buildAttorneyMetricsWorkbook(input: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   matterRows: any[];
   myTime: TimeEntryRow[];
+  /** Sheet title for time entries ("My Time" for attorney, "Time Entries" for firm-wide). */
+  timeSheetTitle?: string;
 }): ExcelJS.Workbook {
   const { matters, invoices, matterRows, myTime } = input;
+  const timeSheetTitle = input.timeSheetTitle ?? "My Time";
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Rebel Law Group";
   workbook.created = new Date();
@@ -170,7 +173,7 @@ export function buildAttorneyMetricsWorkbook(input: {
 
   addSheet(
     workbook,
-    "My Time",
+    timeSheetTitle,
     [
       "Work date",
       "Matter",

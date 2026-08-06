@@ -22,7 +22,7 @@ export default async function ClientPortalRetainersPage() {
     <>
       <PageHeader
         title="Retainer Summary"
-        description="A retainer is money held for future legal services. It is applied to invoices as work is completed."
+        description="A retainer is an ASC 606 contract liability: money held for future legal services, not revenue when received. It is applied to invoices after performance obligations are satisfied."
       />
       <div className="alert alert-warning text-sm">
         <span>{DEMO_CLIENT_NOTICE}</span>

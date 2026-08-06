@@ -1,16 +1,30 @@
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { TaxExportsClient } from "./TaxExportsClient";
-import { buildTaxExportGroups } from "@/lib/tax-exports";
+import {
+  availableTaxYears,
+  buildTaxExportGroups,
+  resolveTaxYear,
+} from "@/lib/tax-exports";
 import { redirect } from "next/navigation";
 
-export default async function TaxExportsPage() {
+export default async function TaxExportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>;
+}) {
   const { profile, supabase } = await requireUser();
-  if (profile.role !== "billing_staff") {
+  const canExport = profile.role === "billing_staff";
+  const canView =
+    profile.role === "billing_staff" || profile.role === "managing_partner";
+
+  if (!canView) {
     redirect("/dashboard");
   }
 
-  const taxYear = new Date().getFullYear();
+  const params = await searchParams;
+  const taxYear = resolveTaxYear(params.year);
+  const years = availableTaxYears();
 
   const [{ data: payments }, { data: expenses }, { data: invoices }] = await Promise.all([
     supabase
@@ -40,12 +54,18 @@ export default async function TaxExportsPage() {
     <>
       <PageHeader
         title="Tax year-end Exports"
-        description="Compile common groupings for Tax CPA filing support — income, meals vs entertainment, travel, dues, insurance, and operating expenses."
+        description={
+          canExport
+            ? "Compile common groupings for Tax CPA filing support — income, meals vs entertainment, travel, dues, insurance, and operating expenses."
+            : "Read-only preview of the billing tax year-end package. Excel download remains with Billing / Accounting Staff."
+        }
       />
       <TaxExportsClient
         taxYear={taxYear}
+        availableYears={years}
         groups={groups}
         exporterName={profile.full_name}
+        canExport={canExport}
       />
     </>
   );

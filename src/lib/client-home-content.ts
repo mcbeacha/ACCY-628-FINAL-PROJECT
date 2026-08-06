@@ -3,6 +3,8 @@
  * Community metrics and biographies are illustrative only.
  */
 
+import { TEAM_HEADSHOTS } from "@/lib/team-photos";
+
 export const COMMUNITY_NOTE =
   "Community involvement shown in this academic demonstration is fictional.";
 
@@ -155,6 +157,7 @@ export type AttorneyCard = {
   biography: string;
   community_involvement: string;
   photo_initials: string;
+  photo_url: string;
   is_managing_partner?: boolean;
 };
 
@@ -169,6 +172,7 @@ export const ATTORNEY_CARDS: AttorneyCard[] = [
     community_involvement:
       "Chairs fictional small-business office hours and nonprofit governance clinics.",
     photo_initials: "MS",
+    photo_url: TEAM_HEADSHOTS["Margaret Sinclair"],
     is_managing_partner: true,
   },
   {
@@ -181,6 +185,7 @@ export const ATTORNEY_CARDS: AttorneyCard[] = [
     community_involvement:
       "Hosts fictional free community legal workshops throughout the year.",
     photo_initials: "JH",
+    photo_url: TEAM_HEADSHOTS["Jordan Harper"],
   },
   {
     id: "a1000000-0000-4000-8000-000000000003",
@@ -192,6 +197,7 @@ export const ATTORNEY_CARDS: AttorneyCard[] = [
     community_involvement:
       "Supports fictional university outreach and student career panels.",
     photo_initials: "AC",
+    photo_url: TEAM_HEADSHOTS["Avery Chen"],
   },
 ];
 
