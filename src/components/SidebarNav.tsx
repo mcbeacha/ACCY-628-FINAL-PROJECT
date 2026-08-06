@@ -3,6 +3,7 @@
 import {
   DASHBOARD_ICON,
   INBOX_ICON,
+  SETTINGS_ICON,
   buildNavSectionsForDemoKey,
   isNavLinkActive,
   mattersSectionTitleForDemoKey,
@@ -12,6 +13,11 @@ import {
 } from "@/lib/nav-config";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
 import type { DemoRoleKey } from "@/lib/demo-config";
+import {
+  expenseRequiredApproverRole,
+  type ApprovalMatterContext,
+} from "@/lib/approval-tiers";
+import { getFirmThresholds } from "@/lib/firm-thresholds";
 import { canApproveExpenses, canApproveMatterCosts } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
@@ -209,7 +215,7 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
   const effectiveKey = (demo?.activeDemoRole ?? role) as DemoRoleKey | UserRole;
   const effectiveRole = permissionRoleForDemoKey(effectiveKey);
 
-  const { dashboard, inbox, sections } = useMemo(
+  const { dashboard, inbox, settings, sections } = useMemo(
     () => buildNavSectionsForDemoKey(effectiveKey),
     [effectiveKey]
   );
@@ -229,8 +235,9 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
       ...(dashboard ? [dashboard.href] : []),
       ...(inbox ? [inbox.href] : []),
       ...sectionsWithTitle.flatMap((s) => s.links.map((l) => l.href)),
+      ...(settings ? [settings.href] : []),
     ],
-    [dashboard, inbox, sectionsWithTitle]
+    [dashboard, inbox, sectionsWithTitle, settings]
   );
 
   const routeSection = sectionIdForPath(pathname, sectionsWithTitle);
@@ -252,11 +259,39 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
       const supabase = createClient();
 
       if (canSeeExpenseReview) {
-        const { count, error } = await supabase
+        const thresholds = await getFirmThresholds(supabase);
+        const { data, error } = await supabase
           .from("expense_entries")
-          .select("id", { count: "exact", head: true })
+          .select(
+            "id, amount, created_by, required_approver_role, matters(billing_method, practice_area, responsible_attorney_id)"
+          )
           .eq("approval_status", "Submitted");
-        if (!error) next["/expenses/review"] = count ?? 0;
+        if (!error) {
+          const rows = (data || []) as {
+            id: string;
+            amount: number;
+            created_by?: string | null;
+            required_approver_role?: string | null;
+            matters?: ApprovalMatterContext | null;
+          }[];
+          const count = rows.filter((row) => {
+            const required = expenseRequiredApproverRole({
+              matter: row.matters,
+              amount: Number(row.amount),
+              thresholds,
+              stampedRequiredRole: row.required_approver_role,
+            });
+            if (effectiveRole === "managing_partner") {
+              return required === "managing_partner";
+            }
+            if (effectiveRole === "billing_staff") {
+              // Count items billing can act on (not self-submitted)
+              return required === "billing_staff";
+            }
+            return false;
+          }).length;
+          if (count > 0) next["/expenses/review"] = count;
+        }
       }
 
       if (canSeeCostApproval) {
@@ -264,7 +299,7 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
           .from("matter_cost_entries")
           .select("id", { count: "exact", head: true })
           .eq("approval_status", "Submitted");
-        if (!error) next["/costs/review"] = count ?? 0;
+        if (!error && (count ?? 0) > 0) next["/costs/review"] = count ?? 0;
       }
 
       if (!cancelled) setBadgeCounts(next);
@@ -298,9 +333,10 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
 
   const DashIcon = DASHBOARD_ICON;
   const InboxIcon = INBOX_ICON;
+  const SettingsIcon = SETTINGS_ICON;
 
   return (
-    <nav className="flex flex-col gap-1" aria-label="Main">
+    <nav className="flex flex-col gap-1 h-full" aria-label="Main">
       {dashboard && (
         <div className="mb-1">
           <Link
@@ -339,20 +375,41 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
         </div>
       )}
 
-      {sectionsWithTitle.map((section) => (
-        <SidebarSection
-          key={section.id}
-          section={section}
-          open={openSection === section.id}
-          onToggle={() => toggleSection(section.id)}
-          allHrefs={allHrefs}
-          pathname={pathname}
-          onNavigate={onNavigate}
-          titleLive={section.id === "partner_matters"}
-          onDemoExperienceLink={onDemoExperienceLink}
-          badgeCounts={badgeCounts}
-        />
-      ))}
+      <div className="flex-1 min-h-0">
+        {sectionsWithTitle.map((section) => (
+          <SidebarSection
+            key={section.id}
+            section={section}
+            open={openSection === section.id}
+            onToggle={() => toggleSection(section.id)}
+            allHrefs={allHrefs}
+            pathname={pathname}
+            onNavigate={onNavigate}
+            titleLive={section.id === "partner_matters"}
+            onDemoExperienceLink={onDemoExperienceLink}
+            badgeCounts={badgeCounts}
+          />
+        ))}
+      </div>
+
+      {settings && (
+        <div className="mt-auto pt-3 border-t border-base-300/60">
+          <Link
+            href={settings.href}
+            onClick={onNavigate}
+            className={[
+              "nav-link",
+              isNavLinkActive(pathname, settings.href, allHrefs) ? "nav-link-active" : "",
+            ].join(" ")}
+            aria-current={
+              isNavLinkActive(pathname, settings.href, allHrefs) ? "page" : undefined
+            }
+          >
+            <SettingsIcon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+            <span className="font-semibold">{settings.label}</span>
+          </Link>
+        </div>
+      )}
     </nav>
   );
 }

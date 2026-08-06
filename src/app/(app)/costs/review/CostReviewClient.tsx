@@ -8,7 +8,12 @@ import {
   viewerCanApprove,
   type ApprovalMatterContext,
 } from "@/lib/approval-tiers";
-import { HIGH_VALUE_COST_THRESHOLD, type MatterCostEntry } from "@/lib/cost-types";
+import type { MatterCostEntry } from "@/lib/cost-types";
+import {
+  DEFAULT_FIRM_THRESHOLDS,
+  getFirmThresholds,
+  type FirmApprovalThresholds,
+} from "@/lib/firm-thresholds";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
@@ -20,6 +25,7 @@ type CostRow = MatterCostEntry & {
     matter_number?: string;
     matter_name?: string;
   } | null;
+  required_approver_role?: string | null;
 };
 
 export function CostReviewClient({ userId, role }: { userId: string; role: UserRole }) {
@@ -28,9 +34,12 @@ export function CostReviewClient({ userId, role }: { userId: string; role: UserR
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [thresholds, setThresholds] = useState<FirmApprovalThresholds>(DEFAULT_FIRM_THRESHOLDS);
 
   async function load() {
     const supabase = createClient();
+    const firmThresholds = await getFirmThresholds(supabase);
+    setThresholds(firmThresholds);
     let q = supabase
       .from("matter_cost_entries")
       .select(
@@ -55,6 +64,8 @@ export function CostReviewClient({ userId, role }: { userId: string; role: UserR
       matter: row.matters,
       amount: Number(row.total_cost),
       preparerId: row.created_by,
+      thresholds,
+      stampedRequiredRole: row.required_approver_role,
     });
   }
 
@@ -188,7 +199,7 @@ export function CostReviewClient({ userId, role }: { userId: string; role: UserR
                       </td>
                       <td>
                         {formatCurrency(Number(r.total_cost))}
-                        {Number(r.total_cost) >= HIGH_VALUE_COST_THRESHOLD && (
+                        {Number(r.total_cost) >= thresholds.routineExpenseCostMp && (
                           <span className="badge badge-warning badge-sm ml-1">High value</span>
                         )}
                       </td>

@@ -4,6 +4,7 @@ import {
   viewerCanApprove,
   type ApprovalMatterContext,
 } from "@/lib/approval-tiers";
+import { getFirmThresholds } from "@/lib/firm-thresholds";
 import { calcBillableAmount } from "@/lib/phase2-types";
 import type { Client, Matter, MatterTask, UserRole } from "@/lib/types";
 
@@ -236,6 +237,7 @@ function asMatterCtx(m: unknown): ApprovalMatterContext | null {
 
 async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
   const items: InboxItem[] = [];
+  const thresholds = await getFirmThresholds(supabase);
 
   const [
     mattersRes,
@@ -264,19 +266,19 @@ async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
     supabase
       .from("expense_entries")
       .select(
-        "id, amount, expense_date, created_at, matter_id, created_by, description, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), creator:profiles!expense_entries_created_by_fkey(full_name)"
+        "id, amount, expense_date, created_at, matter_id, created_by, description, required_approver_role, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id)"
       )
       .eq("approval_status", "Submitted"),
     supabase
       .from("matter_cost_entries")
       .select(
-        "id, total_cost, cost_date, created_at, matter_id, client_id, created_by, description, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), creator:profiles!matter_cost_entries_created_by_fkey(full_name)"
+        "id, total_cost, cost_date, created_at, matter_id, client_id, created_by, description, required_approver_role, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), creator:profiles!matter_cost_entries_created_by_fkey(full_name)"
       )
       .eq("approval_status", "Submitted"),
     supabase
       .from("invoices")
       .select(
-        "id, invoice_number, total_amount, invoice_total, balance_due, due_date, created_at, created_by, matter_id, approval_status, invoice_status, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id)"
+        "id, invoice_number, total_amount, invoice_total, balance_due, due_date, created_at, created_by, matter_id, approval_status, invoice_status, required_approver_role, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id)"
       )
       .eq("approval_status", "Submitted"),
     supabase
@@ -297,10 +299,28 @@ async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
       .eq("approval_status", "Submitted"),
   ]);
 
+  const expenseCreatorIds = [
+    ...new Set(
+      (expRes.data || [])
+        .map((e: { created_by?: string | null }) => e.created_by)
+        .filter(Boolean) as string[]
+    ),
+  ];
+  const expenseCreatorNames = new Map<string, string>();
+  if (expenseCreatorIds.length > 0) {
+    const { data: creators } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", expenseCreatorIds);
+    for (const p of creators || []) {
+      expenseCreatorNames.set(p.id, p.full_name || "—");
+    }
+  }
   for (const m of mattersRes.data || []) {
     const decision = requiredApproverRole({
       kind: "matter_engagement",
       matter: m,
+      thresholds,
     });
     if (decision.requiredRole !== "managing_partner") continue;
     const needsReview = m.approval_status === "Needs Review";
@@ -326,6 +346,8 @@ async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
       kind: "expense",
       matter: asMatterCtx(e.matters),
       amount: Number(e.amount),
+      thresholds,
+      stampedRequiredRole: e.required_approver_role,
     });
     if (decision.requiredRole !== "managing_partner") continue;
     items.push({
@@ -338,7 +360,9 @@ async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
       createdAt: e.created_at || `${e.expense_date}T00:00:00`,
       amount: Number(e.amount),
       matterLabel: matterLabel(e.matters),
-      submitter: e.creator?.full_name || null,
+      submitter: e.created_by
+        ? expenseCreatorNames.get(e.created_by) || null
+        : null,
       canInlineDecide: true,
       recordId: e.id,
       matterId: e.matter_id,
@@ -352,6 +376,8 @@ async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
       kind: "cost",
       matter: asMatterCtx(c.matters),
       amount,
+      thresholds,
+      stampedRequiredRole: c.required_approver_role,
     });
     if (decision.requiredRole !== "managing_partner") continue;
     items.push({
@@ -380,6 +406,8 @@ async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
       matter: asMatterCtx(inv.matters),
       amount,
       preparerId: inv.created_by,
+      thresholds,
+      stampedRequiredRole: inv.required_approver_role,
     });
     if (decision.requiredRole !== "managing_partner") continue;
     const past = daysPastDue(inv.due_date);
@@ -444,6 +472,7 @@ async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function loadBillingInbox(supabase: any, profileId: string): Promise<InboxItem[]> {
   const items: InboxItem[] = [];
+  const thresholds = await getFirmThresholds(supabase);
 
   const [
     expRes,
@@ -458,13 +487,13 @@ async function loadBillingInbox(supabase: any, profileId: string): Promise<Inbox
     supabase
       .from("expense_entries")
       .select(
-        "id, amount, expense_date, created_at, matter_id, created_by, description, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), creator:profiles!expense_entries_created_by_fkey(full_name)"
+        "id, amount, expense_date, created_at, matter_id, created_by, description, required_approver_role, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id)"
       )
       .eq("approval_status", "Submitted"),
     supabase
       .from("matter_cost_entries")
       .select(
-        "id, total_cost, cost_date, created_at, matter_id, client_id, created_by, description, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), creator:profiles!matter_cost_entries_created_by_fkey(full_name)"
+        "id, total_cost, cost_date, created_at, matter_id, client_id, created_by, description, required_approver_role, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), creator:profiles!matter_cost_entries_created_by_fkey(full_name)"
       )
       .eq("approval_status", "Submitted"),
     supabase
@@ -474,7 +503,7 @@ async function loadBillingInbox(supabase: any, profileId: string): Promise<Inbox
     supabase
       .from("invoices")
       .select(
-        "id, invoice_number, total_amount, invoice_total, balance_due, created_at, created_by, approval_status, invoice_status, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id)"
+        "id, invoice_number, total_amount, invoice_total, balance_due, created_at, created_by, approval_status, invoice_status, required_approver_role, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id)"
       )
       .or("approval_status.eq.Draft,invoice_status.eq.Draft,approval_status.eq.Submitted"),
     supabase.from("payments").select("id, payment_number, total_amount, created_at, payment_status").eq("payment_status", "Draft"),
@@ -496,11 +525,31 @@ async function loadBillingInbox(supabase: any, profileId: string): Promise<Inbox
       .eq("invoice_status", "Unbilled"),
   ]);
 
+  const expenseCreatorIds = [
+    ...new Set(
+      (expRes.data || [])
+        .map((e: { created_by?: string | null }) => e.created_by)
+        .filter(Boolean) as string[]
+    ),
+  ];
+  const expenseCreatorNames = new Map<string, string>();
+  if (expenseCreatorIds.length > 0) {
+    const { data: creators } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", expenseCreatorIds);
+    for (const p of creators || []) {
+      expenseCreatorNames.set(p.id, p.full_name || "—");
+    }
+  }
+
   for (const e of expRes.data || []) {
     const decision = requiredApproverRole({
       kind: "expense",
       matter: asMatterCtx(e.matters),
       amount: Number(e.amount),
+      thresholds,
+      stampedRequiredRole: e.required_approver_role,
     });
     if (decision.requiredRole !== "billing_staff") continue;
     if (e.created_by === profileId) continue;
@@ -514,7 +563,9 @@ async function loadBillingInbox(supabase: any, profileId: string): Promise<Inbox
       createdAt: e.created_at || `${e.expense_date}T00:00:00`,
       amount: Number(e.amount),
       matterLabel: matterLabel(e.matters),
-      submitter: e.creator?.full_name || null,
+      submitter: e.created_by
+        ? expenseCreatorNames.get(e.created_by) || null
+        : null,
       canInlineDecide: true,
       recordId: e.id,
       matterId: e.matter_id,
@@ -528,6 +579,8 @@ async function loadBillingInbox(supabase: any, profileId: string): Promise<Inbox
       kind: "cost",
       matter: asMatterCtx(c.matters),
       amount,
+      thresholds,
+      stampedRequiredRole: c.required_approver_role,
     });
     if (decision.requiredRole !== "billing_staff") continue;
     if (c.created_by === profileId) continue;
@@ -574,6 +627,8 @@ async function loadBillingInbox(supabase: any, profileId: string): Promise<Inbox
         matter: asMatterCtx(inv.matters),
         amount,
         preparerId: inv.created_by,
+        thresholds,
+        stampedRequiredRole: inv.required_approver_role,
       });
       const selfPrepared = inv.created_by === profileId;
       const billingCanApprove =

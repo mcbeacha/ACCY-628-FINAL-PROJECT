@@ -1,11 +1,13 @@
 "use client";
 
 import { PageHeader } from "@/components/PageHeader";
+import { requiredApproverRole } from "@/lib/approval-tiers";
+import { EXPENSE_RECEIPT_THRESHOLD, EXPENSE_TYPES } from "@/lib/constants";
 import {
-  EXPENSE_HIGH_VALUE_THRESHOLD,
-  EXPENSE_RECEIPT_THRESHOLD,
-  EXPENSE_TYPES,
-} from "@/lib/constants";
+  DEFAULT_FIRM_THRESHOLDS,
+  getFirmThresholds,
+  type FirmApprovalThresholds,
+} from "@/lib/firm-thresholds";
 import { formatCurrency } from "@/lib/format";
 import type { ExpenseEntry } from "@/lib/phase2-types";
 import { createClient } from "@/lib/supabase/client";
@@ -13,7 +15,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
-type MatterOpt = { id: string; matter_number: string; matter_name: string };
+type MatterOpt = {
+  id: string;
+  matter_number: string;
+  matter_name: string;
+  billing_method?: string | null;
+  practice_area?: string | null;
+};
 
 const VENDOR_TYPES = new Set([
   "Filing Fee",
@@ -54,15 +62,20 @@ export function ExpenseEntryForm({
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(!editId);
+  const [thresholds, setThresholds] = useState<FirmApprovalThresholds>(DEFAULT_FIRM_THRESHOLDS);
 
   useEffect(() => {
     const supabase = createClient();
     (async () => {
-      const { data } = await supabase
-        .from("matters")
-        .select("id, matter_number, matter_name")
-        .order("matter_number");
-      setMatters((data || []) as MatterOpt[]);
+      const [mattersRes, firmThresholds] = await Promise.all([
+        supabase
+          .from("matters")
+          .select("id, matter_number, matter_name, billing_method, practice_area")
+          .order("matter_number"),
+        getFirmThresholds(supabase),
+      ]);
+      setMatters((mattersRes.data || []) as MatterOpt[]);
+      setThresholds(firmThresholds);
 
       if (editId) {
         const { data: entry, error: loadErr } = await supabase
@@ -146,13 +159,23 @@ export function ExpenseEntryForm({
       );
     }
 
-    if (amt >= EXPENSE_HIGH_VALUE_THRESHOLD) {
+    if (amt >= thresholds.routineExpenseCostMp) {
       setWarning(
         (prev) =>
           (prev ? prev + " " : "") +
-          `Amount is $${EXPENSE_HIGH_VALUE_THRESHOLD}+ and will be flagged for extra review.`
+          `Amount is $${thresholds.routineExpenseCostMp.toLocaleString()}+ and will be flagged for extra review.`
       );
     }
+
+    const selectedMatter = matters.find((m) => m.id === matterId);
+    const decision = submit
+      ? requiredApproverRole({
+          kind: "expense",
+          matter: selectedMatter,
+          amount: amt,
+          thresholds,
+        })
+      : null;
 
     const payload = {
       matter_id: matterId,
@@ -166,9 +189,10 @@ export function ExpenseEntryForm({
       approval_status: submit ? "Submitted" : "Draft",
       invoice_status: reimbursable ? "Unbilled" : "Nonreimbursable",
       locked_status: false,
-      needs_extra_review: amt >= EXPENSE_HIGH_VALUE_THRESHOLD,
+      needs_extra_review: amt >= thresholds.routineExpenseCostMp,
       rejection_reason: submit ? null : editId ? rejectionReason : null,
       created_by: userId,
+      required_approver_role: submit ? decision!.requiredRole : null,
     };
 
     let entryId = editId;

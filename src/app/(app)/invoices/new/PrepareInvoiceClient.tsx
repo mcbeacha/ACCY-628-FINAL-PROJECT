@@ -22,6 +22,11 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { ExpenseEntry, TimeEntry } from "@/lib/phase2-types";
 import type { Client } from "@/lib/types";
+import {
+  DEFAULT_FIRM_THRESHOLDS,
+  getFirmThresholds,
+  type FirmApprovalThresholds,
+} from "@/lib/firm-thresholds";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -39,8 +44,6 @@ type MatterRow = {
   hourly_rate: number | null;
   clients?: Partial<Client> | null;
 };
-
-const HIGH_VALUE = 5000;
 
 export function PrepareInvoiceClient({
   userId,
@@ -72,6 +75,8 @@ export function PrepareInvoiceClient({
   const [retainerBal, setRetainerBal] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [thresholds, setThresholds] =
+    useState<FirmApprovalThresholds>(DEFAULT_FIRM_THRESHOLDS);
 
   const selectedMatter = useMemo(
     () => matters.find((x) => x.id === matterId) || null,
@@ -83,6 +88,7 @@ export function PrepareInvoiceClient({
       setMattersLoading(true);
       setMattersError(null);
       const supabase = createClient();
+      setThresholds(await getFirmThresholds(supabase));
       const { data, error: qErr } = await supabase
         .from("matters")
         .select(
@@ -305,7 +311,7 @@ export function PrepareInvoiceClient({
       setError("Invoice total must be greater than zero.");
       return;
     }
-    if (preview.subtotal >= HIGH_VALUE && role === "managing_partner") {
+    if (preview.subtotal >= thresholds.routineInvoiceMp && role === "managing_partner") {
       // partner may prepare — still fine
     }
 
@@ -772,9 +778,9 @@ export function PrepareInvoiceClient({
                 Subtotal / invoice total (tax 0): {formatCurrency(preview.subtotal)}
               </li>
             </ul>
-            {preview.subtotal >= HIGH_VALUE && (
+            {preview.subtotal >= thresholds.routineInvoiceMp && (
               <div className="alert alert-warning text-sm mt-2">
-                High-value invoice (≥ {formatCurrency(HIGH_VALUE)}). Self-approval will be flagged on
+                High-value invoice (≥ {formatCurrency(thresholds.routineInvoiceMp)}). Self-approval will be flagged on
                 the detail page.
               </div>
             )}

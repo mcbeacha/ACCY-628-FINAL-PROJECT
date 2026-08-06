@@ -1,12 +1,14 @@
 "use client";
 
 import { PageHeader } from "@/components/PageHeader";
-import {
-  HIGH_VALUE_COST_THRESHOLD,
-  type CostCategory,
-  type CostSource,
-} from "@/lib/cost-types";
+import { requiredApproverRole } from "@/lib/approval-tiers";
 import { looksLikeDuplicate } from "@/lib/cost-calc";
+import type { CostCategory, CostSource } from "@/lib/cost-types";
+import {
+  DEFAULT_FIRM_THRESHOLDS,
+  getFirmThresholds,
+  type FirmApprovalThresholds,
+} from "@/lib/firm-thresholds";
 import { formatCurrency } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
@@ -20,6 +22,8 @@ type MatterOpt = {
   matter_number: string;
   matter_name: string;
   matter_status: string;
+  billing_method?: string | null;
+  practice_area?: string | null;
 };
 type EmployeeOpt = { id: string; full_name: string };
 
@@ -40,6 +44,7 @@ export function CostEntryForm({ userId, role }: { userId: string; role: UserRole
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [closingAdjustment, setClosingAdjustment] = useState(false);
+  const [thresholds, setThresholds] = useState<FirmApprovalThresholds>(DEFAULT_FIRM_THRESHOLDS);
 
   const canCloseAdjust = role === "managing_partner" || role === "billing_staff";
   const total = useMemo(() => {
@@ -80,7 +85,7 @@ export function CostEntryForm({ userId, role }: { userId: string; role: UserRole
 
       let matterQuery = supabase
         .from("matters")
-        .select("id, client_id, matter_number, matter_name, matter_status")
+        .select("id, client_id, matter_number, matter_name, matter_status, billing_method, practice_area")
         .order("matter_number");
 
       if (role === "attorney" || role === "paralegal") {
@@ -105,6 +110,7 @@ export function CostEntryForm({ userId, role }: { userId: string; role: UserRole
 
       const { data: m } = await matterQuery;
       setMatters((m || []) as MatterOpt[]);
+      setThresholds(await getFirmThresholds(supabase));
     })();
   }, [userId, role]);
 
@@ -193,13 +199,22 @@ export function CostEntryForm({ userId, role }: { userId: string; role: UserRole
       );
     }
 
-    if (total >= HIGH_VALUE_COST_THRESHOLD) {
+    if (total >= thresholds.routineExpenseCostMp) {
       setWarning(
         (prev) =>
           (prev ? `${prev} ` : "") +
-          `Amount is ${formatCurrency(HIGH_VALUE_COST_THRESHOLD)}+ and will be flagged for extra review.`
+          `Amount is ${formatCurrency(thresholds.routineExpenseCostMp)}+ and will be flagged for extra review.`
       );
     }
+
+    const decision = submit
+      ? requiredApproverRole({
+          kind: "cost",
+          matter: selectedMatter,
+          amount: total,
+          thresholds,
+        })
+      : null;
 
     const payload = {
       matter_id: mid,
@@ -223,6 +238,7 @@ export function CostEntryForm({ userId, role }: { userId: string; role: UserRole
       created_by: userId,
       submitted_by: submit ? userId : null,
       submitted_at: submit ? new Date().toISOString() : null,
+      required_approver_role: submit ? decision!.requiredRole : null,
     };
 
     const { data, error: insErr } = await supabase
@@ -432,7 +448,7 @@ export function CostEntryForm({ userId, role }: { userId: string; role: UserRole
             <div className="field-cell">
               <p className="font-semibold">
                 {formatCurrency(total)}
-                {total >= HIGH_VALUE_COST_THRESHOLD && (
+                {total >= thresholds.routineExpenseCostMp && (
                   <span className="badge badge-warning badge-sm ml-2">High value</span>
                 )}
               </p>

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
 import { loadAnalyticsData } from "@/lib/analytics-data";
 import { n } from "@/lib/analytics";
+import { getFirmThresholds } from "@/lib/firm-thresholds";
 import { formatCurrency, formatDate } from "@/lib/format";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -24,7 +25,12 @@ export default async function ControlsPage() {
   const { profile, supabase } = await requireUser();
   if (!canViewControls(profile.role)) redirect("/dashboard");
 
-  const raw = await loadAnalyticsData(supabase);
+  const [raw, thresholds] = await Promise.all([
+    loadAnalyticsData(supabase),
+    getFirmThresholds(supabase),
+  ]);
+  const routineInvoiceMp = thresholds.routineInvoiceMp;
+  const routineExpenseCostMp = thresholds.routineExpenseCostMp;
   const pmap = new Map<string, string>(
     raw.profiles.map((p: any) => [String(p.id), String(p.full_name || "—")])
   );
@@ -46,7 +52,7 @@ export default async function ControlsPage() {
 
   // Self-approved invoices (created_by == approved_by) high value
   for (const inv of raw.invoices) {
-    if (inv.created_by && inv.approved_by && inv.created_by === inv.approved_by && n(inv.invoice_total) >= 1000) {
+    if (inv.created_by && inv.approved_by && inv.created_by === inv.approved_by && n(inv.invoice_total) >= routineExpenseCostMp) {
       rows.push({
         risk: "High",
         record: `Self-approved invoice ${inv.invoice_number} (${formatCurrency(n(inv.invoice_total))})`,
@@ -249,7 +255,7 @@ export default async function ControlsPage() {
         matter.billing_method === "Contingency" ||
         matter.practice_area === "Personal Injury";
       const total = n(inv.invoice_total ?? inv.total_amount);
-      if (elevated || total >= 5000) continue;
+      if (elevated || total >= routineInvoiceMp) continue;
       if (
         matter.billing_method === "Hourly" ||
         matter.billing_method === "Fixed Fee" ||

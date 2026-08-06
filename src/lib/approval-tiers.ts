@@ -1,10 +1,7 @@
 import {
-  COST_ELEVATED_MP_THRESHOLD,
-  COST_ROUTINE_MP_THRESHOLD,
-  EXPENSE_ELEVATED_MP_THRESHOLD,
-  EXPENSE_HIGH_VALUE_THRESHOLD,
-  INVOICE_BILLING_APPROVE_MAX,
-} from "@/lib/constants";
+  DEFAULT_FIRM_THRESHOLDS,
+  type FirmApprovalThresholds,
+} from "@/lib/firm-thresholds";
 import type { UserRole } from "@/lib/types";
 
 /** Minimal matter fields needed for the approval matrix. */
@@ -32,6 +29,10 @@ export type ApprovalDecision = {
   reason: string;
 };
 
+function isApproverRole(value: string | null | undefined): value is ApproverRole {
+  return value === "attorney" || value === "billing_staff" || value === "managing_partner";
+}
+
 /** Contingency fee matters and Personal Injury practice are elevated-risk. */
 export function isElevatedMatter(matter: ApprovalMatterContext | null | undefined): boolean {
   if (!matter) return false;
@@ -45,9 +46,33 @@ export function requiredApproverRole(input: {
   matter?: ApprovalMatterContext | null;
   amount?: number | null;
   preparerId?: string | null;
+  /** Live firm thresholds; defaults to compile-time constants. */
+  thresholds?: FirmApprovalThresholds;
+  /**
+   * Role stamped at submit time. When present, pending items keep original routing
+   * even if firm thresholds change later.
+   */
+  stampedRequiredRole?: string | null;
 }): ApprovalDecision {
   const elevated = isElevatedMatter(input.matter);
   const amount = Number(input.amount || 0);
+  const t = input.thresholds ?? DEFAULT_FIRM_THRESHOLDS;
+
+  if (isApproverRole(input.stampedRequiredRole)) {
+    const role = input.stampedRequiredRole;
+    return {
+      requiredRole: role,
+      elevated,
+      reason:
+        role === "managing_partner"
+          ? elevated
+            ? "Requires Managing Partner (routed at submission; Contingency / PI)"
+            : "Requires Managing Partner (routed at submission)"
+          : role === "billing_staff"
+            ? "Billing may approve (routed at submission)"
+            : "Responsible attorney may approve (routed at submission)",
+    };
+  }
 
   switch (input.kind) {
     case "time":
@@ -60,9 +85,7 @@ export function requiredApproverRole(input: {
       };
 
     case "expense": {
-      const threshold = elevated
-        ? EXPENSE_ELEVATED_MP_THRESHOLD
-        : EXPENSE_HIGH_VALUE_THRESHOLD;
+      const threshold = elevated ? t.elevatedExpenseCostMp : t.routineExpenseCostMp;
       if (amount >= threshold) {
         return {
           requiredRole: "managing_partner",
@@ -82,7 +105,7 @@ export function requiredApproverRole(input: {
     }
 
     case "cost": {
-      const threshold = elevated ? COST_ELEVATED_MP_THRESHOLD : COST_ROUTINE_MP_THRESHOLD;
+      const threshold = elevated ? t.elevatedExpenseCostMp : t.routineExpenseCostMp;
       if (amount >= threshold) {
         return {
           requiredRole: "managing_partner",
@@ -109,17 +132,17 @@ export function requiredApproverRole(input: {
           reason: "Contingency / Personal Injury invoices always require Managing Partner",
         };
       }
-      if (amount >= INVOICE_BILLING_APPROVE_MAX) {
+      if (amount >= t.routineInvoiceMp) {
         return {
           requiredRole: "managing_partner",
           elevated: false,
-          reason: `Invoice ≥ $${INVOICE_BILLING_APPROVE_MAX.toLocaleString()} requires Managing Partner`,
+          reason: `Invoice ≥ $${t.routineInvoiceMp.toLocaleString()} requires Managing Partner`,
         };
       }
       return {
         requiredRole: "billing_staff",
         elevated: false,
-        reason: `Billing may approve routine invoices under $${INVOICE_BILLING_APPROVE_MAX.toLocaleString()} (not self-prepared)`,
+        reason: `Billing may approve routine invoices under $${t.routineInvoiceMp.toLocaleString()} (not self-prepared)`,
       };
     }
 
@@ -175,12 +198,16 @@ export function viewerCanApprove(input: {
   matter?: ApprovalMatterContext | null;
   amount?: number | null;
   preparerId?: string | null;
+  thresholds?: FirmApprovalThresholds;
+  stampedRequiredRole?: string | null;
 }): { allowed: boolean; decision: ApprovalDecision; blockedReason?: string } {
   const decision = requiredApproverRole({
     kind: input.kind,
     matter: input.matter,
     amount: input.amount,
     preparerId: input.preparerId,
+    thresholds: input.thresholds,
+    stampedRequiredRole: input.stampedRequiredRole,
   });
 
   if (input.viewerRole === "managing_partner") {
@@ -268,4 +295,20 @@ export function approvalBadgeLabel(decision: ApprovalDecision): string {
     return "Billing may approve";
   }
   return "Responsible attorney may approve";
+}
+
+/** Required approver for an expense row (stamp wins when present). */
+export function expenseRequiredApproverRole(input: {
+  matter?: ApprovalMatterContext | null;
+  amount?: number | null;
+  thresholds?: FirmApprovalThresholds;
+  stampedRequiredRole?: string | null;
+}): ApproverRole {
+  return requiredApproverRole({
+    kind: "expense",
+    matter: input.matter,
+    amount: input.amount,
+    thresholds: input.thresholds,
+    stampedRequiredRole: input.stampedRequiredRole,
+  }).requiredRole;
 }

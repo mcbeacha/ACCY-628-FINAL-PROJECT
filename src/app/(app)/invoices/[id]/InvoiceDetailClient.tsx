@@ -4,18 +4,23 @@ import { StatusBadge } from "@/components/Badges";
 import type { Invoice, InvoiceLine } from "@/lib/billing-types";
 import {
   approvalBadgeLabel,
+  requiredApproverRole,
   viewerCanApprove,
 } from "@/lib/approval-tiers";
 import {
   ENGAGEMENT_BILLING_BLOCKED_MESSAGE,
   isMatterEngagementBillable,
 } from "@/lib/billing-gates";
-import { INVOICE_BILLING_APPROVE_MAX } from "@/lib/constants";
+import {
+  DEFAULT_FIRM_THRESHOLDS,
+  getFirmThresholds,
+  type FirmApprovalThresholds,
+} from "@/lib/firm-thresholds";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type MatterEmbed = {
   matter_number: string;
@@ -78,6 +83,12 @@ export function InvoiceDetailClient(props: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [retainerAmt, setRetainerAmt] = useState("");
+  const [thresholds, setThresholds] = useState<FirmApprovalThresholds>(DEFAULT_FIRM_THRESHOLDS);
+
+  useEffect(() => {
+    const supabase = createClient();
+    void getFirmThresholds(supabase).then(setThresholds);
+  }, []);
   const [writeOffAmt, setWriteOffAmt] = useState("");
   const [writeOffReason, setWriteOffReason] = useState("");
   const [disputeReason, setDisputeReason] = useState(inv.dispute_reason || "");
@@ -109,6 +120,8 @@ export function InvoiceDetailClient(props: Props) {
     matter: matterCtx,
     amount: Number(inv.invoice_total),
     preparerId: inv.created_by,
+    thresholds,
+    stampedRequiredRole: (inv as { required_approver_role?: string | null }).required_approver_role,
   });
   const writeOffApproval = viewerCanApprove({
     kind: "write_off",
@@ -116,6 +129,7 @@ export function InvoiceDetailClient(props: Props) {
     viewerId: userId,
     matter: matterCtx,
     amount: Number(writeOffAmt || 0),
+    thresholds,
   });
   const canApprove = invoiceApproval.allowed;
   const canApproveWriteOff = writeOffApproval.allowed;
@@ -127,7 +141,7 @@ export function InvoiceDetailClient(props: Props) {
     !inv.finalized_at &&
     (inv.approval_status === "Approved" ||
       (canApprove && inv.approval_status === "Submitted"));
-  const isHighValue = Number(inv.invoice_total) >= INVOICE_BILLING_APPROVE_MAX;
+  const isHighValue = Number(inv.invoice_total) >= thresholds.routineInvoiceMp;
   const selfApprovalFlag =
     isHighValue && inv.created_by === userId && role === "managing_partner";
   const approvalPolicyLabel = approvalBadgeLabel(invoiceApproval.decision);
@@ -263,9 +277,21 @@ export function InvoiceDetailClient(props: Props) {
     setBusy(true);
     setError(null);
     const supabase = createClient();
+    const liveThresholds = await getFirmThresholds(supabase);
+    const decision = requiredApproverRole({
+      kind: "invoice",
+      matter: matterCtx,
+      amount: Number(inv.invoice_total),
+      preparerId: userId,
+      thresholds: liveThresholds,
+    });
     const { error: err } = await supabase
       .from("invoices")
-      .update({ approval_status: "Submitted", invoice_status: "Pending Approval" })
+      .update({
+        approval_status: "Submitted",
+        invoice_status: "Pending Approval",
+        required_approver_role: decision.requiredRole,
+      })
       .eq("id", inv.id);
     if (err) setError(err.message);
     else {
@@ -492,7 +518,7 @@ export function InvoiceDetailClient(props: Props) {
   }
 
   async function approveWriteOff(id: string) {
-    if (Number(inv.invoice_total) >= INVOICE_BILLING_APPROVE_MAX && inv.created_by === userId) {
+    if (Number(inv.invoice_total) >= thresholds.routineInvoiceMp && inv.created_by === userId) {
       if (!window.confirm("Self-approval flag on related high-value work. Continue?")) return;
     }
     setBusy(true);
@@ -527,7 +553,7 @@ export function InvoiceDetailClient(props: Props) {
         <div className="alert alert-warning text-sm">
           <span>
             Control flag: preparer is the same user as the potential approver on a high-value invoice
-            (≥ {formatCurrency(INVOICE_BILLING_APPROVE_MAX)}).
+            (≥ {formatCurrency(thresholds.routineInvoiceMp)}).
           </span>
         </div>
       )}
