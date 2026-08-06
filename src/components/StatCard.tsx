@@ -4,12 +4,15 @@ export function StatCard({
   label,
   value,
   hint,
+  cta,
   tone = "default",
   href,
 }: {
   label: string;
   value: string | number;
   hint?: string;
+  /** Optional subtle call-to-action under the hint (clickable cards only). */
+  cta?: string;
   tone?: "default" | "warning" | "success" | "error";
   href?: string;
 }) {
@@ -32,6 +35,11 @@ export function StatCard({
         <p className="text-xs uppercase tracking-wide opacity-60 font-semibold">{label}</p>
         <p className="text-3xl font-semibold font-display mt-1">{value}</p>
         {hint && <p className="text-xs opacity-60 mt-1">{hint}</p>}
+        {cta && href && (
+          <p className="text-xs text-primary mt-2 opacity-80 group-hover:opacity-100">
+            {cta}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -42,7 +50,7 @@ export function StatCard({
     <Link
       href={href}
       className="group block h-full rounded-box focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      aria-label={`${label}: ${value}`}
+      aria-label={`${label}: ${value}${cta ? `. ${cta}` : ""}`}
     >
       {card}
     </Link>
