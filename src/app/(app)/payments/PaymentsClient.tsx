@@ -121,6 +121,18 @@ export function PaymentsClient({ userId }: { userId: string }) {
     setBusy(true);
     const supabase = createClient();
     const matterId = applications[0]?.matter_id || openInvoices[0]?.matter_id || null;
+
+    // Allocate payment_number in-app — seed data can leave the DB sequence behind.
+    const { data: latestPay } = await supabase
+      .from("payments")
+      .select("payment_number")
+      .like("payment_number", "PMT-%")
+      .order("payment_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const latestN = Number(String(latestPay?.payment_number || "PMT-020000").replace(/\D/g, "")) || 20000;
+    const paymentNumber = `PMT-${String(latestN + 1).padStart(6, "0")}`;
+
     const { data: pay, error: pErr } = await supabase
       .from("payments")
       .insert({
@@ -134,6 +146,7 @@ export function PaymentsClient({ userId }: { userId: string }) {
         unapplied_amount: total,
         notes: notes || "Simulated customer payment",
         entered_by: userId,
+        payment_number: paymentNumber,
       })
       .select("id, payment_number")
       .single();
@@ -160,7 +173,17 @@ export function PaymentsClient({ userId }: { userId: string }) {
       }
     }
 
-    const { error: postErr } = await supabase.rpc("post_payment", { p_payment_id: pay.id });
+    let postErr: { message: string } | null = null;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const { error } = await supabase.rpc("post_payment", { p_payment_id: pay.id });
+      if (!error) {
+        postErr = null;
+        break;
+      }
+      postErr = error;
+      // Seeded JE numbers can leave the sequence behind; retries advance it.
+      if (!/journal_entry_number|23505/i.test(error.message)) break;
+    }
     if (postErr) {
       setError(postErr.message);
       setBusy(false);

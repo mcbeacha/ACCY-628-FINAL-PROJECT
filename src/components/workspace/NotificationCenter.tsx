@@ -162,7 +162,7 @@ export function NotificationCenter({ viewer: fallbackViewer }: { viewer: Messagi
                     <span className="block text-xs opacity-70 mt-0.5 line-clamp-2">
                       {item.detail}
                     </span>
-                    <span className="block text-xs opacity-50 mt-0.5">
+                    <span className="block text-xs opacity-50 mt-0.5" suppressHydrationWarning>
                       {relativeTime(item.minutesAgo)}
                     </span>
                   </span>

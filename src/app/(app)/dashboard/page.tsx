@@ -530,10 +530,17 @@ async function AttorneyDashboard({
   const liveTimekeeping = buildTimekeeping(timeRows, avail);
   const timekeeping = {
     ...liveTimekeeping,
-    hoursToday: Math.max(liveTimekeeping.hoursToday, TIMEKEEPING.hoursToday),
-    hoursWeek: Math.max(liveTimekeeping.hoursWeek, hoursWeek),
-    billableMonth: Math.max(liveTimekeeping.billableMonth, TIMEKEEPING.billableMonth),
-    nonBillableMonth: Math.max(liveTimekeeping.nonBillableMonth, TIMEKEEPING.nonBillableMonth),
+    hoursToday:
+      liveTimekeeping.hoursToday > 0 ? liveTimekeeping.hoursToday : TIMEKEEPING.hoursToday,
+    hoursWeek: hoursWeek,
+    billableMonth:
+      liveTimekeeping.billableMonth > 0
+        ? liveTimekeeping.billableMonth
+        : TIMEKEEPING.billableMonth,
+    nonBillableMonth:
+      liveTimekeeping.nonBillableMonth > 0
+        ? liveTimekeeping.nonBillableMonth
+        : TIMEKEEPING.nonBillableMonth,
   };
   const dueTodayCount = myTasks.filter(
     (t) => t.lane !== "Completed" && daysUntil(t.dueDate) === 0

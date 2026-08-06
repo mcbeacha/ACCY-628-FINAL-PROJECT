@@ -32,11 +32,6 @@ export function StatCard({
         <p className="text-xs uppercase tracking-wide opacity-60 font-semibold">{label}</p>
         <p className="text-3xl font-semibold font-display mt-1">{value}</p>
         {hint && <p className="text-xs opacity-60 mt-1">{hint}</p>}
-        {href && (
-          <p className="text-xs text-primary mt-2 opacity-80 group-hover:opacity-100">
-            Open related screen <span className="cta-arrow-nudge inline-block">→</span>
-          </p>
-        )}
       </div>
     </div>
   );
@@ -47,7 +42,7 @@ export function StatCard({
     <Link
       href={href}
       className="group block h-full rounded-box focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      aria-label={`${label}: ${value}. Open related screen.`}
+      aria-label={`${label}: ${value}`}
     >
       {card}
     </Link>
