@@ -41,10 +41,12 @@ export function BrandLogo({ variant = "header", href = "/dashboard" }: Props) {
         priority
       />
       <span className="min-w-0 hidden sm:block">
-        <span className="font-display text-base sm:text-lg font-semibold block truncate">
+        <span className="font-display text-[0.95rem] sm:text-base block truncate leading-tight">
           {APP_NAME}
         </span>
-        <span className="text-xs opacity-60 hidden md:block truncate">{APP_SUBTITLE}</span>
+        <span className="text-[0.7rem] text-base-content/50 hidden md:block truncate tracking-wide uppercase">
+          {APP_SUBTITLE}
+        </span>
       </span>
     </Link>
   );

@@ -62,14 +62,14 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen bg-base-200">
+    <div className="min-h-screen app-canvas">
       {demoMode && <DemoModeNoticeBar />}
 
       <div className="drawer lg:drawer-open">
         <input id="app-drawer" type="checkbox" className="drawer-toggle" />
 
         <div className="drawer-content flex flex-col min-h-screen">
-          <div className="navbar bg-base-100 border-b border-base-300 px-2 sm:px-4 lg:px-6 sticky top-0 z-30 gap-1">
+          <div className="navbar app-navbar border-b px-2 sm:px-4 lg:px-6 sticky top-0 z-30 gap-1">
             <div className="flex-none lg:hidden">
               <label
                 htmlFor="app-drawer"
@@ -159,26 +159,28 @@ export function AppShell({
             className="drawer-overlay lg:hidden"
             aria-label="Close navigation menu"
           />
-          <aside className="bg-base-100 border-r border-base-300 min-h-full w-72 max-w-[85vw] p-4 flex flex-col">
-            <BrandLogo variant="sidebar" />
-            <p className="text-xs font-semibold uppercase tracking-wide opacity-50 mb-3 px-2">
-              Navigation
+          <aside className="app-sidebar min-h-full w-72 max-w-[85vw] p-4 flex flex-col">
+            <div className="rounded-md bg-base-100/95 p-2 mb-1 lg:mb-0">
+              <BrandLogo variant="sidebar" />
+            </div>
+            <p className="app-sidebar-label text-[0.65rem] font-semibold uppercase tracking-[0.16em] mb-3 px-2">
+              Workspace
             </p>
             <div className="flex-1 overflow-y-auto overscroll-contain pr-1">
               <SidebarNav role={profile.role} closeDrawerOnNavigate />
             </div>
-            <div className="mt-6 p-3 rounded-lg bg-base-200 text-xs opacity-70">
+            <div className="app-sidebar-foot mt-6 p-3 rounded-md text-xs">
               {demoMode ? (
                 <>
-                  Demo user: <span className="font-semibold">{profile.full_name}</span>
+                  Demo user: <span className="font-semibold text-[var(--sidebar-fg)]">{profile.full_name}</span>
                   <div className="mt-1">{ROLE_LABELS[profile.role]}</div>
-                  <div className="mt-2 opacity-60">
+                  <div className="mt-2 opacity-80">
                     Simulated permissions for presentation — not real authentication.
                   </div>
                 </>
               ) : (
                 <>
-                  Signed in as <span className="font-semibold">{profile.email}</span>
+                  Signed in as <span className="font-semibold text-[var(--sidebar-fg)]">{profile.email}</span>
                   <div className="mt-1 md:hidden">{ROLE_LABELS[profile.role]}</div>
                 </>
               )}
