@@ -125,11 +125,11 @@ export function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-base-200 flex flex-col">
+    <div className="min-h-screen app-canvas flex flex-col">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-base-200 to-secondary/10" />
-        <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-secondary/10 blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/12 via-transparent to-accent/10" />
+        <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-accent/15 blur-3xl" />
+        <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-primary/15 blur-3xl" />
       </div>
 
       <div className="relative z-10 flex justify-end p-4">
@@ -140,12 +140,12 @@ export function LoginForm() {
         <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-8 items-center">
           <section className="hidden lg:block text-base-content px-4">
             <div className="inline-flex items-center gap-2 mb-6">
-              <span className="btn btn-primary btn-square">
+              <span className="btn btn-primary btn-square app-brand-mark">
                 <Scale className="h-5 w-5" />
               </span>
               <span className="font-display text-2xl font-bold">{APP_NAME}</span>
             </div>
-            <h1 className="font-display text-4xl font-bold leading-tight">
+            <h1 className="font-display text-4xl font-bold leading-tight page-title-rule">
               Engagement control from first agreement to matter oversight
             </h1>
             <p className="mt-4 text-lg opacity-80 max-w-md">

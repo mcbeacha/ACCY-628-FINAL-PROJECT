@@ -62,14 +62,14 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen bg-base-200">
+    <div className="min-h-screen app-canvas">
       {demoMode && <DemoModeNoticeBar />}
 
       <div className="drawer lg:drawer-open">
         <input id="app-drawer" type="checkbox" className="drawer-toggle" />
 
         <div className="drawer-content flex flex-col min-h-screen">
-          <div className="navbar bg-base-100 border-b border-base-300 px-2 sm:px-4 lg:px-6 sticky top-0 z-30 gap-1">
+          <div className="navbar app-navbar border-b px-2 sm:px-4 lg:px-6 sticky top-0 z-30 gap-1">
             <div className="flex-none lg:hidden">
               <label
                 htmlFor="app-drawer"
@@ -82,7 +82,7 @@ export function AppShell({
 
             <div className="flex-1 gap-2 sm:gap-3 min-w-0">
               <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-                <span className="btn btn-square btn-primary btn-sm pointer-events-none">
+                <span className="btn btn-square btn-primary btn-sm pointer-events-none app-brand-mark">
                   <Scale className="h-4 w-4" />
                 </span>
                 <span className="min-w-0 hidden xs:block sm:block">
@@ -171,20 +171,20 @@ export function AppShell({
             className="drawer-overlay lg:hidden"
             aria-label="Close navigation menu"
           />
-          <aside className="bg-base-100 border-r border-base-300 min-h-full w-72 max-w-[85vw] p-4 flex flex-col">
+          <aside className="app-sidebar border-r min-h-full w-72 max-w-[85vw] p-4 flex flex-col">
             <div className="flex items-center gap-2 mb-4 px-1 lg:hidden">
-              <span className="btn btn-square btn-primary btn-xs pointer-events-none">
+              <span className="btn btn-square btn-primary btn-xs pointer-events-none app-brand-mark">
                 <Scale className="h-3.5 w-3.5" />
               </span>
               <span className="font-display font-semibold truncate">{APP_NAME}</span>
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wide opacity-50 mb-3 px-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary/70 mb-3 px-2">
               Navigation
             </p>
             <div className="flex-1 overflow-y-auto overscroll-contain pr-1">
               <SidebarNav role={profile.role} closeDrawerOnNavigate />
             </div>
-            <div className="mt-6 p-3 rounded-lg bg-base-200 text-xs opacity-70">
+            <div className="mt-6 p-3 rounded-lg border border-primary/15 bg-base-100/70 text-xs opacity-80">
               {demoMode ? (
                 <>
                   Demo user: <span className="font-semibold">{profile.full_name}</span>

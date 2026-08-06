@@ -61,8 +61,8 @@ function NavLinkRow({
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
     indented ? "ml-2 pl-4 border-l-2 border-base-300" : "",
     active
-      ? "bg-primary/15 text-base-content font-semibold border-l-primary"
-      : "hover:bg-base-200 opacity-90",
+      ? "bg-primary/12 text-base-content font-semibold border-l-[3px] border-accent"
+      : "hover:bg-base-200/80 opacity-90",
   ].join(" ");
 
   if (onDemoSwitch) {
@@ -78,7 +78,7 @@ function NavLinkRow({
         aria-label={ariaLabel}
       >
         {active && (
-          <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+          <span className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" aria-hidden />
         )}
         <span className="truncate flex-1">{label}</span>
         {showBadge && (
@@ -99,7 +99,7 @@ function NavLinkRow({
       aria-label={ariaLabel}
     >
       {active && (
-        <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" aria-hidden />
+        <span className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" aria-hidden />
       )}
       <span className="truncate flex-1">{label}</span>
       {showBadge && (
