@@ -17,53 +17,54 @@ function exportPathForKind(kind: ExportKind): string {
     : "/api/attorney/clients-export";
 }
 
+function filenameForKind(kind: ExportKind): string {
+  return kind === "metrics" ? "attorney-metrics.xlsx" : "attorney-clients.xlsx";
+}
+
 export function OpenInExcelButton({ kind, label, className, title }: Props) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onClick() {
     if (busy) return;
     setBusy(true);
-    const fallbackPath = exportPathForKind(kind);
+    setError(null);
 
     try {
-      const res = await fetch(`/api/attorney/export-ticket?kind=${kind}`);
+      const res = await fetch(exportPathForKind(kind), { credentials: "same-origin" });
       if (!res.ok) {
-        throw new Error(await res.text());
+        throw new Error((await res.text()) || "Export failed.");
       }
-      const data = (await res.json()) as { url?: string };
-      if (!data.url) {
-        throw new Error("Export ticket missing URL.");
-      }
-
-      let excelLikelyOpened = false;
-      const onBlur = () => {
-        excelLikelyOpened = true;
-      };
-      window.addEventListener("blur", onBlur);
-      window.location.href = `ms-excel:ofv|u|${encodeURIComponent(data.url)}`;
-
-      await new Promise((resolve) => window.setTimeout(resolve, 1600));
-      window.removeEventListener("blur", onBlur);
-
-      if (!excelLikelyOpened && document.hasFocus()) {
-        window.location.assign(fallbackPath);
-      }
-    } catch {
-      window.location.assign(fallbackPath);
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const named = disposition?.match(/filename="([^"]+)"/)?.[1];
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = named || filenameForKind(kind);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <button
-      type="button"
-      className={className}
-      title={title}
-      disabled={busy}
-      onClick={() => void onClick()}
-    >
-      {busy ? "Opening Excel…" : label}
-    </button>
+    <div className="inline-flex flex-col items-start gap-1">
+      <button
+        type="button"
+        className={className}
+        title={title}
+        disabled={busy}
+        onClick={() => void onClick()}
+      >
+        {busy ? "Preparing Excel…" : label}
+      </button>
+      {error ? <p className="text-xs text-error max-w-xs">{error}</p> : null}
+    </div>
   );
 }

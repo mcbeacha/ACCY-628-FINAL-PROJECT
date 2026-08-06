@@ -58,7 +58,7 @@ export default async function ClientsPage({
               <OpenInExcelButton
                 kind="clients"
                 className="btn btn-outline btn-sm"
-                title="Open all clients you can access in Excel"
+                title="Download all clients you can access to Excel"
                 label="Export to Excel"
               />
             ) : null}

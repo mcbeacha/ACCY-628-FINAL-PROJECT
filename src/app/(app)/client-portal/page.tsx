@@ -1,7 +1,6 @@
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/Badges";
-import { SwitchDemoClientButton } from "@/components/client-portal/SwitchDemoClientButton";
 import { RoleCalendarPreview } from "@/components/workspace/RoleCalendarPreview";
 import { SectionHeader } from "@/components/workspace/SectionHeader";
 import {
@@ -67,12 +66,6 @@ export default async function ClientPortalDashboardPage() {
           <Link href="/client-portal/contact" className="btn btn-outline btn-sm">
             Contact team
           </Link>
-          <SwitchDemoClientButton
-            target="potential_client"
-            className="btn btn-ghost btn-sm"
-          >
-            Explore Rebel Law Group
-          </SwitchDemoClientButton>
         </div>
       </section>
 

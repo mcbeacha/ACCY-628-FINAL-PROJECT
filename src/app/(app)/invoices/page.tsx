@@ -1,8 +1,9 @@
 import { requireUser } from "@/lib/auth";
-import { canPrepareInvoices } from "@/lib/permissions";
+import { canPrepareInvoices, canViewReports } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import { OpenInExcelButton } from "@/components/OpenInExcelButton";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Invoice } from "@/lib/billing-types";
 import { findDuplicateInvoiceNumbers } from "@/lib/invoice-controls";
@@ -37,17 +38,29 @@ export default async function InvoicesPage() {
     ? findDuplicateInvoiceNumbers(rows)
     : [];
 
+  const showExcelExport = canViewReports(profile.role);
+
   return (
     <>
       <PageHeader
         title={profile.role === "attorney" ? "Matter Billing" : "Invoices"}
         description="Invoice preparation, approval, and collection status (simulated)."
         actions={
-          canPrepareInvoices(profile.role) ? (
-            <Link href="/invoices/new" className="btn btn-primary btn-sm">
-              Prepare invoice
-            </Link>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            {showExcelExport ? (
+              <OpenInExcelButton
+                kind="metrics"
+                className="btn btn-outline btn-sm"
+                title="Download a multi-sheet Excel workbook of matter billing metrics and time"
+                label="Export to Excel"
+              />
+            ) : null}
+            {canPrepareInvoices(profile.role) ? (
+              <Link href="/invoices/new" className="btn btn-primary btn-sm">
+                Prepare invoice
+              </Link>
+            ) : null}
+          </div>
         }
       />
       {duplicateNumbers.length > 0 && (
