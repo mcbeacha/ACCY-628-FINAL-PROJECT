@@ -43,7 +43,27 @@ export type CalendarEvent = {
   matterRef: string;
   /** Roles that see this event on their calendar. */
   roles: UserRole[];
+  /** Virtual meeting — show Teams link + email reminder options. */
+  virtual?: boolean;
+  teamsLink?: string;
+  /** Demo recipient emails for reminder drafts. */
+  reminderEmails?: string[];
 };
+
+export const MEETING_EVENT_TYPES: CalendarEventType[] = [
+  "Client Meeting",
+  "Internal Meeting",
+  "CLE",
+  "Deposition",
+];
+
+export function isMeetingEvent(event: CalendarEvent): boolean {
+  return MEETING_EVENT_TYPES.includes(event.type);
+}
+
+export function isVirtualMeeting(event: CalendarEvent): boolean {
+  return Boolean(event.virtual) || /video|teams|webinar|zoom|virtual/i.test(event.location);
+}
 
 export type RoleCalendarConfig = {
   title: string;
@@ -152,6 +172,9 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
     location: "Video conference",
     matterRef: "2026-0127",
     roles: ["attorney", "paralegal"],
+    virtual: true,
+    teamsLink: "https://teams.microsoft.com/l/meetup-join/demo/cedar-ridge-strategy",
+    reminderEmails: ["client@cedarridge.example", "priya.rose@rebellaw.example"],
   }),
   event({
     id: "ev-3",
@@ -207,6 +230,9 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
     location: "Webinar",
     matterRef: "—",
     roles: ["managing_partner", "attorney"],
+    virtual: true,
+    teamsLink: "https://teams.microsoft.com/l/meetup-join/demo/cle-evidence-update",
+    reminderEmails: ["jordan.harper@rebellaw.example", "margaret.sinclair@rebellaw.example"],
   }),
   event({
     id: "ev-8",
@@ -253,6 +279,9 @@ export const CALENDAR_EVENTS: CalendarEvent[] = [
     location: "Video conference",
     matterRef: "MT-05001",
     roles: ["managing_partner", "attorney", "client"],
+    virtual: true,
+    teamsLink: "https://teams.microsoft.com/l/meetup-join/demo/northvale-board-strategy",
+    reminderEmails: ["nora.vale@northvale.example", "jordan.harper@rebellaw.example"],
   }),
   event({
     id: "ev-mp-3",

@@ -9,7 +9,7 @@ export default async function CalendarPage() {
 
   return (
     <>
-      <PageHeader title={config.title} description={config.description} />
+      <PageHeader title={config.title} description={`${profile.full_name}`} />
       <CalendarClient role={profile.role} />
     </>
   );

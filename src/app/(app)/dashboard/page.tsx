@@ -201,6 +201,7 @@ async function PartnerDashboard({
         description={profile.full_name}
         actions={
           <>
+            <RoleCalendarPreview role="managing_partner" />
             <Link href="/inbox" className="btn btn-primary btn-sm">
               {inboxMeta.title}
               {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
@@ -216,8 +217,6 @@ async function PartnerDashboard({
         <SectionHeader title="Quick actions" icon={<LayoutGrid className="h-5 w-5" />} />
         <PartnerQuickActions />
       </section>
-
-      <RoleCalendarPreview role="managing_partner" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -555,6 +554,7 @@ async function AttorneyDashboard({
         description={profile.full_name}
         actions={
           <>
+            <RoleCalendarPreview role="attorney" />
             <Link href="/inbox" className="btn btn-primary btn-sm">
               {inboxMeta.title}
               {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
@@ -570,8 +570,6 @@ async function AttorneyDashboard({
         <SectionHeader title="Quick actions" icon={<LayoutGrid className="h-5 w-5" />} />
         <QuickActions />
       </section>
-
-      <RoleCalendarPreview role="attorney" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -955,10 +953,13 @@ async function StaffDashboard({
         title="Paralegal Workspace"
         description={profile.full_name}
         actions={
-          <Link href="/inbox" className="btn btn-primary btn-sm">
-            {inboxMeta.title}
-            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
-          </Link>
+          <>
+            <RoleCalendarPreview role="paralegal" />
+            <Link href="/inbox" className="btn btn-primary btn-sm">
+              {inboxMeta.title}
+              {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+            </Link>
+          </>
         }
       />
 
@@ -966,8 +967,6 @@ async function StaffDashboard({
         <SectionHeader title="Quick actions" icon={<LayoutGrid className="h-5 w-5" />} />
         <QuickActions />
       </section>
-
-      <RoleCalendarPreview role="paralegal" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -1243,10 +1242,13 @@ async function BillingDashboard({
         title="Billing Workspace"
         description={profile.full_name}
         actions={
-          <Link href="/inbox" className="btn btn-primary btn-sm">
-            {inboxMeta.title}
-            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
-          </Link>
+          <>
+            <RoleCalendarPreview role="billing_staff" />
+            <Link href="/inbox" className="btn btn-primary btn-sm">
+              {inboxMeta.title}
+              {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+            </Link>
+          </>
         }
       />
 
@@ -1254,8 +1256,6 @@ async function BillingDashboard({
         <SectionHeader title="Quick actions" icon={<LayoutGrid className="h-5 w-5" />} />
         <BillingQuickActions />
       </section>
-
-      <RoleCalendarPreview role="billing_staff" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

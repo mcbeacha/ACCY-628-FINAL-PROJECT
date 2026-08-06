@@ -31,15 +31,18 @@ export default async function ClientPortalDashboardPage() {
         title="Client Workspace"
         description={clientDisplayName(client)}
         actions={
-          openBalance > 0 ? (
-            <Link href="/client-portal/pay" className="btn btn-primary btn-sm">
-              Pay {formatCurrency(openBalance)}
-            </Link>
-          ) : (
-            <Link href="/client-portal/payments" className="btn btn-outline btn-sm">
-              Payments
-            </Link>
-          )
+          <>
+            <RoleCalendarPreview role="client" />
+            {openBalance > 0 ? (
+              <Link href="/client-portal/pay" className="btn btn-primary btn-sm">
+                Pay {formatCurrency(openBalance)}
+              </Link>
+            ) : (
+              <Link href="/client-portal/payments" className="btn btn-outline btn-sm">
+                Payments
+              </Link>
+            )}
+          </>
         }
       />
 
@@ -72,8 +75,6 @@ export default async function ClientPortalDashboardPage() {
           </SwitchDemoClientButton>
         </div>
       </section>
-
-      <RoleCalendarPreview role="client" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard label="Active matters" value={activeMatters.length} href="/client-portal/matters" />
