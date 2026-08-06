@@ -7,6 +7,7 @@ import { DeadlineCalendar, buildDeadlineWindow } from "@/components/DeadlineCale
 import { WeeklyUtilizationCard } from "@/components/WeeklyUtilizationCard";
 import { CaseEvaluationsMiniList } from "@/components/intake/CaseEvaluationDetailClient";
 import { FirmPulse } from "./FirmPulse";
+import { ProspectiveClientIntakeAlert } from "@/components/ProspectiveClientIntakeAlert";
 import { AttorneyDocumentRequestForm } from "@/components/document-requests/AttorneyDocumentRequestForm";
 import { AttorneyDocumentRequestList } from "@/components/document-requests/AttorneyDocumentRequestList";
 import { ParalegalDocumentQueue } from "@/components/document-requests/ParalegalDocumentQueue";
@@ -989,6 +990,8 @@ async function StaffDashboard({
           </>
         }
       />
+
+      <ProspectiveClientIntakeAlert items={newEvals} />
 
       <section className="space-y-3">
         <SectionHeader title="Quick actions" icon={<LayoutGrid className="h-5 w-5" />} />
