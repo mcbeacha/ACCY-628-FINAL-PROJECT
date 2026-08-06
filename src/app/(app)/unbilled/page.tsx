@@ -15,14 +15,14 @@ export default async function UnbilledPage() {
   const [{ data: timeData }, { data: expData }] = await Promise.all([
     supabase
       .from("time_entries")
-      .select("*, matters(id, matter_number, matter_name, clients(organization_name, first_name, last_name)), employee:profiles!time_entries_employee_id_fkey(full_name)")
+      .select("*, matters(id, matter_number, matter_name, clients(organization_name, first_name, last_name, client_type, primary_contact_name)), employee:profiles!time_entries_employee_id_fkey(full_name)")
       .eq("approval_status", "Approved")
       .eq("invoice_status", "Unbilled")
       .eq("billable_status", "Billable")
       .order("work_date", { ascending: false }),
     supabase
       .from("expense_entries")
-      .select("*, matters(id, matter_number, matter_name, clients(organization_name, first_name, last_name))")
+      .select("*, matters(id, matter_number, matter_name, clients(organization_name, first_name, last_name, client_type, primary_contact_name))")
       .eq("approval_status", "Approved")
       .eq("client_reimbursable", true)
       .eq("invoice_status", "Unbilled")

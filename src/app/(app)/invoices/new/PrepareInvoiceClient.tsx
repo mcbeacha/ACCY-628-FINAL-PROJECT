@@ -5,6 +5,10 @@ import { EmptyState } from "@/components/EmptyState";
 import { calcBillableAmount } from "@/lib/phase2-types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
+  ENGAGEMENT_BILLING_BLOCKED_MESSAGE,
+  isMatterEngagementBillable,
+} from "@/lib/billing-gates";
+import {
   DUPLICATE_INVOICE_NUMBER_MESSAGE,
   isDuplicateInvoiceNumberError,
 } from "@/lib/invoice-controls";
@@ -165,6 +169,10 @@ export function PrepareInvoiceClient({
       setError("Cannot bill a canceled or rejected matter.");
       return;
     }
+    if (!isMatterEngagementBillable(m)) {
+      setError(ENGAGEMENT_BILLING_BLOCKED_MESSAGE);
+      return;
+    }
     if (m.matter_status === "Closed") {
       if (!window.confirm("This matter is Closed. Continue only for an authorized final invoice?")) {
         return;
@@ -200,6 +208,23 @@ export function PrepareInvoiceClient({
 
     setBusy(true);
     const supabase = createClient();
+
+    const { data: freshMatter, error: matterErr } = await supabase
+      .from("matters")
+      .select("id, approval_status, matter_status, client_id")
+      .eq("id", m.id)
+      .maybeSingle();
+    if (matterErr || !freshMatter) {
+      setError(matterErr?.message || "Could not verify matter engagement status.");
+      setBusy(false);
+      return;
+    }
+    if (!isMatterEngagementBillable(freshMatter)) {
+      setError(ENGAGEMENT_BILLING_BLOCKED_MESSAGE);
+      setBusy(false);
+      return;
+    }
+
     const requestedNumber = invoiceNumber.trim();
     if (requestedNumber) {
       const { data: existing } = await supabase
@@ -219,7 +244,7 @@ export function PrepareInvoiceClient({
       .from("invoices")
       .insert({
         matter_id: m.id,
-        client_id: m.client_id,
+        client_id: freshMatter.client_id || m.client_id,
         invoice_date: invoiceDate,
         due_date: dueDate,
         billing_period_start: periodStart || null,

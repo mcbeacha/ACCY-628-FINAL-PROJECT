@@ -16,7 +16,7 @@ export default async function InvoiceDetailPage({
   const { data: inv, error } = await supabase
     .from("invoices")
     .select(
-      "*, matters(matter_number, matter_name, matter_status), clients(organization_name, first_name, last_name, client_number)"
+      "*, matters(matter_number, matter_name, matter_status, approval_status), clients(organization_name, first_name, last_name, client_number)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -58,7 +58,16 @@ export default async function InvoiceDetailPage({
         description="Invoice detail, approvals, finalization, payments, retainers, and write-offs."
       />
       <InvoiceDetailClient
-        invoice={inv as Invoice & { matters?: { matter_number: string; matter_name: string } | null }}
+        invoice={
+          inv as Invoice & {
+            matters?: {
+              matter_number: string;
+              matter_name: string;
+              matter_status?: string;
+              approval_status?: string;
+            } | null;
+          }
+        }
         lines={(lines || []) as InvoiceLine[]}
         adjustments={(adjs || []) as {
           id: string;

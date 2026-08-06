@@ -20,7 +20,7 @@ export default async function InvoicesPage() {
 
   let q = supabase
     .from("invoices")
-    .select("*, matters(matter_number, matter_name), clients(organization_name, first_name, last_name)")
+    .select("*, matters(matter_number, matter_name), clients(organization_name, first_name, last_name, client_type, primary_contact_name)")
     .order("invoice_date", { ascending: false });
 
   if (profile.role === "attorney") {

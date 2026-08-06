@@ -2,6 +2,10 @@
 
 import { StatusBadge } from "@/components/Badges";
 import type { Invoice, InvoiceLine } from "@/lib/billing-types";
+import {
+  ENGAGEMENT_BILLING_BLOCKED_MESSAGE,
+  isMatterEngagementBillable,
+} from "@/lib/billing-gates";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -9,9 +13,16 @@ import { useState } from "react";
 
 const HIGH_VALUE = 5000;
 
+type MatterEmbed = {
+  matter_number: string;
+  matter_name: string;
+  matter_status?: string;
+  approval_status?: string;
+} | null;
+
 type Props = {
   invoice: Invoice & {
-    matters?: { matter_number: string; matter_name: string; matter_status?: string } | null;
+    matters?: MatterEmbed;
     clients?: {
       organization_name?: string | null;
       first_name?: string | null;
@@ -86,6 +97,12 @@ export function InvoiceDetailClient(props: Props) {
   const canApprove = role === "managing_partner";
   const canPost = canPrepare;
   const canEditDraft = canPrepare && !locked && inv.approval_status === "Draft";
+  const engagementBillable = isMatterEngagementBillable(inv.matters);
+  const canFinalizeInvoice =
+    engagementBillable &&
+    !inv.finalized_at &&
+    (inv.approval_status === "Approved" ||
+      (canApprove && inv.approval_status === "Submitted"));
   const isHighValue = Number(inv.invoice_total) >= HIGH_VALUE;
   const selfApprovalFlag =
     isHighValue && inv.created_by === userId && canApprove;
@@ -115,7 +132,7 @@ export function InvoiceDetailClient(props: Props) {
       supabase
         .from("invoices")
         .select(
-          "*, matters(matter_number, matter_name, matter_status), clients(organization_name, first_name, last_name, client_number)"
+          "*, matters(matter_number, matter_name, matter_status, approval_status), clients(organization_name, first_name, last_name, client_number)"
         )
         .eq("id", inv.id)
         .single(),
@@ -307,6 +324,21 @@ export function InvoiceDetailClient(props: Props) {
     setBusy(true);
     setError(null);
     const supabase = createClient();
+    const { data: matterRow, error: matterErr } = await supabase
+      .from("matters")
+      .select("id, approval_status, matter_status")
+      .eq("id", inv.matter_id)
+      .maybeSingle();
+    if (matterErr) {
+      setError(matterErr.message);
+      setBusy(false);
+      return;
+    }
+    if (!isMatterEngagementBillable(matterRow)) {
+      setError(ENGAGEMENT_BILLING_BLOCKED_MESSAGE);
+      setBusy(false);
+      return;
+    }
     const { error: err } = await supabase.rpc("finalize_invoice", { p_invoice_id: inv.id });
     if (err) setError(err.message);
     else {
@@ -614,6 +646,12 @@ export function InvoiceDetailClient(props: Props) {
         </div>
       )}
 
+      {canPrepare && !locked && !engagementBillable && (
+        <div className="alert alert-warning text-sm">
+          <span>{ENGAGEMENT_BILLING_BLOCKED_MESSAGE}</span>
+        </div>
+      )}
+
       {canPrepare && !locked && (
         <div className="flex flex-wrap gap-2">
           {inv.approval_status === "Draft" && (
@@ -634,10 +672,12 @@ export function InvoiceDetailClient(props: Props) {
           {canApprove && inv.approval_status === "Draft" && inv.created_by === userId && isHighValue && (
             <span className="text-xs self-center opacity-70">Submit before partner review recommended.</span>
           )}
-          {(inv.approval_status === "Approved" ||
-            (canApprove && inv.approval_status === "Submitted")) &&
-            !inv.finalized_at && (
-              <button className="btn btn-secondary btn-sm" disabled={busy} onClick={finalize}>
+          {canFinalizeInvoice && (
+              <button
+                className="btn btn-secondary btn-sm"
+                disabled={busy || !engagementBillable}
+                onClick={finalize}
+              >
                 Finalize invoice
               </button>
             )}
@@ -653,11 +693,6 @@ export function InvoiceDetailClient(props: Props) {
             </button>
           )}
         </div>
-      )}
-      {canApprove && inv.approval_status === "Approved" && !inv.finalized_at && canPrepare && (
-        <button className="btn btn-secondary btn-sm" disabled={busy} onClick={finalize}>
-          Finalize invoice
-        </button>
       )}
       {canPost && inv.finalized_at && Number(inv.balance_due) > 0 && (
         <div className="card bg-base-100 border border-base-300">
