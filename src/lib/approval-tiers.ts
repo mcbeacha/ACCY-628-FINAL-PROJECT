@@ -296,3 +296,19 @@ export function approvalBadgeLabel(decision: ApprovalDecision): string {
   }
   return "Responsible attorney may approve";
 }
+
+/** Required approver for an expense row (stamp wins when present). */
+export function expenseRequiredApproverRole(input: {
+  matter?: ApprovalMatterContext | null;
+  amount?: number | null;
+  thresholds?: FirmApprovalThresholds;
+  stampedRequiredRole?: string | null;
+}): ApproverRole {
+  return requiredApproverRole({
+    kind: "expense",
+    matter: input.matter,
+    amount: input.amount,
+    thresholds: input.thresholds,
+    stampedRequiredRole: input.stampedRequiredRole,
+  }).requiredRole;
+}

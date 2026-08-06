@@ -13,6 +13,11 @@ import {
 } from "@/lib/nav-config";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
 import type { DemoRoleKey } from "@/lib/demo-config";
+import {
+  expenseRequiredApproverRole,
+  type ApprovalMatterContext,
+} from "@/lib/approval-tiers";
+import { getFirmThresholds } from "@/lib/firm-thresholds";
 import { canApproveExpenses, canApproveMatterCosts } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
@@ -254,11 +259,39 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
       const supabase = createClient();
 
       if (canSeeExpenseReview) {
-        const { count, error } = await supabase
+        const thresholds = await getFirmThresholds(supabase);
+        const { data, error } = await supabase
           .from("expense_entries")
-          .select("id", { count: "exact", head: true })
+          .select(
+            "id, amount, created_by, required_approver_role, matters(billing_method, practice_area, responsible_attorney_id)"
+          )
           .eq("approval_status", "Submitted");
-        if (!error) next["/expenses/review"] = count ?? 0;
+        if (!error) {
+          const rows = (data || []) as {
+            id: string;
+            amount: number;
+            created_by?: string | null;
+            required_approver_role?: string | null;
+            matters?: ApprovalMatterContext | null;
+          }[];
+          const count = rows.filter((row) => {
+            const required = expenseRequiredApproverRole({
+              matter: row.matters,
+              amount: Number(row.amount),
+              thresholds,
+              stampedRequiredRole: row.required_approver_role,
+            });
+            if (effectiveRole === "managing_partner") {
+              return required === "managing_partner";
+            }
+            if (effectiveRole === "billing_staff") {
+              // Count items billing can act on (not self-submitted)
+              return required === "billing_staff";
+            }
+            return false;
+          }).length;
+          if (count > 0) next["/expenses/review"] = count;
+        }
       }
 
       if (canSeeCostApproval) {
@@ -266,7 +299,7 @@ export function SidebarNav({ role, closeDrawerOnNavigate = false }: Props) {
           .from("matter_cost_entries")
           .select("id", { count: "exact", head: true })
           .eq("approval_status", "Submitted");
-        if (!error) next["/costs/review"] = count ?? 0;
+        if (!error && (count ?? 0) > 0) next["/costs/review"] = count ?? 0;
       }
 
       if (!cancelled) setBadgeCounts(next);

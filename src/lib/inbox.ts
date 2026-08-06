@@ -266,7 +266,7 @@ async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
     supabase
       .from("expense_entries")
       .select(
-        "id, amount, expense_date, created_at, matter_id, created_by, description, required_approver_role, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), creator:profiles!expense_entries_created_by_fkey(full_name)"
+        "id, amount, expense_date, created_at, matter_id, created_by, description, required_approver_role, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id)"
       )
       .eq("approval_status", "Submitted"),
     supabase
@@ -299,6 +299,23 @@ async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
       .eq("approval_status", "Submitted"),
   ]);
 
+  const expenseCreatorIds = [
+    ...new Set(
+      (expRes.data || [])
+        .map((e: { created_by?: string | null }) => e.created_by)
+        .filter(Boolean) as string[]
+    ),
+  ];
+  const expenseCreatorNames = new Map<string, string>();
+  if (expenseCreatorIds.length > 0) {
+    const { data: creators } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", expenseCreatorIds);
+    for (const p of creators || []) {
+      expenseCreatorNames.set(p.id, p.full_name || "—");
+    }
+  }
   for (const m of mattersRes.data || []) {
     const decision = requiredApproverRole({
       kind: "matter_engagement",
@@ -343,7 +360,9 @@ async function loadManagingPartnerInbox(supabase: any): Promise<InboxItem[]> {
       createdAt: e.created_at || `${e.expense_date}T00:00:00`,
       amount: Number(e.amount),
       matterLabel: matterLabel(e.matters),
-      submitter: e.creator?.full_name || null,
+      submitter: e.created_by
+        ? expenseCreatorNames.get(e.created_by) || null
+        : null,
       canInlineDecide: true,
       recordId: e.id,
       matterId: e.matter_id,
@@ -468,7 +487,7 @@ async function loadBillingInbox(supabase: any, profileId: string): Promise<Inbox
     supabase
       .from("expense_entries")
       .select(
-        "id, amount, expense_date, created_at, matter_id, created_by, description, required_approver_role, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), creator:profiles!expense_entries_created_by_fkey(full_name)"
+        "id, amount, expense_date, created_at, matter_id, created_by, description, required_approver_role, matters(matter_number, matter_name, billing_method, practice_area, responsible_attorney_id)"
       )
       .eq("approval_status", "Submitted"),
     supabase
@@ -506,6 +525,24 @@ async function loadBillingInbox(supabase: any, profileId: string): Promise<Inbox
       .eq("invoice_status", "Unbilled"),
   ]);
 
+  const expenseCreatorIds = [
+    ...new Set(
+      (expRes.data || [])
+        .map((e: { created_by?: string | null }) => e.created_by)
+        .filter(Boolean) as string[]
+    ),
+  ];
+  const expenseCreatorNames = new Map<string, string>();
+  if (expenseCreatorIds.length > 0) {
+    const { data: creators } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", expenseCreatorIds);
+    for (const p of creators || []) {
+      expenseCreatorNames.set(p.id, p.full_name || "—");
+    }
+  }
+
   for (const e of expRes.data || []) {
     const decision = requiredApproverRole({
       kind: "expense",
@@ -526,7 +563,9 @@ async function loadBillingInbox(supabase: any, profileId: string): Promise<Inbox
       createdAt: e.created_at || `${e.expense_date}T00:00:00`,
       amount: Number(e.amount),
       matterLabel: matterLabel(e.matters),
-      submitter: e.creator?.full_name || null,
+      submitter: e.created_by
+        ? expenseCreatorNames.get(e.created_by) || null
+        : null,
       canInlineDecide: true,
       recordId: e.id,
       matterId: e.matter_id,

@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/Badges";
 import { FilterField, FilterToolbar } from "@/components/FilterToolbar";
 import {
   approvalBadgeLabel,
+  expenseRequiredApproverRole,
   viewerCanApprove,
   type ApprovalMatterContext,
 } from "@/lib/approval-tiers";
@@ -18,7 +19,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import type { ExpenseEntry } from "@/lib/phase2-types";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type ExpenseRow = ExpenseEntry & {
   matters?: ApprovalMatterContext & {
@@ -30,6 +31,8 @@ type ExpenseRow = ExpenseEntry & {
   required_approver_role?: string | null;
 };
 
+type ScopeFilter = "my_queue" | "firm_wide";
+
 export function ExpenseReviewClient({
   userId,
   role,
@@ -39,30 +42,84 @@ export function ExpenseReviewClient({
 }) {
   const [rows, setRows] = useState<ExpenseRow[]>([]);
   const [status, setStatus] = useState("Submitted");
+  const [scope, setScope] = useState<ScopeFilter>("my_queue");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [thresholds, setThresholds] = useState<FirmApprovalThresholds>(DEFAULT_FIRM_THRESHOLDS);
 
+  const isPartner = role === "managing_partner";
+  const isBilling = role === "billing_staff";
+
   async function load() {
     const supabase = createClient();
+    setError(null);
     const firmThresholds = await getFirmThresholds(supabase);
     setThresholds(firmThresholds);
+
+    // Do not embed profiles via expense_entries_created_by_fkey — that FK points at
+    // auth.users, not profiles, and PostgREST fails the whole select.
     let q = supabase
       .from("expense_entries")
       .select(
-        "*, matters(id, matter_number, matter_name, billing_method, practice_area, responsible_attorney_id), creator:profiles!expense_entries_created_by_fkey(full_name)"
+        "*, matters(id, matter_number, matter_name, billing_method, practice_area, responsible_attorney_id)"
       )
       .order("expense_date", { ascending: false });
     if (status) q = q.eq("approval_status", status);
-    const { data } = await q;
-    setRows((data || []) as ExpenseRow[]);
+    const { data, error: loadErr } = await q;
+    if (loadErr) {
+      setError(loadErr.message);
+      setRows([]);
+      return;
+    }
+
+    const entries = (data || []) as ExpenseRow[];
+    const creatorIds = [
+      ...new Set(entries.map((e) => e.created_by).filter(Boolean) as string[]),
+    ];
+    const nameById = new Map<string, string>();
+    if (creatorIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", creatorIds);
+      for (const p of profiles || []) {
+        nameById.set(p.id, p.full_name || "—");
+      }
+    }
+
+    setRows(
+      entries.map((e) => ({
+        ...e,
+        creator: e.created_by
+          ? { full_name: nameById.get(e.created_by) || "—" }
+          : null,
+      }))
+    );
   }
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
+
+  const visibleRows = useMemo(() => {
+    if (scope === "firm_wide") return rows;
+    return rows.filter((row) => {
+      const required = expenseRequiredApproverRole({
+        matter: row.matters,
+        amount: Number(row.amount),
+        thresholds,
+        stampedRequiredRole: row.required_approver_role,
+      });
+      if (isPartner) return required === "managing_partner";
+      if (isBilling) {
+        // Billing queue: billing-routed items they did not submit themselves
+        return required === "billing_staff" && row.created_by !== userId;
+      }
+      return true;
+    });
+  }, [rows, scope, thresholds, isPartner, isBilling, userId]);
 
   function rowGate(row: ExpenseRow) {
     return viewerCanApprove({
@@ -129,13 +186,29 @@ export function ExpenseReviewClient({
     await load();
   }
 
+  const queueLabel = isPartner
+    ? "Requires Managing Partner"
+    : isBilling
+      ? "Billing queue"
+      : "My queue";
+
+  const hintParts = [
+    status ? status.toLowerCase() : "all statuses",
+    scope === "firm_wide" ? "firm-wide" : queueLabel.toLowerCase(),
+    `${visibleRows.length} shown`,
+  ];
+
   return (
     <>
       <PageHeader
         title="Expense Review"
-        description="Billing approves routine expenses under threshold; Contingency / Personal Injury and high-value items escalate to the Managing Partner."
+        description={
+          isPartner
+            ? "Default view is expenses that require Managing Partner approval. Switch to Firm-wide expenses to see every firm expense."
+            : "Billing approves routine expenses under threshold; Contingency / Personal Injury and high-value items escalate to the Managing Partner."
+        }
       />
-      <FilterToolbar hint={status ? `Showing ${status.toLowerCase()} · ${rows.length}` : `${rows.length} shown`}>
+      <FilterToolbar hint={hintParts.join(" · ")}>
         <FilterField label="Status" className="w-full sm:w-44">
           <select
             className="select select-bordered select-sm"
@@ -149,6 +222,17 @@ export function ExpenseReviewClient({
             ))}
           </select>
         </FilterField>
+        <FilterField label="Scope" className="w-full sm:w-56">
+          <select
+            className="select select-bordered select-sm"
+            value={scope}
+            onChange={(e) => setScope(e.target.value as ScopeFilter)}
+            aria-label="Expense review scope"
+          >
+            <option value="my_queue">{queueLabel}</option>
+            <option value="firm_wide">Firm-wide expenses</option>
+          </select>
+        </FilterField>
       </FilterToolbar>
       {message && (
         <div className="alert alert-success text-sm">
@@ -160,8 +244,14 @@ export function ExpenseReviewClient({
           <span>{error}</span>
         </div>
       )}
-      {rows.length === 0 ? (
-        <EmptyState title="No expenses for this filter." />
+      {visibleRows.length === 0 ? (
+        <EmptyState
+          title={
+            scope === "my_queue" && isPartner
+              ? "No expenses require Managing Partner right now."
+              : "No expenses for this filter."
+          }
+        />
       ) : (
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="table-wrap">
@@ -181,7 +271,7 @@ export function ExpenseReviewClient({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
+                {visibleRows.map((r) => {
                   const gate = rowGate(r);
                   return (
                     <tr key={r.id}>
