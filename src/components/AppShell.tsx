@@ -69,23 +69,27 @@ export function AppShell({
         <input id="app-drawer" type="checkbox" className="drawer-toggle" />
 
         <div className="drawer-content flex flex-col min-h-screen">
-          <div className="navbar app-navbar border-b px-2 sm:px-4 lg:px-6 sticky top-0 z-30 gap-1">
-            <div className="flex-none lg:hidden">
-              <label
-                htmlFor="app-drawer"
-                className="btn btn-ghost btn-square"
-                aria-label="Open navigation menu"
-              >
-                <Menu className="h-5 w-5" />
-              </label>
-            </div>
-
-            <div className="flex-1 gap-2 sm:gap-3 min-w-0">
+          <div className="navbar app-navbar border-b px-2 sm:px-4 lg:px-6 sticky top-0 z-40 min-h-16 gap-2">
+            <div className="navbar-start gap-2 shrink-0 w-auto">
+              <div className="flex-none lg:hidden">
+                <label
+                  htmlFor="app-drawer"
+                  className="btn btn-ghost btn-square"
+                  aria-label="Open navigation menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </label>
+              </div>
               <BrandLogo variant="header" />
-              {isStaff && <GlobalSearch />}
             </div>
 
-            <div className="flex-none items-center gap-1 sm:gap-2 flex min-w-0">
+            {isStaff && (
+              <div className="navbar-center flex-1 min-w-[8rem] px-1 sm:px-3">
+                <GlobalSearch />
+              </div>
+            )}
+
+            <div className="navbar-end gap-1 sm:gap-2 shrink-0 w-auto">
               {hasWorkspaceInbox && (
                 <>
                   <MessagesIndicator viewer={headerViewer} />
