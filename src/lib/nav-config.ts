@@ -13,6 +13,7 @@ import {
   Library,
   Receipt,
   Scale,
+  Settings,
 } from "lucide-react";
 
 export type NavSectionId =
@@ -119,7 +120,6 @@ export const NAV_SECTIONS: NavSectionDef[] = [
       { href: "/research", label: "Legal Research" },
       { href: "/directory", label: "Firm Directory" },
       { href: "/resources", label: "Resources" },
-      { href: "/settings", label: "Settings" },
     ],
   },
 ];
@@ -127,8 +127,9 @@ export const NAV_SECTIONS: NavSectionDef[] = [
 /**
  * Routes that stay permitted in navForRole but are opened from the header
  * instead of the sidebar (Messages uses the header messaging icon).
+ * Settings is pinned at the bottom of the sidebar separately.
  */
-export const HEADER_ONLY_HREFS = new Set<string>(["/messages"]);
+export const HEADER_ONLY_HREFS = new Set<string>(["/messages", "/settings"]);
 
 export const DASHBOARD_LINK: NavLinkDef = {
   href: "/dashboard",
@@ -137,6 +138,7 @@ export const DASHBOARD_LINK: NavLinkDef = {
 
 export const DASHBOARD_ICON = LayoutDashboard;
 export const INBOX_ICON = Inbox;
+export const SETTINGS_ICON = Settings;
 
 /**
  * First sidebar section title by active role.
@@ -191,13 +193,16 @@ function buildFromAllowed(
 ): {
   dashboard: NavItem | null;
   inbox: NavItem | null;
+  settings: NavItem | null;
   sections: ResolvedNavSection[];
 } {
   // Staff open Messages from the header icon; clients keep it in the portal sidebar.
+  // Settings is pinned at the bottom of the sidebar (not in accordion sections).
   const allowed = allowedItems.filter(
     (item) =>
       !HEADER_ONLY_HREFS.has(item.href) ||
-      (role === "client" && item.href === "/messages")
+      (role === "client" && item.href === "/messages") ||
+      item.href === "/settings"
   );
   const byHref = new Map(allowed.map((item) => [item.href, item]));
 
@@ -207,10 +212,12 @@ function buildFromAllowed(
     byHref.get("/client-portal") ??
     null;
   const inbox = byHref.get("/inbox") ?? null;
+  const settings = byHref.get("/settings") ?? null;
 
   const placed = new Set<string>();
   if (dashboard) placed.add(dashboard.href);
   if (inbox) placed.add(inbox.href);
+  if (settings) placed.add(settings.href);
   const sections: ResolvedNavSection[] = [];
 
   for (const section of NAV_SECTIONS) {
@@ -243,13 +250,14 @@ function buildFromAllowed(
     });
   }
 
-  return { dashboard, inbox, sections };
+  return { dashboard, inbox, settings, sections };
 }
 
 /** Build role-filtered sections from navForRole (preserves existing permission lists). */
 export function buildNavSections(role: UserRole): {
   dashboard: NavItem | null;
   inbox: NavItem | null;
+  settings: NavItem | null;
   sections: ResolvedNavSection[];
 } {
   return buildFromAllowed(
@@ -264,6 +272,7 @@ export function buildNavSections(role: UserRole): {
 export function buildNavSectionsForDemoKey(key: DemoRoleKey | UserRole): {
   dashboard: NavItem | null;
   inbox: NavItem | null;
+  settings: NavItem | null;
   sections: ResolvedNavSection[];
 } {
   if (key === "potential_client") {
@@ -275,6 +284,7 @@ export function buildNavSectionsForDemoKey(key: DemoRoleKey | UserRole): {
     return {
       dashboard: home ? { href: home.href, label: "Home" } : null,
       inbox: null,
+      settings: null,
       sections: [
         {
           id: "more",
@@ -297,6 +307,7 @@ export function buildNavSectionsForDemoKey(key: DemoRoleKey | UserRole): {
     return {
       dashboard: home ? { href: home.href, label: "Client Dashboard" } : null,
       inbox: null,
+      settings: null,
       sections: [
         {
           id: "more",

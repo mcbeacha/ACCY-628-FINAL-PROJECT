@@ -9,6 +9,11 @@ import {
   viewerCanApprove,
   type ApprovalMatterContext,
 } from "@/lib/approval-tiers";
+import {
+  DEFAULT_FIRM_THRESHOLDS,
+  getFirmThresholds,
+  type FirmApprovalThresholds,
+} from "@/lib/firm-thresholds";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { ExpenseEntry } from "@/lib/phase2-types";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +27,7 @@ type ExpenseRow = ExpenseEntry & {
     matter_name?: string;
   } | null;
   creator?: { full_name?: string } | null;
+  required_approver_role?: string | null;
 };
 
 export function ExpenseReviewClient({
@@ -36,9 +42,12 @@ export function ExpenseReviewClient({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [thresholds, setThresholds] = useState<FirmApprovalThresholds>(DEFAULT_FIRM_THRESHOLDS);
 
   async function load() {
     const supabase = createClient();
+    const firmThresholds = await getFirmThresholds(supabase);
+    setThresholds(firmThresholds);
     let q = supabase
       .from("expense_entries")
       .select(
@@ -63,6 +72,8 @@ export function ExpenseReviewClient({
       matter: row.matters,
       amount: Number(row.amount),
       preparerId: row.created_by,
+      thresholds,
+      stampedRequiredRole: row.required_approver_role,
     });
   }
 

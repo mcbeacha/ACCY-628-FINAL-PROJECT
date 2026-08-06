@@ -1,7 +1,13 @@
 "use client";
 
 import { PageHeader } from "@/components/PageHeader";
-import { HIGH_VALUE_COST_THRESHOLD, type CostCategory, type Vendor } from "@/lib/cost-types";
+import { requiredApproverRole } from "@/lib/approval-tiers";
+import type { CostCategory, Vendor } from "@/lib/cost-types";
+import {
+  DEFAULT_FIRM_THRESHOLDS,
+  getFirmThresholds,
+  type FirmApprovalThresholds,
+} from "@/lib/firm-thresholds";
 import { formatCurrency } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
@@ -9,7 +15,14 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type ClientOpt = { id: string; client_number: string; organization_name: string | null; first_name: string | null; last_name: string | null };
-type MatterOpt = { id: string; client_id: string; matter_number: string; matter_name: string };
+type MatterOpt = {
+  id: string;
+  client_id: string;
+  matter_number: string;
+  matter_name: string;
+  billing_method?: string | null;
+  practice_area?: string | null;
+};
 
 export function VendorChargeForm({ userId, role }: { userId: string; role: UserRole }) {
   const [clients, setClients] = useState<ClientOpt[]>([]);
@@ -25,6 +38,7 @@ export function VendorChargeForm({ userId, role }: { userId: string; role: UserR
   const [warning, setWarning] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [thresholds, setThresholds] = useState<FirmApprovalThresholds>(DEFAULT_FIRM_THRESHOLDS);
 
   const isPartner = role === "managing_partner";
   const total = useMemo(() => {
@@ -62,7 +76,7 @@ export function VendorChargeForm({ userId, role }: { userId: string; role: UserR
 
       let matterQuery = supabase
         .from("matters")
-        .select("id, client_id, matter_number, matter_name")
+        .select("id, client_id, matter_number, matter_name, billing_method, practice_area")
         .not("matter_status", "in", '("Canceled")')
         .order("matter_number");
 
@@ -87,6 +101,7 @@ export function VendorChargeForm({ userId, role }: { userId: string; role: UserR
 
       const { data: m } = await matterQuery;
       setMatters((m || []) as MatterOpt[]);
+      setThresholds(await getFirmThresholds(supabase));
     })();
   }, [userId, role]);
 
@@ -164,13 +179,21 @@ export function VendorChargeForm({ userId, role }: { userId: string; role: UserR
       }
     }
 
-    if (total >= HIGH_VALUE_COST_THRESHOLD) {
+    if (total >= thresholds.routineExpenseCostMp) {
       setWarning(
         (prev) =>
           (prev ? `${prev} ` : "") +
           `High-value charge (${formatCurrency(total)}) will require extra review.`
       );
     }
+
+    const selectedMatter = matters.find((m) => m.id === mid);
+    const decision = requiredApproverRole({
+      kind: "cost",
+      matter: selectedMatter,
+      amount: total,
+      thresholds,
+    });
 
     const payload = {
       matter_id: mid,
@@ -194,6 +217,7 @@ export function VendorChargeForm({ userId, role }: { userId: string; role: UserR
       created_by: userId,
       submitted_by: userId,
       submitted_at: new Date().toISOString(),
+      required_approver_role: decision.requiredRole,
     };
 
     const { data, error: insErr } = await supabase
