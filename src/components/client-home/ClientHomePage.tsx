@@ -754,21 +754,6 @@ function CaseEvaluationForm({
           sensitive personal information through this form.
         </p>
 
-        {successRef && (
-          <div className="alert alert-success mt-6 text-sm">
-            <span>
-              Thank you for contacting Rebel Law Group. Your request has been sent to our
-              client-intake team for review. Reference number: <strong>{successRef}</strong>.
-              Submission of this form does not create an attorney-client relationship.
-            </span>
-          </div>
-        )}
-        {error && (
-          <div className="alert alert-error mt-6 text-sm">
-            <span>{error}</span>
-          </div>
-        )}
-
         <form onSubmit={onSubmit} className="mt-8 space-y-6">
           <fieldset className="rounded-box border border-base-300 bg-base-100 p-5 space-y-4">
             <h3 className="font-display text-lg font-semibold tracking-tight">
@@ -1031,6 +1016,21 @@ function CaseEvaluationForm({
               </span>
             </label>
           </fieldset>
+
+          {successRef && (
+            <div className="alert alert-success text-sm">
+              <span>
+                Thank you for contacting Rebel Law Group. Your request has been sent to our
+                client-intake team for review. Reference number: <strong>{successRef}</strong>.
+                Submission of this form does not create an attorney-client relationship.
+              </span>
+            </div>
+          )}
+          {error && (
+            <div className="alert alert-error text-sm">
+              <span>{error}</span>
+            </div>
+          )}
 
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? "Submitting…" : "Submit Free Case Evaluation"}
