@@ -28,6 +28,7 @@ import { ActiveMattersPanel } from "@/components/workspace/ActiveMattersPanel";
 import { MyTasksPanel } from "@/components/workspace/MyTasksPanel";
 import { TimeBillingSummary } from "@/components/workspace/TimeBillingSummary";
 import { QuickActions } from "@/components/workspace/QuickActions";
+import { BillingQuickActions } from "@/components/workspace/BillingQuickActions";
 import {
   ATTORNEY_ACTIVITY,
   ATTORNEY_FOCUS_ITEMS,
@@ -45,6 +46,7 @@ import {
 import {
   CalendarClock,
   ChartColumn,
+  ClipboardCheck,
   ClipboardList,
   History,
   LayoutGrid,
@@ -52,6 +54,7 @@ import {
   Receipt,
   Sparkles,
   Timer,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -553,9 +556,6 @@ async function AttorneyDashboard({
               <Link href="/inbox" className="btn btn-primary btn-sm">
                 {inboxMeta.title}
                 {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
-              </Link>
-              <Link href="/time/new" className="btn btn-outline btn-sm">
-                Log time
               </Link>
               <Link href="/calendar" className="btn btn-outline btn-sm">
                 Open calendar
@@ -1239,137 +1239,191 @@ async function BillingDashboard({
     .filter((i) => i.finalized_at && Number(i.balance_due) > 0 && !["Paid", "Written Off", "Canceled"].includes(i.invoice_status))
     .reduce((s, i) => s + Number(i.balance_due), 0);
 
+  const unbilledTimeAmount = unbilledTime.reduce(
+    (s, t) => s + calcBillableAmount(Number(t.hours), Number(t.billing_rate), t.billable_status),
+    0
+  );
+  const unbilledExpAmount = unbilledExp.reduce((s, e) => s + Number(e.amount), 0);
+  const recentlyApproved = rows.filter((r) => r.matter.approved_at).slice(0, 5).length;
+
   return (
     <>
-      <PageHeader
-        title="Billing & Collections Dashboard"
-        description="Unbilled work, draft invoices, AR aging cues, payments, and retainers."
-        actions={
-          <Link href="/inbox" className="btn btn-primary btn-sm">
-            {inboxMeta.title}
-            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
-          </Link>
-        }
-      />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Items needing attention"
-          value={inboxItems.length}
-          tone={inboxItems.length ? "warning" : "success"}
-          href="/inbox"
-        />
-        <StatCard label="Approved matters" value={rows.length} href="/matters" />
-        <StatCard label="Billing ready" value={ready.length} tone="success" href="/billing-readiness" />
-        <StatCard
-          label="Missing information"
-          value={missing.length}
-          tone={missing.length ? "warning" : "default"}
-          href="/billing-readiness"
-        />
-        <StatCard
-          label="Recently approved"
-          value={rows.filter((r) => r.matter.approved_at).slice(0, 5).length}
-          href="/matters"
-        />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Draft invoices" value={draftInv} href="/invoices" />
-        <StatCard
-          label="Invoices awaiting approval"
-          value={pendingInv}
-          tone={pendingInv ? "warning" : "default"}
-          href="/invoices"
-        />
-        <StatCard
-          label="Approved unbilled time"
-          value={formatCurrency(
-            unbilledTime.reduce(
-              (s, t) => s + calcBillableAmount(Number(t.hours), Number(t.billing_rate), t.billable_status),
-              0
-            )
-          )}
-          href="/unbilled"
-        />
-        <StatCard
-          label="Approved unbilled expenses"
-          value={formatCurrency(unbilledExp.reduce((s, e) => s + Number(e.amount), 0))}
-          href="/unbilled"
-        />
-        <StatCard label="Payments waiting to post" value={draftPays} href="/payments" />
-        <StatCard label="Unapplied payments" value={formatCurrency(unappliedPay)} href="/payments" />
-        <StatCard
-          label="Outstanding AR"
-          value={formatCurrency(arOpen)}
-          tone={arOpen ? "warning" : "default"}
-          href="/ar"
-        />
-        <StatCard
-          label="Past-due invoices"
-          value={pastDueInv.length}
-          tone={pastDueInv.length ? "error" : "default"}
-          href="/ar"
-        />
-        <StatCard
-          label="Retainers available for application"
-          value={formatCurrency(retAvailable)}
-          href="/retainers"
-        />
-        <StatCard
-          label="Entries missing descriptions"
-          value={missingDesc}
-          tone={missingDesc ? "warning" : "default"}
-          href="/unbilled"
-        />
-        <StatCard
-          label="Entries missing rates"
-          value={missingRates}
-          tone={missingRates ? "warning" : "default"}
-          href="/unbilled"
-        />
-        <StatCard
-          label="Retainers below threshold"
-          value={lowRet}
-          tone={lowRet ? "warning" : "success"}
-          href="/retainers"
-        />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Link href="/invoices/new" className="btn btn-sm btn-primary">Prepare invoice</Link>
-        <Link href="/payments" className="btn btn-sm btn-outline">Payments</Link>
-        <Link href="/ar" className="btn btn-sm btn-outline">AR aging</Link>
-        <Link href="/unbilled" className="btn btn-sm btn-outline">Unbilled activity</Link>
-      </div>
-      <div className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body">
-          <div className="flex justify-between items-center flex-wrap gap-2">
-            <h2 className="card-title text-base">Matters by billing method</h2>
-            <div className="flex gap-2">
-              <Link href="/unbilled" className="btn btn-sm btn-outline">
-                Unbilled activity
+      {/* Band 1 — Start */}
+      <section className="space-y-4 rounded-box border border-base-300 bg-base-200/40 p-4 sm:p-5">
+        <PageHeader
+          title="Billing & Collections Workspace"
+          description="Unbilled work, draft invoices, AR aging cues, payments, and retainers."
+          actions={
+            <>
+              <Link href="/inbox" className="btn btn-primary btn-sm">
+                {inboxMeta.title}
+                {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
               </Link>
-              <Link href="/billing-readiness" className="btn btn-sm btn-primary">
-                Open full review
+              <Link href="/invoices/new" className="btn btn-outline btn-sm">
+                Prepare invoice
               </Link>
-            </div>
-          </div>
-          <StatusList items={byMethod} />
-          {missing.length > 0 && (
-            <div className="mt-4">
-              <p className="text-sm font-semibold mb-2">Needs attention</p>
-              <ul className="space-y-2">
-                {missing.slice(0, 6).map((r) => (
-                  <li key={r.matter.id} className="text-sm">
-                    <Link className="link link-hover font-medium" href={`/matters/${r.matter.id}`}>
-                      {r.matter.matter_number}
-                    </Link>
-                    <span className="opacity-70"> — {r.missing.join("; ")}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+              <Link href="/unbilled" className="btn btn-outline btn-sm">
+                Unbilled
+              </Link>
+            </>
+          }
+        />
+        <SectionHeader
+          title="Quick actions"
+          description="Start the billing work you do most often."
+          icon={<LayoutGrid className="h-5 w-5" />}
+        />
+        <BillingQuickActions />
+      </section>
+
+      {/* Band 2 — Ready to bill */}
+      <section className="space-y-4 rounded-box border border-base-300 bg-base-200/40 p-4 sm:p-5">
+        <SectionHeader
+          title="Ready to bill"
+          description="Matter readiness, missing intake fields, and billing method mix."
+          icon={<ClipboardCheck className="h-5 w-5" />}
+        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Items needing attention"
+            value={inboxItems.length}
+            tone={inboxItems.length ? "warning" : "success"}
+            href="/inbox"
+          />
+          <StatCard label="Approved matters" value={rows.length} href="/matters" />
+          <StatCard label="Billing ready" value={ready.length} tone="success" href="/billing-readiness" />
+          <StatCard
+            label="Missing information"
+            value={missing.length}
+            tone={missing.length ? "warning" : "default"}
+            href="/billing-readiness"
+          />
+          <StatCard label="Recently approved" value={recentlyApproved} href="/matters" />
         </div>
-      </div>
+
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body">
+            <SectionHeader
+              title="Matters by billing method"
+              description="Approved matters grouped by how they bill."
+              action={
+                <>
+                  <Link href="/unbilled" className="btn btn-sm btn-outline">
+                    Unbilled activity
+                  </Link>
+                  <Link href="/billing-readiness" className="btn btn-sm btn-primary">
+                    Open full review
+                  </Link>
+                </>
+              }
+            />
+            <div className="mt-3">
+              <StatusList items={byMethod} />
+            </div>
+            {missing.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-semibold mb-2">Needs attention</p>
+                <ul className="space-y-2">
+                  {missing.slice(0, 6).map((r) => (
+                    <li key={r.matter.id} className="text-sm">
+                      <Link className="link link-hover font-medium" href={`/matters/${r.matter.id}`}>
+                        {r.matter.matter_number}
+                      </Link>
+                      <span className="opacity-70"> — {r.missing.join("; ")}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Band 3 — Invoices & payments */}
+      <section className="space-y-4 rounded-box border border-base-300 bg-base-200/40 p-4 sm:p-5">
+        <SectionHeader
+          title="Invoices & payments"
+          description="Drafts awaiting send, unbilled work, and cash application."
+          icon={<Receipt className="h-5 w-5" />}
+          action={
+            <Link href="/invoices" className="btn btn-outline btn-sm">
+              View invoices
+            </Link>
+          }
+        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Draft invoices" value={draftInv} href="/invoices" />
+          <StatCard
+            label="Invoices awaiting approval"
+            value={pendingInv}
+            tone={pendingInv ? "warning" : "default"}
+            href="/invoices"
+          />
+          <StatCard
+            label="Approved unbilled time"
+            value={formatCurrency(unbilledTimeAmount)}
+            href="/unbilled"
+          />
+          <StatCard
+            label="Approved unbilled expenses"
+            value={formatCurrency(unbilledExpAmount)}
+            href="/unbilled"
+          />
+          <StatCard label="Payments waiting to post" value={draftPays} href="/payments" />
+          <StatCard label="Unapplied payments" value={formatCurrency(unappliedPay)} href="/payments" />
+          <StatCard
+            label="Entries missing descriptions"
+            value={missingDesc}
+            tone={missingDesc ? "warning" : "default"}
+            href="/unbilled"
+          />
+          <StatCard
+            label="Entries missing rates"
+            value={missingRates}
+            tone={missingRates ? "warning" : "default"}
+            href="/unbilled"
+          />
+        </div>
+      </section>
+
+      {/* Band 4 — Collections & retainers */}
+      <section className="space-y-4 rounded-box border border-base-300 bg-base-200/40 p-4 sm:p-5">
+        <SectionHeader
+          title="Collections & retainers"
+          description="Open AR, past-due balances, and retainer coverage."
+          icon={<Wallet className="h-5 w-5" />}
+          action={
+            <Link href="/ar" className="btn btn-outline btn-sm">
+              Open AR aging
+            </Link>
+          }
+        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Outstanding AR"
+            value={formatCurrency(arOpen)}
+            tone={arOpen ? "warning" : "default"}
+            href="/ar"
+          />
+          <StatCard
+            label="Past-due invoices"
+            value={pastDueInv.length}
+            tone={pastDueInv.length ? "error" : "default"}
+            href="/ar"
+          />
+          <StatCard
+            label="Retainers available for application"
+            value={formatCurrency(retAvailable)}
+            href="/retainers"
+          />
+          <StatCard
+            label="Retainers below threshold"
+            value={lowRet}
+            tone={lowRet ? "warning" : "success"}
+            href="/retainers"
+          />
+        </div>
+      </section>
     </>
   );
 }
