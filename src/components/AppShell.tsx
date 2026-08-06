@@ -1,11 +1,12 @@
 "use client";
 
-import { ACADEMIC_NOTICE, APP_NAME, APP_SUBTITLE, ROLE_LABELS } from "@/lib/constants";
+import { ACADEMIC_NOTICE, ROLE_LABELS } from "@/lib/constants";
 import type { Profile } from "@/lib/types";
 import type { NavItem } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/client";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import { SidebarNav } from "@/components/SidebarNav";
+import { BrandLogo } from "@/components/BrandLogo";
 import { DemoModeBanner } from "@/components/demo/DemoModeBanner";
 import {
   DemoModeNoticeBar,
@@ -18,8 +19,7 @@ import { GlobalSearch } from "@/components/workspace/GlobalSearch";
 import { MessagesIndicator } from "@/components/workspace/MessagesIndicator";
 import { NotificationCenter } from "@/components/workspace/NotificationCenter";
 import type { MessagingPerson } from "@/lib/messaging";
-import { LogOut, Menu, Scale } from "lucide-react";
-import Link from "next/link";
+import { LogOut, Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -81,19 +81,7 @@ export function AppShell({
             </div>
 
             <div className="flex-1 gap-2 sm:gap-3 min-w-0">
-              <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-                <span className="btn btn-square btn-primary btn-sm pointer-events-none">
-                  <Scale className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 hidden xs:block sm:block">
-                  <span className="font-display text-base sm:text-lg font-semibold block truncate">
-                    {APP_NAME}
-                  </span>
-                  <span className="text-xs opacity-60 hidden md:block truncate">
-                    {APP_SUBTITLE}
-                  </span>
-                </span>
-              </Link>
+              <BrandLogo variant="header" />
               {isStaff && <GlobalSearch />}
             </div>
 
@@ -172,12 +160,7 @@ export function AppShell({
             aria-label="Close navigation menu"
           />
           <aside className="bg-base-100 border-r border-base-300 min-h-full w-72 max-w-[85vw] p-4 flex flex-col">
-            <div className="flex items-center gap-2 mb-4 px-1 lg:hidden">
-              <span className="btn btn-square btn-primary btn-xs pointer-events-none">
-                <Scale className="h-3.5 w-3.5" />
-              </span>
-              <span className="font-display font-semibold truncate">{APP_NAME}</span>
-            </div>
+            <BrandLogo variant="sidebar" />
             <p className="text-xs font-semibold uppercase tracking-wide opacity-50 mb-3 px-2">
               Navigation
             </p>
