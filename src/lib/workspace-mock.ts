@@ -959,72 +959,10 @@ export const RESOURCES: ResourceLink[] = [
   },
 ];
 
-export const NOTIFICATIONS: WorkspaceNotification[] = [
-  {
-    id: "n-1",
-    kind: "deadline",
-    title: "Filing due today",
-    detail: "Response to summary judgment motion — matter 2026-0114",
-    minutesAgo: 25,
-    unread: true,
-  },
-  {
-    id: "n-2",
-    kind: "client_message",
-    title: "New client message",
-    detail: "Nadia Vale asked about settlement posture",
-    minutesAgo: 55,
-    unread: true,
-  },
-  {
-    id: "n-3",
-    kind: "document_review",
-    title: "Document review requested",
-    detail: "Master Services Agreement v4 needs your sign-off",
-    minutesAgo: 180,
-    unread: true,
-  },
-  {
-    id: "n-4",
-    kind: "overdue_task",
-    title: "Task overdue",
-    detail: "Assemble exhibit binder for hearing — matter 2026-0131",
-    minutesAgo: 320,
-    unread: false,
-  },
-  {
-    id: "n-5",
-    kind: "matter_assignment",
-    title: "New matter assignment",
-    detail: "You were added to Marigold Health — Regulatory Advisory",
-    minutesAgo: 640,
-    unread: false,
-  },
-  {
-    id: "n-6",
-    kind: "court_update",
-    title: "Court update",
-    detail: "Hearing moved to Courtroom 2 on the Northvale docket",
-    minutesAgo: 1_450,
-    unread: false,
-  },
-  {
-    id: "n-7",
-    kind: "time_reminder",
-    title: "Timekeeping reminder",
-    detail: "3 draft time entries are waiting to be submitted",
-    minutesAgo: 1_800,
-    unread: false,
-  },
-  {
-    id: "n-8",
-    kind: "announcement",
-    title: "Firm announcement",
-    detail: "Quarterly practice group meeting moved to Thursday",
-    minutesAgo: 2_600,
-    unread: false,
-  },
-];
+/**
+ * Notification content now lives in src/lib/notifications.ts so each person
+ * sees their own alerts. WorkspaceNotification stays here as the shared type.
+ */
 
 export const SEARCH_INDEX: SearchRecord[] = [
   { id: "s-1", category: "Matters", title: "2026-0114 · Northvale Logistics v. Tri-State Carriers", subtitle: "Litigation · Active", href: "/matters" },

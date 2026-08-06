@@ -155,7 +155,11 @@ const STAFF_WORKSPACE: NavItem[] = [
   { href: "/documents", label: "Documents" },
 ];
 
-/** Firm-wide references available to every staff role. */
+/**
+ * Firm-wide references available to every staff role.
+ * /messages stays permitted here but is opened from the header messaging icon;
+ * HEADER_ONLY_HREFS in nav-config keeps it out of the sidebar.
+ */
 const STAFF_FIRM: NavItem[] = [
   { href: "/messages", label: "Messages" },
   { href: "/research", label: "Legal Research" },
@@ -180,6 +184,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/clients", label: "Clients" },
         { href: "/matters", label: "Matters" },
         { href: "/tasks", label: "Tasks" },
+        { href: "/document-requests", label: "Document Requests" },
         ...STAFF_WORKSPACE,
         { href: "/profitability/matters", label: "Matter Profitability" },
         { href: "/profitability/clients", label: "Client Profitability" },
@@ -204,6 +209,7 @@ export function navForRole(role: UserRole): NavItem[] {
       return [
         { href: "/dashboard", label: "Home" },
         { href: "/inbox", label: inboxNavLabel("attorney") },
+        { href: "/document-requests", label: "Document Requests" },
         { href: "/clients", label: "Clients" },
         { href: "/case-evaluations", label: "Case Evaluations" },
         { href: "/matters", label: "My Matters" },
@@ -224,6 +230,7 @@ export function navForRole(role: UserRole): NavItem[] {
       return [
         { href: "/dashboard", label: "Home" },
         { href: "/inbox", label: inboxNavLabel("paralegal") },
+        { href: "/document-requests", label: "Document Requests" },
         { href: "/case-evaluations", label: "Case Evaluations" },
         { href: "/matters", label: "My Matters" },
         { href: "/tasks", label: "My Tasks" },
@@ -265,11 +272,13 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/retainers", label: "Retainers" },
         { href: "/trust-ledger", label: "Trust Ledger" },
         { href: "/journal", label: "Journal Entries" },
+        { href: "/exports", label: "Tax Info" },
         ...STAFF_FIRM,
       ];
     case "client":
       return [
         { href: "/client-portal", label: "Client Dashboard" },
+        { href: "/document-requests", label: "Document Requests" },
         { href: "/client-portal/matters", label: "My Matters" },
         { href: "/client-portal/invoices", label: "My Invoices" },
         { href: "/client-portal/pay", label: "Make a Payment" },
@@ -277,6 +286,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/client-portal/retainers", label: "Retainer Summary" },
         { href: "/client-portal/milestones", label: "Milestones" },
         { href: "/client-portal/contact", label: "Contact My Legal Team" },
+        { href: "/messages", label: "Messages" },
         { href: "/potential-client", label: "Explore Rebel Law Group" },
       ];
     default:

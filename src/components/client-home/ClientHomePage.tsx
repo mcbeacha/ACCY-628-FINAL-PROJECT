@@ -666,52 +666,96 @@ function CaseEvaluationForm({
 
         <form onSubmit={onSubmit} className="mt-8 space-y-6">
           <fieldset className="rounded-box border border-base-300 bg-base-100 p-5 space-y-4">
-            <legend className="px-2 font-semibold text-sm">Contact information</legend>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="form-control">
-                <span className="label-text font-medium">First name *</span>
-                <input name="first_name" className="input input-bordered" required />
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">Last name *</span>
-                <input name="last_name" className="input input-bordered" required />
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">Email</span>
-                <input name="email" type="email" className="input input-bordered" />
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">Phone</span>
-                <input name="phone" type="tel" className="input input-bordered" />
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">Preferred contact method</span>
-                <select name="preferred_contact_method" className="select select-bordered">
+            <h3 className="font-display text-lg font-semibold tracking-tight">
+              Contact Information
+            </h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-6">
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_first_name">
+                  First name *
+                </label>
+                <input
+                  id="case_eval_first_name"
+                  name="first_name"
+                  className="input input-bordered w-full"
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_last_name">
+                  Last name *
+                </label>
+                <input
+                  id="case_eval_last_name"
+                  name="last_name"
+                  className="input input-bordered w-full"
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_email">
+                  Email
+                </label>
+                <input
+                  id="case_eval_email"
+                  name="email"
+                  type="email"
+                  className="input input-bordered w-full"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_phone">
+                  Phone
+                </label>
+                <input
+                  id="case_eval_phone"
+                  name="phone"
+                  type="tel"
+                  className="input input-bordered w-full"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_preferred_contact">
+                  Preferred contact method
+                </label>
+                <select
+                  id="case_eval_preferred_contact"
+                  name="preferred_contact_method"
+                  className="select select-bordered w-full"
+                >
                   <option value="">Select…</option>
                   <option>Email</option>
                   <option>Phone</option>
                   <option>Either</option>
                 </select>
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">Best time to contact</span>
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_best_time">
+                  Best time to contact
+                </label>
                 <input
+                  id="case_eval_best_time"
                   name="best_contact_time"
-                  className="input input-bordered"
+                  className="input input-bordered w-full"
                   placeholder="e.g. Weekday mornings"
                 />
-              </label>
+              </div>
             </div>
           </fieldset>
 
           <fieldset className="rounded-box border border-base-300 bg-base-100 p-5 space-y-4">
-            <legend className="px-2 font-semibold text-sm">Case information</legend>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="form-control sm:col-span-2">
-                <span className="label-text font-medium">Practice area *</span>
+            <h3 className="font-display text-lg font-semibold tracking-tight">
+              Case Information
+            </h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-6">
+              <div className="flex flex-col gap-1.5 w-full min-w-0 sm:col-span-2">
+                <label className="text-sm font-medium" htmlFor="case_eval_practice_area">
+                  Practice area *
+                </label>
                 <select
+                  id="case_eval_practice_area"
                   name="practice_area"
-                  className="select select-bordered"
+                  className="select select-bordered w-full"
                   required
                   value={practiceArea}
                   onChange={(e) => onPracticeAreaChange(e.target.value)}
@@ -723,54 +767,98 @@ function CaseEvaluationForm({
                     </option>
                   ))}
                 </select>
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">Date of incident or issue</span>
-                <input name="issue_date" type="date" className="input input-bordered" />
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">Urgency</span>
-                <select name="urgency_level" className="select select-bordered" defaultValue="Routine">
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_issue_date">
+                  Date of incident or issue
+                </label>
+                <input
+                  id="case_eval_issue_date"
+                  name="issue_date"
+                  type="date"
+                  className="input input-bordered w-full"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_urgency">
+                  Urgency
+                </label>
+                <select
+                  id="case_eval_urgency"
+                  name="urgency_level"
+                  className="select select-bordered w-full"
+                  defaultValue="Routine"
+                >
                   {CASE_EVAL_URGENCIES.map((u) => (
                     <option key={u} value={u}>
                       {u}
                     </option>
                   ))}
                 </select>
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">City</span>
-                <input name="city" className="input input-bordered" placeholder="Oxford" />
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">State</span>
-                <input name="state" className="input input-bordered" placeholder="MS" />
-              </label>
-              <label className="form-control sm:col-span-2">
-                <span className="label-text font-medium">Brief description *</span>
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_city">
+                  City
+                </label>
+                <input
+                  id="case_eval_city"
+                  name="city"
+                  className="input input-bordered w-full"
+                  placeholder="Oxford"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_state">
+                  State
+                </label>
+                <input
+                  id="case_eval_state"
+                  name="state"
+                  className="input input-bordered w-full"
+                  placeholder="MS"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0 sm:col-span-2">
+                <label className="text-sm font-medium" htmlFor="case_eval_summary">
+                  Brief description *
+                </label>
                 <textarea
+                  id="case_eval_summary"
                   name="case_summary"
-                  className="textarea textarea-bordered min-h-28"
+                  className="textarea textarea-bordered w-full min-h-28"
                   required
                   placeholder="General description only — no confidential details"
                 />
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">Currently represented by another attorney?</span>
-                <select name="currently_represented" className="select select-bordered" defaultValue="no">
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_represented">
+                  Currently represented by another attorney?
+                </label>
+                <select
+                  id="case_eval_represented"
+                  name="currently_represented"
+                  className="select select-bordered w-full"
+                  defaultValue="no"
+                >
                   <option value="no">No</option>
                   <option value="yes">Yes</option>
                 </select>
-              </label>
-              <label className="form-control">
-                <span className="label-text font-medium">How did you hear about us?</span>
-                <input name="referral_source" className="input input-bordered" />
-              </label>
+              </div>
+              <div className="flex flex-col gap-1.5 w-full min-w-0">
+                <label className="text-sm font-medium" htmlFor="case_eval_referral">
+                  How did you hear about us?
+                </label>
+                <input
+                  id="case_eval_referral"
+                  name="referral_source"
+                  className="input input-bordered w-full"
+                />
+              </div>
             </div>
           </fieldset>
 
           <fieldset className="rounded-box border border-base-300 bg-base-100 p-5 space-y-3">
-            <legend className="px-2 font-semibold text-sm">Consent</legend>
+            <h3 className="font-display text-lg font-semibold tracking-tight">Consent</h3>
             <label className="label cursor-pointer justify-start gap-3">
               <input type="checkbox" name="consent_to_contact" className="checkbox checkbox-primary" />
               <span className="label-text">

@@ -1,319 +1,403 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/EmptyState";
+import { useDemoRole } from "@/components/demo/DemoRoleProvider";
+import {
+  peopleAvailableTo,
+  personById,
+  type Conversation,
+  type MessagingPerson,
+} from "@/lib/messaging";
+import {
+  clearStore,
+  conversationKind,
+  conversationLabel,
+  conversationsFor,
+  getMessageSnapshot,
+  getServerMessageSnapshot,
+  isUnread,
+  lastMessage,
+  otherParticipants,
+  readStore,
+  resolveMessagingViewer,
+  saveStore,
+  subscribeToMessages,
+} from "@/lib/messaging-store";
 import { relativeTime } from "@/lib/workspace-mock";
+import { MessageSquarePlus, RotateCcw, Search, Send, Users } from "lucide-react";
+import { useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
-type ThreadMessage = {
-  id: string;
-  from: string;
-  body: string;
-  minutesAgo: number;
-};
+type FilterMode = "all" | "unread" | "staff" | "client";
 
-type Thread = {
-  id: string;
-  correspondent: string;
-  role: string;
-  matterRef: string;
-  subject: string;
-  preview: string;
-  minutesAgo: number;
-  unread: boolean;
-  messages: ThreadMessage[];
-};
+export function MessagesClient({ viewer: fallbackViewer }: { viewer: MessagingPerson }) {
+  const demo = useDemoRole();
+  const viewer = resolveMessagingViewer(
+    fallbackViewer,
+    demo?.activeIdentity.profileId ?? null
+  );
+  const idPrefix = useId().replaceAll(":", "");
+  const idCounter = useRef(0);
+  const rawStore = useSyncExternalStore(
+    subscribeToMessages,
+    getMessageSnapshot,
+    getServerMessageSnapshot
+  );
+  const store = useMemo(() => readStore(rawStore), [rawStore]);
 
-const INITIAL_THREADS: Thread[] = [
-  {
-    id: "msg-1",
-    correspondent: "Nadia Vale",
-    role: "Client contact",
-    matterRef: "2026-0108",
-    subject: "Settlement posture",
-    preview: "Can you confirm whether we should leave the last offer open through Friday?",
-    minutesAgo: 55,
-    unread: true,
-    messages: [
-      {
-        id: "m1-1",
-        from: "Nadia Vale",
-        body: "Following up on yesterday's call — the board wants a clearer read on settlement posture before the deposition.",
-        minutesAgo: 180,
-      },
-      {
-        id: "m1-2",
-        from: "You",
-        body: "Understood. I am reviewing the latest demand letter and will send a recommendation this afternoon.",
-        minutesAgo: 120,
-      },
-      {
-        id: "m1-3",
-        from: "Nadia Vale",
-        body: "Can you confirm whether we should leave the last offer open through Friday?",
-        minutesAgo: 55,
-      },
-    ],
-  },
-  {
-    id: "msg-2",
-    correspondent: "Marcus Hale",
-    role: "Opposing counsel",
-    matterRef: "2026-0114",
-    subject: "Summary judgment briefing schedule",
-    preview: "We can agree to a short extension if your reply is filed by Monday noon.",
-    minutesAgo: 140,
-    unread: true,
-    messages: [
-      {
-        id: "m2-1",
-        from: "Marcus Hale",
-        body: "Confirming receipt of your draft stipulation. Happy to discuss a brief extension if needed.",
-        minutesAgo: 400,
-      },
-      {
-        id: "m2-2",
-        from: "You",
-        body: "Thank you. We may need two additional business days to finalize the response.",
-        minutesAgo: 260,
-      },
-      {
-        id: "m2-3",
-        from: "Marcus Hale",
-        body: "We can agree to a short extension if your reply is filed by Monday noon.",
-        minutesAgo: 140,
-      },
-    ],
-  },
-  {
-    id: "msg-3",
-    correspondent: "Clerk Rivera",
-    role: "Court clerk",
-    matterRef: "2026-0114",
-    subject: "Hearing courtroom change",
-    preview: "The Northvale motion hearing has been moved to Courtroom 2.",
-    minutesAgo: 320,
-    unread: true,
-    messages: [
-      {
-        id: "m3-1",
-        from: "Clerk Rivera",
-        body: "Please note that the Northvale motion hearing has been moved to Courtroom 2. Counsel should check in 15 minutes early.",
-        minutesAgo: 320,
-      },
-    ],
-  },
-  {
-    id: "msg-4",
-    correspondent: "Casey Brook",
-    role: "Client contact",
-    matterRef: "2026-0131",
-    subject: "MSA revision comments",
-    preview: "Legal reviewed section 8 and still has questions on the indemnity carve-outs.",
-    minutesAgo: 780,
-    unread: false,
-    messages: [
-      {
-        id: "m4-1",
-        from: "Casey Brook",
-        body: "Attached are internal comments on the MSA v4. Please prioritize the indemnity language.",
-        minutesAgo: 1_200,
-      },
-      {
-        id: "m4-2",
-        from: "You",
-        body: "Received. I will circulate a redline with proposed revisions by end of day tomorrow.",
-        minutesAgo: 960,
-      },
-      {
-        id: "m4-3",
-        from: "Casey Brook",
-        body: "Legal reviewed section 8 and still has questions on the indemnity carve-outs.",
-        minutesAgo: 780,
-      },
-    ],
-  },
-  {
-    id: "msg-5",
-    correspondent: "Dana Whitfield",
-    role: "Client contact",
-    matterRef: "2026-0127",
-    subject: "Zoning memo delivery",
-    preview: "Does next Tuesday still work for the compliance memorandum walkthrough?",
-    minutesAgo: 1_440,
-    unread: false,
-    messages: [
-      {
-        id: "m5-1",
-        from: "You",
-        body: "The zoning compliance memorandum is nearly final. I can walk the planning team through it early next week.",
-        minutesAgo: 1_800,
-      },
-      {
-        id: "m5-2",
-        from: "Dana Whitfield",
-        body: "Does next Tuesday still work for the compliance memorandum walkthrough?",
-        minutesAgo: 1_440,
-      },
-    ],
-  },
-  {
-    id: "msg-6",
-    correspondent: "Elena Cruz",
-    role: "Legal assistant",
-    matterRef: "2026-0108",
-    subject: "Deposition logistics",
-    preview: "Conference Room A is confirmed and the court reporter is booked.",
-    minutesAgo: 2_100,
-    unread: false,
-    messages: [
-      {
-        id: "m6-1",
-        from: "Elena Cruz",
-        body: "Conference Room A is confirmed and the court reporter is booked for the Alvarez deposition.",
-        minutesAgo: 2_100,
-      },
-      {
-        id: "m6-2",
-        from: "You",
-        body: "Perfect — please send the calendar invite to opposing counsel as well.",
-        minutesAgo: 2_040,
-      },
-    ],
-  },
-  {
-    id: "msg-7",
-    correspondent: "Samuel Boyd",
-    role: "Opposing counsel",
-    matterRef: "2026-0096",
-    subject: "Expert disclosure timing",
-    preview: "We propose exchanging expert reports on a staggered schedule.",
-    minutesAgo: 3_200,
-    unread: false,
-    messages: [
-      {
-        id: "m7-1",
-        from: "Samuel Boyd",
-        body: "We propose exchanging expert reports on a staggered schedule beginning the week of the 22nd.",
-        minutesAgo: 3_200,
-      },
-    ],
-  },
-];
-
-type FilterMode = "all" | "unread";
-
-export function MessagesClient() {
-  const [threads, setThreads] = useState<Thread[]>(INITIAL_THREADS);
-  const [selectedId, setSelectedId] = useState<string | null>(INITIAL_THREADS[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("all");
+  const [query, setQuery] = useState("");
   const [reply, setReply] = useState("");
+  const [composing, setComposing] = useState(false);
+  const [recipientId, setRecipientId] = useState("");
+  const [subject, setSubject] = useState("");
+  const [matterRef, setMatterRef] = useState("");
+  const [newMessage, setNewMessage] = useState("");
 
-  const filteredThreads = useMemo(() => {
-    if (filter === "unread") return threads.filter((t) => t.unread);
-    return threads;
-  }, [threads, filter]);
+  const conversations = useMemo(
+    () => conversationsFor(store, viewer.id),
+    [store, viewer.id]
+  );
 
-  const selected = threads.find((t) => t.id === selectedId) ?? null;
+  const filteredConversations = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return conversations.filter((conversation) => {
+      const unread = isUnread(conversation, viewer.id);
+      const kind = conversationKind(conversation, viewer).toLowerCase();
+      if (filter === "unread" && !unread) return false;
+      if (filter === "staff" && kind !== "internal" && kind !== "legal team") return false;
+      if (filter === "client" && kind !== "client") return false;
+      if (!normalizedQuery) return true;
+      const participantText = otherParticipants(conversation, viewer)
+        .map((person) => `${person.name} ${person.title}`)
+        .join(" ");
+      return `${participantText} ${conversation.subject} ${conversation.matterRef ?? ""}`
+        .toLowerCase()
+        .includes(normalizedQuery);
+    });
+  }, [conversations, filter, query, viewer]);
 
-  function selectThread(id: string) {
+  const selected =
+    conversations.find((conversation) => conversation.id === selectedId) ??
+    filteredConversations[0] ??
+    null;
+  const unreadCount = conversations.filter((conversation) =>
+    isUnread(conversation, viewer.id)
+  ).length;
+  const availablePeople = peopleAvailableTo(viewer);
+
+  function updateConversations(
+    update: (conversations: Conversation[]) => Conversation[]
+  ) {
+    saveStore({ ...store, conversations: update(store.conversations) });
+  }
+
+  function nextId(kind: "conversation" | "message" | "reply") {
+    idCounter.current += 1;
+    return `${idPrefix}-${kind}-${idCounter.current}`;
+  }
+
+  function selectConversation(id: string) {
     setSelectedId(id);
-    setThreads((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, unread: false } : t))
+    setReply("");
+    updateConversations((all) =>
+      all.map((conversation) =>
+        conversation.id === id
+          ? {
+              ...conversation,
+              messages: conversation.messages.map((message) =>
+                message.readBy.includes(viewer.id)
+                  ? message
+                  : { ...message, readBy: [...message.readBy, viewer.id] }
+              ),
+            }
+          : conversation
+      )
+    );
+  }
+
+  function sendReply(event: React.FormEvent) {
+    event.preventDefault();
+    const body = reply.trim();
+    if (!body || !selected) return;
+    updateConversations((all) =>
+      all.map((conversation) =>
+        conversation.id === selected.id
+          ? {
+              ...conversation,
+              messages: [
+                ...conversation.messages,
+                {
+                  id: nextId("reply"),
+                  senderId: viewer.id,
+                  body,
+                  minutesAgo: 0,
+                  readBy: [viewer.id],
+                },
+              ],
+            }
+          : conversation
+      )
     );
     setReply("");
   }
 
-  function sendReply(e: React.FormEvent) {
-    e.preventDefault();
-    const body = reply.trim();
-    if (!body || !selectedId) return;
+  function startConversation(event: React.FormEvent) {
+    event.preventDefault();
+    const recipient = availablePeople.find((person) => person.id === recipientId);
+    const body = newMessage.trim();
+    if (!recipient || !subject.trim() || !body) return;
 
-    setThreads((prev) =>
-      prev.map((t) => {
-        if (t.id !== selectedId) return t;
-        const nextMessage: ThreadMessage = {
-          id: `reply-${Date.now()}`,
-          from: "You",
+    const id = nextId("conversation");
+    const conversation: Conversation = {
+      id,
+      participantIds: [viewer.id, recipient.id],
+      subject: subject.trim(),
+      matterRef: matterRef.trim() || undefined,
+      messages: [
+        {
+          id: nextId("message"),
+          senderId: viewer.id,
           body,
           minutesAgo: 0,
-        };
-        return {
-          ...t,
-          preview: body,
-          minutesAgo: 0,
-          unread: false,
-          messages: [...t.messages, nextMessage],
-        };
-      })
-    );
+          readBy: [viewer.id],
+        },
+      ],
+    };
+    updateConversations((all) => [conversation, ...all]);
+    setSelectedId(id);
+    setRecipientId("");
+    setSubject("");
+    setMatterRef("");
+    setNewMessage("");
+    setComposing(false);
+  }
+
+  function resetDemoMessages() {
+    clearStore();
+    setSelectedId(null);
     setReply("");
   }
 
   return (
     <div className="space-y-4">
+      <div className="alert border border-info/30 bg-info/10 text-sm">
+        <Users className="h-5 w-5 shrink-0" aria-hidden />
+        <span>
+          Viewing <strong>{viewer.name}&apos;s</strong> conversations. Messages between
+          demo staff and clients are linked: send a reply, switch roles, and the recipient
+          will see it.
+        </span>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          className={`btn btn-sm ${filter === "all" ? "btn-primary" : "btn-outline"}`}
-          onClick={() => setFilter("all")}
+          className="btn btn-primary btn-sm gap-2"
+          onClick={() => setComposing((open) => !open)}
         >
-          All
+          <MessageSquarePlus className="h-4 w-4" />
+          New message
         </button>
+        <div className="join">
+          {(
+            viewer.role === "client"
+              ? ([
+                  ["all", "All"],
+                  ["unread", `Unread ${unreadCount}`],
+                  ["staff", "Legal team"],
+                ] as const)
+              : ([
+                  ["all", "All"],
+                  ["unread", `Unread ${unreadCount}`],
+                  ["staff", "Internal"],
+                  ["client", "Clients"],
+                ] as const)
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={`btn btn-sm join-item ${
+                filter === value ? "btn-neutral" : "btn-outline"
+              }`}
+              onClick={() => setFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <label className="input input-bordered input-sm flex min-w-56 flex-1 items-center gap-2">
+          <Search className="h-4 w-4 opacity-50" aria-hidden />
+          <input
+            type="search"
+            className="grow"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search conversations…"
+            aria-label="Search conversations"
+          />
+        </label>
         <button
           type="button"
-          className={`btn btn-sm ${filter === "unread" ? "btn-primary" : "btn-outline"}`}
-          onClick={() => setFilter("unread")}
+          className="btn btn-ghost btn-sm gap-2"
+          onClick={resetDemoMessages}
+          title="Restore the original demo conversations"
         >
-          Unread
+          <RotateCcw className="h-4 w-4" />
+          Reset demo
         </button>
-        <p className="text-sm opacity-60 ml-auto">
-          Messaging is not connected to a backend yet.
-        </p>
       </div>
 
-      {filteredThreads.length === 0 ? (
+      {composing && (
+        <form
+          onSubmit={startConversation}
+          className="card border border-primary/30 bg-base-100 shadow-sm"
+        >
+          <div className="card-body gap-4">
+            <div>
+              <h2 className="font-display text-xl font-semibold">New conversation</h2>
+              <p className="text-sm opacity-70">
+                {viewer.role === "client"
+                  ? "Contact your assigned attorney or billing coordinator."
+                  : "Start a linked conversation with another staff member or the demo client."}
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="form-control">
+                <span className="label-text text-sm font-medium">Recipient</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={recipientId}
+                  onChange={(event) => setRecipientId(event.target.value)}
+                  required
+                  aria-label="Message recipient"
+                >
+                  <option value="">Choose a person…</option>
+                  {availablePeople.map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name} — {person.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-control">
+                <span className="label-text text-sm font-medium">
+                  Matter or record <span className="opacity-50">(optional)</span>
+                </span>
+                <input
+                  className="input input-bordered"
+                  value={matterRef}
+                  onChange={(event) => setMatterRef(event.target.value)}
+                  placeholder="MT-05001"
+                />
+              </label>
+            </div>
+            <label className="form-control">
+              <span className="label-text text-sm font-medium">Subject</span>
+              <input
+                className="input input-bordered"
+                value={subject}
+                onChange={(event) => setSubject(event.target.value)}
+                placeholder="What is this conversation about?"
+                required
+              />
+            </label>
+            <label className="form-control">
+              <span className="label-text text-sm font-medium">Message</span>
+              <textarea
+                className="textarea textarea-bordered min-h-24"
+                value={newMessage}
+                onChange={(event) => setNewMessage(event.target.value)}
+                placeholder="Write your message…"
+                required
+              />
+            </label>
+            <div className="card-actions justify-end">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setComposing(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary gap-2"
+                disabled={!recipientId || !subject.trim() || !newMessage.trim()}
+              >
+                <Send className="h-4 w-4" />
+                Send message
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {filteredConversations.length === 0 ? (
         <EmptyState
-          title="No conversations match this filter."
+          title="No conversations match this view."
           description={
             filter === "unread"
-              ? "You are caught up — there are no unread threads."
-              : "Start a new conversation once messaging is connected."
+              ? `${viewer.name} has no unread messages.`
+              : "Try another filter or start a new conversation."
           }
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-1 card bg-base-100 border border-base-300 shadow-sm overflow-hidden">
-            <ul className="divide-y divide-base-300">
-              {filteredThreads.map((thread) => {
-                const isActive = thread.id === selectedId;
+          <div className="card overflow-hidden border border-base-300 bg-base-100 shadow-sm lg:col-span-1">
+            <ul className="max-h-[42rem] divide-y divide-base-300 overflow-y-auto">
+              {filteredConversations.map((conversation) => {
+                const latest = lastMessage(conversation);
+                const sender = personById(latest.senderId, viewer);
+                const unread = isUnread(conversation, viewer.id);
+                const active = conversation.id === selected?.id;
+                const kind = conversationKind(conversation, viewer);
                 return (
-                  <li key={thread.id}>
+                  <li key={conversation.id}>
                     <button
                       type="button"
-                      onClick={() => selectThread(thread.id)}
-                      className={`w-full text-left px-4 py-3 transition-colors hover:bg-base-200 ${
-                        isActive ? "bg-base-200" : ""
+                      onClick={() => selectConversation(conversation.id)}
+                      className={`w-full px-4 py-3 text-left transition-colors hover:bg-base-200 ${
+                        active ? "bg-base-200" : ""
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-semibold truncate">
-                            {thread.correspondent}
-                            {thread.unread && (
-                              <span className="badge badge-primary badge-xs ml-2 align-middle">
-                                New
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-xs opacity-60 truncate">{thread.role}</p>
-                        </div>
-                        <span className="text-xs opacity-50 shrink-0">
-                          {relativeTime(thread.minutesAgo)}
+                        <p className="truncate font-semibold">
+                          {conversationLabel(conversation, viewer)}
+                          {unread && (
+                            <span className="badge badge-primary badge-xs ml-2 align-middle">
+                              New
+                            </span>
+                          )}
+                        </p>
+                        <span className="shrink-0 text-xs opacity-50">
+                          {relativeTime(latest.minutesAgo)}
                         </span>
                       </div>
-                      <p className="text-sm font-medium mt-1 truncate">{thread.subject}</p>
-                      <p className="text-sm opacity-70 truncate">{thread.preview}</p>
-                      <p className="text-xs opacity-50 mt-1">Matter {thread.matterRef}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span
+                          className={`badge badge-sm ${
+                            kind === "Client"
+                              ? "badge-accent"
+                              : kind === "Legal team"
+                                ? "badge-info"
+                                : "badge-ghost"
+                          }`}
+                        >
+                          {kind}
+                        </span>
+                        {conversation.matterRef && (
+                          <span className="text-xs opacity-60">
+                            {conversation.matterRef}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 truncate text-sm font-medium">
+                        {conversation.subject}
+                      </p>
+                      <p className="truncate text-sm opacity-70">
+                        {sender.id === viewer.id ? "You" : sender.name}: {latest.body}
+                      </p>
                     </button>
                   </li>
                 );
@@ -321,33 +405,45 @@ export function MessagesClient() {
             </ul>
           </div>
 
-          <div className="lg:col-span-2 card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card border border-base-300 bg-base-100 shadow-sm lg:col-span-2">
             {selected ? (
-              <div className="card-body gap-4 min-h-[28rem]">
+              <div className="card-body min-h-[32rem] gap-4">
                 <div className="border-b border-base-300 pb-3">
-                  <h2 className="font-display text-xl font-semibold">{selected.subject}</h2>
-                  <p className="text-sm opacity-70 mt-1">
-                    {selected.correspondent} · {selected.role} · Matter {selected.matterRef}
-                  </p>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h2 className="font-display text-xl font-semibold">
+                        {selected.subject}
+                      </h2>
+                      <p className="mt-1 text-sm opacity-70">
+                        {conversationLabel(selected, viewer)}
+                        {selected.matterRef ? ` · ${selected.matterRef}` : ""}
+                      </p>
+                    </div>
+                    <span className="badge badge-outline">
+                      {conversationKind(selected, viewer)}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex-1 space-y-2 overflow-y-auto max-h-[22rem] pr-1">
+                <div className="flex-1 space-y-2 overflow-y-auto pr-1">
                   {selected.messages.map((message) => {
-                    const isYou = message.from === "You";
+                    const sender = personById(message.senderId, viewer);
+                    const mine = message.senderId === viewer.id;
                     return (
                       <div
                         key={message.id}
-                        className={`chat ${isYou ? "chat-end" : "chat-start"}`}
+                        className={`chat ${mine ? "chat-end" : "chat-start"}`}
                       >
-                        <div className="chat-header opacity-70 text-xs mb-1">
-                          {message.from}
+                        <div className="chat-header mb-1 text-xs opacity-70">
+                          {mine ? "You" : sender.name}
+                          <span className="ml-2 opacity-60">{sender.title}</span>
                           <time className="ml-2 opacity-50">
                             {relativeTime(message.minutesAgo)}
                           </time>
                         </div>
                         <div
                           className={`chat-bubble ${
-                            isYou ? "chat-bubble-primary" : "chat-bubble-secondary"
+                            mine ? "chat-bubble-primary" : "chat-bubble-secondary"
                           }`}
                         >
                           {message.body}
@@ -357,22 +453,33 @@ export function MessagesClient() {
                   })}
                 </div>
 
-                <form onSubmit={sendReply} className="space-y-2 border-t border-base-300 pt-3">
+                <form
+                  onSubmit={sendReply}
+                  className="space-y-2 border-t border-base-300 pt-3"
+                >
                   <label className="form-control w-full">
-                    <span className="label-text text-sm font-medium">Reply</span>
+                    <span className="label-text text-sm font-medium">
+                      Reply as {viewer.name}
+                    </span>
                     <textarea
-                      className="textarea textarea-bordered min-h-[5rem]"
+                      className="textarea textarea-bordered min-h-20"
                       value={reply}
-                      onChange={(e) => setReply(e.target.value)}
-                      placeholder="Write a reply…"
+                      onChange={(event) => setReply(event.target.value)}
+                      placeholder={`Reply to ${conversationLabel(selected, viewer)}…`}
                       aria-label="Reply message"
                     />
                   </label>
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs opacity-60">
-                      Replies stay in this session only — messaging is not connected to a backend.
+                      Demo only. The recipient sees this reply when you switch to their
+                      account in this browser.
                     </p>
-                    <button type="submit" className="btn btn-primary" disabled={!reply.trim()}>
+                    <button
+                      type="submit"
+                      className="btn btn-primary gap-2"
+                      disabled={!reply.trim()}
+                    >
+                      <Send className="h-4 w-4" />
                       Send
                     </button>
                   </div>
@@ -380,7 +487,10 @@ export function MessagesClient() {
               </div>
             ) : (
               <div className="card-body">
-                <EmptyState title="Select a conversation" description="Choose a thread from the list to read and reply." />
+                <EmptyState
+                  title="Select a conversation"
+                  description="Choose a thread from the list to read and reply."
+                />
               </div>
             )}
           </div>

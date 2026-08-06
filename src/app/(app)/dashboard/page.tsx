@@ -7,6 +7,9 @@ import { DeadlineCalendar, buildDeadlineWindow } from "@/components/DeadlineCale
 import { WeeklyUtilizationCard } from "@/components/WeeklyUtilizationCard";
 import { CaseEvaluationsMiniList } from "@/components/intake/CaseEvaluationDetailClient";
 import { ExecutiveCharts } from "./ExecutiveCharts";
+import { AttorneyDocumentRequestForm } from "@/components/document-requests/AttorneyDocumentRequestForm";
+import { AttorneyDocumentRequestList } from "@/components/document-requests/AttorneyDocumentRequestList";
+import { ParalegalDocumentQueue } from "@/components/document-requests/ParalegalDocumentQueue";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
 import { evaluateBillingReadiness } from "@/lib/billing-readiness";
 import { calcBillableAmount } from "@/lib/phase2-types";
@@ -551,6 +554,9 @@ async function AttorneyDashboard({
                 {inboxMeta.title}
                 {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
               </Link>
+              <Link href="/time/new" className="btn btn-outline btn-sm">
+                Log time
+              </Link>
               <Link href="/calendar" className="btn btn-outline btn-sm">
                 Open calendar
               </Link>
@@ -563,6 +569,8 @@ async function AttorneyDashboard({
           icon={<LayoutGrid className="h-5 w-5" />}
         />
         <QuickActions />
+        <AttorneyDocumentRequestForm profile={profile} compact />
+        <AttorneyDocumentRequestList profile={profile} />
       </section>
 
       {/* Band 2 — Daily Priorities */}
@@ -940,7 +948,7 @@ async function StaffDashboard({
     <>
       <PageHeader
         title="Paralegal/Legal Staff Workspace"
-        description="Your assigned tasks, due dates, matter support work, and timekeeping."
+        description="Process document requests, track assigned tasks, due dates, matter support work, and timekeeping."
         actions={
           <Link href="/inbox" className="btn btn-primary btn-sm">
             {inboxMeta.title}
@@ -948,6 +956,17 @@ async function StaffDashboard({
           </Link>
         }
       />
+      <ParalegalDocumentQueue profile={profile} mineOnly />
+
+      <section className="space-y-3">
+        <SectionHeader
+          title="Quick actions"
+          description="Start the work you do most often."
+          icon={<LayoutGrid className="h-5 w-5" />}
+        />
+        <QuickActions />
+      </section>
+
       <div className="card bg-base-100 border border-base-300 shadow-sm">
         <div className="card-body gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1359,6 +1378,17 @@ function countBy(values: string[]) {
   const map = new Map<string, number>();
   for (const v of values) map.set(v, (map.get(v) || 0) + 1);
   return [...map.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+/** Stable fictional US-style phone for demo attorney contact (555 exchange). */
+function demoAttorneyPhone(attorneyKey: string) {
+  let hash = 0;
+  for (let i = 0; i < attorneyKey.length; i++) {
+    hash = (hash * 31 + attorneyKey.charCodeAt(i)) >>> 0;
+  }
+  const mid = String(100 + (hash % 900)).padStart(3, "0");
+  const last = String(1000 + ((hash >>> 9) % 9000)).padStart(4, "0");
+  return `(555) ${mid}-${last}`;
 }
 
 function StatusList({ items }: { items: [string, number][] }) {
