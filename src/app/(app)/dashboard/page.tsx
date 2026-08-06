@@ -6,14 +6,14 @@ import { EmptyState } from "@/components/EmptyState";
 import { DeadlineCalendar, buildDeadlineWindow } from "@/components/DeadlineCalendar";
 import { WeeklyUtilizationCard } from "@/components/WeeklyUtilizationCard";
 import { CaseEvaluationsMiniList } from "@/components/intake/CaseEvaluationDetailClient";
-import { ExecutiveCharts } from "./ExecutiveCharts";
+import { FirmPulse } from "./FirmPulse";
 import { AttorneyDocumentRequestForm } from "@/components/document-requests/AttorneyDocumentRequestForm";
 import { AttorneyDocumentRequestList } from "@/components/document-requests/AttorneyDocumentRequestList";
 import { ParalegalDocumentQueue } from "@/components/document-requests/ParalegalDocumentQueue";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
 import { evaluateBillingReadiness } from "@/lib/billing-readiness";
 import { calcBillableAmount } from "@/lib/phase2-types";
-import { computeAnalytics, loadAnalyticsData } from "@/lib/analytics-data";
+import { computeAnalytics, loadAnalyticsData, summarizeFirmPulse } from "@/lib/analytics-data";
 import { weeksInRange } from "@/lib/analytics";
 import { buildDataQualityExceptions } from "@/lib/data-quality";
 import { inboxItemsToFocus, inboxMetaForRole, loadInboxItems } from "@/lib/inbox";
@@ -160,20 +160,17 @@ async function PartnerDashboard({
     (t: any) => t.approval_status === "Submitted"
   ).length;
 
-  const collectionTrend = bundle.monthly.map((m) => ({
-    month: m.month,
-    rate: m.invoiced > 0 ? (m.collected / m.invoiced) * 100 : 0,
-  }));
+  const firmPulse = summarizeFirmPulse(bundle, {
+    pastDueAR,
+    unbilledWip: unbilledTimeAmt,
+  });
+
   const utilData = bundle.attorneys
     .filter((a) => a.utilization != null)
     .map((a) => ({
       name: a.fullName.split(" ")[0] || a.fullName,
       utilization: Number((a.utilization || 0).toFixed(1)),
     }));
-  const matterProfitSorted = [...bundle.matters]
-    .sort((a, b) => a.grossProfit - b.grossProfit)
-    .slice(0, 6)
-    .map((m) => ({ name: m.matterNumber, grossProfit: m.grossProfit }));
 
   const { data: evals } = await supabase
     .from("case_evaluations")
@@ -326,6 +323,7 @@ async function PartnerDashboard({
       <section className="space-y-3">
         <SectionHeader
           title="Firm pulse"
+          description="Cash, realization, capacity, and contribution."
           icon={<ChartColumn className="h-5 w-5" />}
           action={
             <Link href="/reports" className="btn btn-outline btn-sm">
@@ -333,19 +331,16 @@ async function PartnerDashboard({
             </Link>
           }
         />
-        <ExecutiveCharts
-          variant="compact"
+        <FirmPulse
+          summary={firmPulse}
           monthly={bundle.monthly}
           practices={bundle.practices.map((p) => ({
             practiceArea: p.practiceArea,
             grossProfit: p.grossProfit,
+            grossMargin: p.grossMargin,
           }))}
           arAging={bundle.arAging}
           utilization={utilData}
-          collectionTrend={collectionTrend}
-          writeTrend={bundle.writeTrend}
-          matterProfit={matterProfitSorted}
-          byMethod={bundle.revenueByMethod}
         />
       </section>
 

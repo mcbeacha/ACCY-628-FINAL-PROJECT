@@ -14,7 +14,32 @@ import {
   Cell,
 } from "recharts";
 
-const COLORS = ["#0d9488", "#0369a1", "#ca8a04", "#dc2626", "#7c3aed", "#64748b", "#ea580c"];
+const COLORS = ["#0d9488", "#0369a1", "#ca8a04", "#dc2626", "#64748b", "#ea580c", "#0f766e"];
+
+/** Severity ramp for AR aging buckets (Current → 90+). */
+const AR_BUCKET_COLORS: Record<string, string> = {
+  Current: "#0d9488",
+  "1–30": "#0369a1",
+  "31–60": "#ca8a04",
+  "61–90": "#ea580c",
+  "90+": "#dc2626",
+};
+
+function formatAxisCurrency(value: number) {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `$${(value / 1_000).toFixed(0)}k`;
+  return `$${value.toFixed(0)}`;
+}
+
+function formatTooltipCurrency(v: unknown): string {
+  if (typeof v !== "number") return String(v ?? "");
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(v);
+}
 
 function Empty({ label }: { label: string }) {
   return <p className="text-sm opacity-60 py-8 text-center">{label}</p>;
@@ -32,8 +57,8 @@ export function MonthlyRevenueChart({
         <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
           <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(v) => (typeof v === "number" ? `$${v.toFixed(0)}` : v)} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={formatAxisCurrency} width={52} />
+          <Tooltip formatter={(v) => formatTooltipCurrency(v)} />
           <Legend />
           <Bar dataKey="invoiced" name="Invoiced" fill="#0d9488" radius={[4, 4, 0, 0]} />
           <Bar dataKey="collected" name="Collected" fill="#0369a1" radius={[4, 4, 0, 0]} />
@@ -46,7 +71,7 @@ export function MonthlyRevenueChart({
 export function GrossProfitByPracticeChart({
   data,
 }: {
-  data: { practiceArea: string; grossProfit: number }[];
+  data: { practiceArea: string; grossProfit: number; grossMargin?: number | null }[];
 }) {
   if (!data.length) return <Empty label="No practice-area profit data." />;
   return (
@@ -54,9 +79,17 @@ export function GrossProfitByPracticeChart({
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ left: 8, right: 16 }}>
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-          <XAxis type="number" tick={{ fontSize: 11 }} />
+          <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={formatAxisCurrency} />
           <YAxis type="category" dataKey="practiceArea" width={100} tick={{ fontSize: 10 }} />
-          <Tooltip formatter={(v) => (typeof v === "number" ? `$${v.toFixed(0)}` : v)} />
+          <Tooltip
+            formatter={(v, _name, item) => {
+              const margin = (item?.payload as { grossMargin?: number | null } | undefined)
+                ?.grossMargin;
+              const money = formatTooltipCurrency(v);
+              if (margin == null) return money;
+              return `${money} (${margin.toFixed(1)}% margin)`;
+            }}
+          />
           <Bar dataKey="grossProfit" name="Gross profit" radius={[0, 4, 4, 0]}>
             {data.map((_, i) => (
               <Cell key={i} fill={COLORS[i % COLORS.length]} />
@@ -76,9 +109,13 @@ export function ArAgingChart({ data }: { data: { bucket: string; amount: number 
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
           <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(v) => (typeof v === "number" ? `$${v.toFixed(0)}` : v)} />
-          <Bar dataKey="amount" name="AR balance" fill="#ca8a04" radius={[4, 4, 0, 0]} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={formatAxisCurrency} width={52} />
+          <Tooltip formatter={(v) => formatTooltipCurrency(v)} />
+          <Bar dataKey="amount" name="AR balance" radius={[4, 4, 0, 0]}>
+            {data.map((d) => (
+              <Cell key={d.bucket} fill={AR_BUCKET_COLORS[d.bucket] || "#64748b"} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -99,7 +136,14 @@ export function UtilizationChart({
           <XAxis dataKey="name" tick={{ fontSize: 10 }} />
           <YAxis unit="%" tick={{ fontSize: 11 }} />
           <Tooltip formatter={(v) => (typeof v === "number" ? `${v.toFixed(1)}%` : v)} />
-          <Bar dataKey="utilization" name="Utilization % (est.)" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="utilization" name="Utilization % (est.)" fill="#0f766e" radius={[4, 4, 0, 0]}>
+            {data.map((d, i) => (
+              <Cell
+                key={i}
+                fill={d.utilization >= 70 ? "#0d9488" : d.utilization >= 50 ? "#ca8a04" : "#dc2626"}
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -147,8 +191,8 @@ export function WriteTrendChart({
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
           <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(v) => (typeof v === "number" ? `$${v.toFixed(0)}` : v)} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={formatAxisCurrency} width={52} />
+          <Tooltip formatter={(v) => formatTooltipCurrency(v)} />
           <Legend />
           <Bar dataKey="writeDowns" name="Write-downs" fill="#ea580c" stackId="a" />
           <Bar dataKey="writeOffs" name="Write-offs" fill="#dc2626" stackId="a" />
@@ -170,8 +214,8 @@ export function MatterProfitBarChart({
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
           <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(v) => (typeof v === "number" ? `$${v.toFixed(0)}` : v)} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={formatAxisCurrency} width={52} />
+          <Tooltip formatter={(v) => formatTooltipCurrency(v)} />
           <Bar dataKey="grossProfit" name="Gross profit" fill="#0369a1" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -191,8 +235,8 @@ export function MethodRevenueChart({
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
           <XAxis dataKey="method" tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(v) => (typeof v === "number" ? `$${v.toFixed(0)}` : v)} />
+          <YAxis tick={{ fontSize: 11 }} tickFormatter={formatAxisCurrency} width={52} />
+          <Tooltip formatter={(v) => formatTooltipCurrency(v)} />
           <Bar dataKey="revenue" name="Invoiced revenue" fill="#0d9488" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
