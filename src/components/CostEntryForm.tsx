@@ -29,6 +29,24 @@ type EmployeeOpt = { id: string; full_name: string };
 
 const ENTRY_SOURCES: CostSource[] = ["Manual Adjustment", "Travel", "Employee Labor"];
 
+const CATEGORY_GROUP_ORDER: Record<string, number> = {
+  "Employee Labor": 0,
+  "Outside Services": 1,
+  "Legal and Matter Expenses": 2,
+  Travel: 3,
+  "Allocated Costs": 4,
+  Other: 5,
+};
+
+function sortCostCategories(cats: CostCategory[]): CostCategory[] {
+  return [...cats].sort((a, b) => {
+    const ga = CATEGORY_GROUP_ORDER[a.category_group] ?? 99;
+    const gb = CATEGORY_GROUP_ORDER[b.category_group] ?? 99;
+    if (ga !== gb) return ga - gb;
+    return a.category_name.localeCompare(b.category_name);
+  });
+}
+
 export function CostEntryForm({ userId, role }: { userId: string; role: UserRole }) {
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [matters, setMatters] = useState<MatterOpt[]>([]);
@@ -80,7 +98,7 @@ export function CostEntryForm({ userId, role }: { userId: string; role: UserRole
           .order("full_name"),
       ]);
       setClients((c || []) as ClientOpt[]);
-      setCategories((cats || []) as CostCategory[]);
+      setCategories(sortCostCategories((cats || []) as CostCategory[]));
       setEmployees((emps || []) as EmployeeOpt[]);
 
       let matterQuery = supabase
