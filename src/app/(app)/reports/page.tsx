@@ -35,25 +35,31 @@ export default async function ReportsHubPage() {
         title="Reports"
         description="Filterable operational and financial reports with CSV export. Exports only include records allowed by your login (RLS)."
       />
-      {isAttorney && (
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body p-4 gap-2">
-            <h2 className="font-semibold text-sm">Attorney metrics workbook</h2>
-            <p className="text-sm opacity-70">
-              One Excel file with separate sheets for invoiced revenue, collected revenue, outstanding
-              AR, past-due AR, gross profit, gross margin, my time, unbilled time, and past-due
-              invoices. Includes only records your login can access.
-            </p>
-            <div>
-              <OpenInExcelButton
-                kind="metrics"
-                className="btn btn-outline btn-sm"
-                label="Open attorney-metrics.xlsx in Excel"
-              />
-            </div>
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body p-4 gap-2">
+          <h2 className="font-semibold text-sm">
+            {isAttorney ? "Attorney metrics workbook" : "Matter billing metrics workbook"}
+          </h2>
+          <p className="text-sm opacity-70">
+            One Excel file with separate sheets for invoiced revenue, collected revenue, outstanding
+            AR, past-due AR, gross profit, gross margin,{" "}
+            {isAttorney ? "my time" : "time entries"}, unbilled time, and past-due invoices. Includes
+            only records your login can access.
+          </p>
+          <div>
+            <OpenInExcelButton
+              kind="metrics"
+              className="btn btn-outline btn-sm"
+              title={
+                isAttorney
+                  ? "Download a multi-sheet Excel workbook of your assigned-matter metrics and time"
+                  : "Download a multi-sheet Excel workbook of matter billing metrics and time"
+              }
+              label="Export to Excel"
+            />
           </div>
         </div>
-      )}
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {REPORTS.map((r) => (
           <Link
