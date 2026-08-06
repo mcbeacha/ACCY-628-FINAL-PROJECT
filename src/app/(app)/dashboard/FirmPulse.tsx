@@ -83,8 +83,9 @@ export function FirmPulse({
                 ? `${formatCurrency(summary.pastDueAR)} past due`
                 : "Open finalized balances"
           }
+          cta="View client balances →"
           tone={arTone}
-          href="/ar"
+          href="/ar?focus=clients#outstanding-by-client"
         />
         <StatCard
           label="Collection rate"
