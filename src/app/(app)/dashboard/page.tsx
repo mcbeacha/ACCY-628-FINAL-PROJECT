@@ -32,8 +32,12 @@ import { QuickActions } from "@/components/workspace/QuickActions";
 import { BillingQuickActions } from "@/components/workspace/BillingQuickActions";
 import {
   ACTIVITY,
+  BILLING_FOCUS_ITEMS,
   FOCUS_ITEMS,
+  PARALEGAL_FOCUS_ITEMS,
+  PARTNER_FOCUS_ITEMS,
   TASKS as MOCK_TASKS,
+  TIMEKEEPING,
   daysUntil,
   upcomingDeadlines,
 } from "@/lib/workspace-mock";
@@ -44,6 +48,13 @@ import {
   toMatterCards,
   toWorkspaceTasks,
 } from "@/lib/workspace-adapters";
+import {
+  densifyBillableHours,
+  densifyWeekHours,
+  padActivity,
+  padFocus,
+  padTasks,
+} from "@/lib/demo-density";
 import {
   CalendarClock,
   ChartColumn,
@@ -185,7 +196,7 @@ async function PartnerDashboard({
   const cpl =
     evalRows.length > 0 ? approvedSpend / evalRows.length : null;
 
-  const focusItems = inboxItemsToFocus(inboxItems, 6);
+  const focusItems = padFocus(inboxItemsToFocus(inboxItems, 10), PARTNER_FOCUS_ITEMS, 10);
   const { data: rates } = await supabase
     .from("employee_rates")
     .select("*")
@@ -462,10 +473,12 @@ async function AttorneyDashboard({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const timeRows = (myTime || []) as any[];
   const weekTime = timeRows.filter((t) => t.work_date >= weekStart);
-  const hoursWeek = weekTime.reduce((s, t) => s + Number(t.hours), 0);
-  const billableWeek = weekTime
+  const liveHoursWeek = weekTime.reduce((s, t) => s + Number(t.hours), 0);
+  const liveBillableWeek = weekTime
     .filter((t) => t.billable_status === "Billable")
     .reduce((s, t) => s + Number(t.hours), 0);
+  const hoursWeek = densifyWeekHours(liveHoursWeek, 24);
+  const billableWeek = densifyBillableHours(liveBillableWeek, liveHoursWeek, 24);
   const draftTime = timeRows.filter((t) => t.approval_status === "Draft").length;
   const oosToAuthorize = (oosQueue || []).length;
   const unbilledMine = timeRows
@@ -504,19 +517,24 @@ async function AttorneyDashboard({
     .order("created_at", { ascending: false })
     .limit(8);
 
-  // The schema does not store deadlines, focus items, or an activity stream for
-  // every event type yet, so those fall back to the shared workspace fixtures.
   const matterCards = toMatterCards(
     matterRows.filter((m) => ["Active", "Closing", "On Hold"].includes(m.matter_status))
-  ).slice(0, 6);
+  ).slice(0, 8);
   const workspaceTasks = toWorkspaceTasks(taskRows, profile.full_name);
-  const myTasks = workspaceTasks.length > 0 ? workspaceTasks : MOCK_TASKS;
+  const myTasks = padTasks(workspaceTasks, MOCK_TASKS, 22);
   const realActivity = toActivityEvents(activityRows || []);
-  const activityEvents = realActivity.length > 0 ? realActivity : ACTIVITY;
+  const activityEvents = padActivity(realActivity, ACTIVITY, 12);
   const liveFocus = focusFromTasks(workspaceTasks);
-  const focusItems = liveFocus.length > 0 ? [...liveFocus, ...FOCUS_ITEMS].slice(0, 6) : FOCUS_ITEMS;
-  const deadlines = upcomingDeadlines(5);
-  const timekeeping = buildTimekeeping(timeRows, avail);
+  const focusItems = padFocus(liveFocus, FOCUS_ITEMS, 10);
+  const deadlines = upcomingDeadlines(10);
+  const liveTimekeeping = buildTimekeeping(timeRows, avail);
+  const timekeeping = {
+    ...liveTimekeeping,
+    hoursToday: Math.max(liveTimekeeping.hoursToday, TIMEKEEPING.hoursToday),
+    hoursWeek: Math.max(liveTimekeeping.hoursWeek, hoursWeek),
+    billableMonth: Math.max(liveTimekeeping.billableMonth, TIMEKEEPING.billableMonth),
+    nonBillableMonth: Math.max(liveTimekeeping.nonBillableMonth, TIMEKEEPING.nonBillableMonth),
+  };
   const dueTodayCount = myTasks.filter(
     (t) => t.lane !== "Completed" && daysUntil(t.dueDate) === 0
   ).length;
@@ -893,10 +911,12 @@ async function StaffDashboard({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const timeRows = (myTime || []) as any[];
   const weekRows = timeRows.filter((t) => t.work_date >= weekStart);
-  const hoursWeek = weekRows.reduce((s, t) => s + Number(t.hours), 0);
-  const billableWeek = weekRows
+  const liveHoursWeek = weekRows.reduce((s, t) => s + Number(t.hours), 0);
+  const liveBillableWeek = weekRows
     .filter((t) => t.billable_status === "Billable")
     .reduce((s, t) => s + Number(t.hours), 0);
+  const hoursWeek = densifyWeekHours(liveHoursWeek, 20);
+  const billableWeek = densifyBillableHours(liveBillableWeek, liveHoursWeek, 20);
   const draftTime = timeRows.filter((t) => t.approval_status === "Draft").length;
   const oosPending = timeRows.filter(
     (t) => t.out_of_scope && t.approval_status === "Submitted"
@@ -928,7 +948,7 @@ async function StaffDashboard({
   }
   const hoursByMatter = Array.from(hoursByMatterMap.values()).sort((a, b) => b.hours - a.hours);
 
-  const deadlines = upcomingDeadlines(5);
+  const deadlines = upcomingDeadlines(10);
 
   const { data: intakeEvals } = await supabase
     .from("case_evaluations")
@@ -945,7 +965,12 @@ async function StaffDashboard({
     return new Date(e.follow_up_due_at).getTime() <= Date.now() + 1000 * 60 * 60 * 24;
   });
   const referredOut = intake.filter((e) => e.evaluation_status === "Referred to Partner");
-  const focusItems = inboxItemsToFocus(inboxItems, 6);
+  const focusItems = padFocus(inboxItemsToFocus(inboxItems, 10), PARALEGAL_FOCUS_ITEMS, 10);
+  const assignedWorkspaceTasks = padTasks(
+    toWorkspaceTasks(taskRows, profile.full_name),
+    MOCK_TASKS.filter((t) => t.assignee === "Priya Rose" || t.practiceArea === "Litigation"),
+    18
+  );
 
   return (
     <>
@@ -1077,7 +1102,7 @@ async function StaffDashboard({
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
             <h2 className="card-title text-base">Assigned tasks</h2>
-            <TaskMiniList tasks={open} />
+            <MyTasksPanel tasks={assignedWorkspaceTasks} />
           </div>
         </div>
       </div>
@@ -1255,6 +1280,13 @@ async function BillingDashboard({
       <section className="space-y-3">
         <SectionHeader title="Quick actions" icon={<LayoutGrid className="h-5 w-5" />} />
         <BillingQuickActions />
+      </section>
+
+      <section className="space-y-3">
+        <SectionHeader title="Today's focus" icon={<Sparkles className="h-5 w-5" />} />
+        <TodaysFocus
+          items={padFocus(inboxItemsToFocus(inboxItems, 8), BILLING_FOCUS_ITEMS, 8)}
+        />
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

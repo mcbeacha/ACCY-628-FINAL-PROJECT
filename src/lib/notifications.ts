@@ -60,6 +60,33 @@ const PARTNER_NOTIFICATIONS: PersonNotification[] = [
     unread: false,
     href: "/dashboard",
   },
+  {
+    id: "mp-6",
+    kind: "deadline",
+    title: "Statute watch",
+    detail: "Whitfield products claim — statute calendar within 12 days",
+    minutesAgo: 80,
+    unread: true,
+    href: "/calendar",
+  },
+  {
+    id: "mp-7",
+    kind: "document_review",
+    title: "Time review backlog",
+    detail: "3 submitted time entries await partner authorization",
+    minutesAgo: 130,
+    unread: true,
+    href: "/time/review",
+  },
+  {
+    id: "mp-8",
+    kind: "matter_assignment",
+    title: "New matter activated",
+    detail: "Vendor MSA Template Suite is Active with Jordan Harper as lead",
+    minutesAgo: 900,
+    unread: false,
+    href: "/matters",
+  },
 ];
 
 const ATTORNEY_NOTIFICATIONS: PersonNotification[] = [
@@ -107,6 +134,33 @@ const ATTORNEY_NOTIFICATIONS: PersonNotification[] = [
     minutesAgo: 1_800,
     unread: false,
     href: "/time",
+  },
+  {
+    id: "at-6",
+    kind: "deadline",
+    title: "Privilege log due in 2 days",
+    detail: "Harbor Brook Partners — Vendor Litigation",
+    minutesAgo: 55,
+    unread: true,
+    href: "/calendar",
+  },
+  {
+    id: "at-7",
+    kind: "matter_assignment",
+    title: "Client message needs reply",
+    detail: "Nora Vale asked about board packet financing tabs",
+    minutesAgo: 95,
+    unread: true,
+    href: "/messages",
+  },
+  {
+    id: "at-8",
+    kind: "document_review",
+    title: "Paralegal packet ready",
+    detail: "Exhibit set for Northvale hearing is ready for attorney review",
+    minutesAgo: 200,
+    unread: false,
+    href: "/document-requests",
   },
 ];
 
@@ -156,6 +210,24 @@ const PARALEGAL_NOTIFICATIONS: PersonNotification[] = [
     unread: false,
     href: "/time/new",
   },
+  {
+    id: "pl-6",
+    kind: "overdue_task",
+    title: "Overdue medical records chase",
+    detail: "Vendor confirmation still outstanding for Alvarez file",
+    minutesAgo: 50,
+    unread: true,
+    href: "/tasks?filter=overdue",
+  },
+  {
+    id: "pl-7",
+    kind: "document_review",
+    title: "Client upload received",
+    detail: "Northvale financing consent sections waiting to organize",
+    minutesAgo: 180,
+    unread: true,
+    href: "/document-requests",
+  },
 ];
 
 const BILLING_NOTIFICATIONS: PersonNotification[] = [
@@ -204,6 +276,24 @@ const BILLING_NOTIFICATIONS: PersonNotification[] = [
     unread: false,
     href: "/dashboard",
   },
+  {
+    id: "bs-6",
+    kind: "deadline",
+    title: "Retainer below threshold",
+    detail: "Cedar Ridge Development retainer needs replenishment outreach",
+    minutesAgo: 40,
+    unread: true,
+    href: "/retainers",
+  },
+  {
+    id: "bs-7",
+    kind: "document_review",
+    title: "Draft invoice ready",
+    detail: "Harbor Brook draft invoice awaiting final coding check",
+    minutesAgo: 175,
+    unread: true,
+    href: "/invoices",
+  },
 ];
 
 const CLIENT_NOTIFICATIONS: PersonNotification[] = [
@@ -242,6 +332,24 @@ const CLIENT_NOTIFICATIONS: PersonNotification[] = [
     minutesAgo: 1_100,
     unread: false,
     href: "/matters",
+  },
+  {
+    id: "cl-5",
+    kind: "deadline",
+    title: "Payment reminder",
+    detail: "INV-010016 balance is past due — pay from the client portal",
+    minutesAgo: 90,
+    unread: true,
+    href: "/client-portal/pay",
+  },
+  {
+    id: "cl-6",
+    kind: "matter_assignment",
+    title: "Meeting tomorrow",
+    detail: "Board strategy call with Jordan Harper at 4:00 PM",
+    minutesAgo: 300,
+    unread: true,
+    href: "/calendar",
   },
 ];
 
