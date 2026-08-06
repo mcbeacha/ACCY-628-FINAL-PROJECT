@@ -898,7 +898,6 @@ function CaseEvaluationForm({
                   <option value="no">No</option>
                   <option value="yes">Yes</option>
                 </select>
-                </select>
               </div>
               <div className="flex flex-col gap-1.5 w-full min-w-0">
                 <label className="text-sm font-medium" htmlFor="case_eval_lead_source">

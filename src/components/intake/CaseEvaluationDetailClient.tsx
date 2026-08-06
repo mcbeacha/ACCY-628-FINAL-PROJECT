@@ -10,7 +10,7 @@ import {
 import { formatDate } from "@/lib/format";
 import type { LeadSource, MarketingCampaign } from "@/lib/marketing-types";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile } from "@/lib/types";
+import type { Profile, UserRole } from "@/lib/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
