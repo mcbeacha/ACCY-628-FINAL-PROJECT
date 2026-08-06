@@ -57,10 +57,12 @@ export type Matter = {
   originating_attorney_id: string | null;
   billing_method: string | null;
   hourly_rate: number | null;
+  court_hourly_rate: number | null;
   fixed_fee_amount: number | null;
   contingency_percentage: number | null;
   initial_retainer_amount: number | null;
   retainer_replenishment_threshold: number | null;
+  maximum_fee_amount: number | null;
   estimated_matter_value: number | null;
   matter_budget: number | null;
   planned_labor_hours?: number | null;

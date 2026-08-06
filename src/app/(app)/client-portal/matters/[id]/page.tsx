@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
+import { EngagementContractFeeTerms } from "@/components/EngagementContractFeeTerms";
 import { DEMO_CLIENT_NOTICE } from "@/lib/demo-config";
 import { requireCurrentClientPortal } from "@/lib/client-portal-data";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -89,6 +90,16 @@ export default async function ClientPortalMatterDetailPage({
               Contact legal team
             </Link>
           </div>
+        </div>
+      </div>
+
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body space-y-3">
+          <h2 className="card-title text-base">Your engagement contract — fee terms</h2>
+          <p className="text-xs opacity-60">
+            How hourly charges, maximum fees, retainers, and court-time rates work on this matter.
+          </p>
+          <EngagementContractFeeTerms matter={matter} compact />
         </div>
       </div>
 
