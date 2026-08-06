@@ -4,6 +4,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
 import { formatCurrency, formatDate } from "@/lib/format";
+import {
+  BILLING_ACTIVITIES,
+  matchesMatterActivity,
+} from "@/lib/billing-codes";
 import { calcBillableAmount } from "@/lib/phase2-types";
 import type { TimeEntry } from "@/lib/phase2-types";
 import Link from "next/link";
@@ -12,7 +16,15 @@ import { redirect } from "next/navigation";
 export default async function MyTimePage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; billable?: string; q?: string; from?: string; oos?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    billable?: string;
+    q?: string;
+    matter?: string;
+    activity?: string;
+    from?: string;
+    oos?: string;
+  }>;
 }) {
   const { profile, supabase } = await requireUser();
   if (!canEnterTime(profile.role)) redirect("/dashboard");
@@ -29,11 +41,17 @@ export default async function MyTimePage({
   }
   if (params.status) query = query.eq("approval_status", params.status);
   if (params.billable) query = query.eq("billable_status", params.billable);
+  if (params.matter) query = query.eq("matter_id", params.matter);
   if (params.from) query = query.gte("work_date", params.from);
   if (params.oos === "1") query = query.eq("out_of_scope", true);
 
   const { data } = await query;
   let rows = (data || []) as TimeEntry[];
+
+  if (params.activity) {
+    rows = rows.filter((r) => matchesMatterActivity(r.billing_code, null, params.activity));
+  }
+
   if (params.q?.trim()) {
     const q = params.q.toLowerCase();
     rows = rows.filter((r) =>
@@ -48,10 +66,40 @@ export default async function MyTimePage({
     params.status ? `Status: ${params.status}` : null,
     params.from ? `From: ${params.from}` : null,
     params.billable ? `Billable: ${params.billable}` : null,
+    params.matter ? "Matter filtered" : null,
+    params.activity ? `Activity: ${params.activity}` : null,
     params.oos === "1" ? "Out-of-scope only" : null,
   ]
     .filter(Boolean)
     .join(" · ");
+
+  let matterQuery = supabase
+    .from("time_entries")
+    .select("matter_id, matters(id, matter_number, matter_name)")
+    .order("work_date", { ascending: false });
+  if (profile.role !== "managing_partner") {
+    matterQuery = matterQuery.eq("employee_id", profile.id);
+  }
+  const { data: matterSource } = await matterQuery;
+  const matterOptionsMap = new Map<
+    string,
+    { id: string; matter_number: string; matter_name: string }
+  >();
+  for (const row of matterSource || []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = (row as any).matters;
+    const matter = Array.isArray(m) ? m[0] : m;
+    if (matter?.id && !matterOptionsMap.has(matter.id)) {
+      matterOptionsMap.set(matter.id, {
+        id: matter.id,
+        matter_number: matter.matter_number,
+        matter_name: matter.matter_name,
+      });
+    }
+  }
+  const matterOptions = [...matterOptionsMap.values()].sort((a, b) =>
+    a.matter_number.localeCompare(b.matter_number)
+  );
 
   return (
     <>
@@ -61,8 +109,8 @@ export default async function MyTimePage({
           filterNote
             ? `Filtered view — ${filterNote}`
             : firmWide
-              ? "Firm-wide time entries by matter, date, and approval status."
-              : "Your time entries by matter, date, and approval status."
+              ? "Firm-wide time entries by matter, date, billing activity, and approval status."
+              : "Your time entries by matter, date, billing activity, and approval status."
         }
         actions={
           <div className="flex flex-wrap gap-2">
@@ -77,39 +125,89 @@ export default async function MyTimePage({
       />
 
       <form className="card bg-base-100 border border-base-300 shadow-sm">
-        <div className="card-body py-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-          <input
-            name="q"
-            defaultValue={params.q || ""}
-            className="input input-bordered"
-            placeholder="Search code or description"
-          />
-          <select name="status" defaultValue={params.status || ""} className="select select-bordered">
-            <option value="">All statuses</option>
-            {["Draft", "Submitted", "Approved", "Rejected"].map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-          <select name="billable" defaultValue={params.billable || ""} className="select select-bordered">
-            <option value="">All billable</option>
-            {["Billable", "Nonbillable", "No Charge"].map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-          <select name="oos" defaultValue={params.oos || ""} className="select select-bordered">
-            <option value="">All scope</option>
-            <option value="1">Out-of-scope only</option>
-          </select>
-          <input
-            name="from"
-            type="date"
-            defaultValue={params.from || ""}
-            className="input input-bordered"
-            title="From date"
-          />
-          <button className="btn btn-primary" type="submit">
-            Filter
-          </button>
+        <div className="card-body py-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <label className="form-control w-full">
+            <span className="label-text font-semibold text-sm">Search</span>
+            <input
+              name="q"
+              defaultValue={params.q || ""}
+              className="input input-bordered"
+              placeholder="Code or description"
+            />
+          </label>
+          <label className="form-control w-full">
+            <span className="label-text font-semibold text-sm">Matter</span>
+            <select name="matter" defaultValue={params.matter || ""} className="select select-bordered">
+              <option value="">All matters</option>
+              {matterOptions.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.matter_number} · {m.matter_name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="form-control w-full">
+            <span className="label-text font-semibold text-sm">Activity</span>
+            <select
+              name="activity"
+              defaultValue={params.activity || ""}
+              className="select select-bordered"
+            >
+              <option value="">All activities</option>
+              {BILLING_ACTIVITIES.map((a) => (
+                <option key={a.code} value={a.code}>
+                  {a.code} · {a.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="form-control w-full">
+            <span className="label-text font-semibold text-sm">Status</span>
+            <select name="status" defaultValue={params.status || ""} className="select select-bordered">
+              <option value="">All statuses</option>
+              {["Draft", "Submitted", "Approved", "Rejected"].map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="form-control w-full">
+            <span className="label-text font-semibold text-sm">Billable</span>
+            <select
+              name="billable"
+              defaultValue={params.billable || ""}
+              className="select select-bordered"
+            >
+              <option value="">All billable</option>
+              {["Billable", "Nonbillable", "No Charge"].map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="form-control w-full">
+            <span className="label-text font-semibold text-sm">From date</span>
+            <input
+              name="from"
+              type="date"
+              defaultValue={params.from || ""}
+              className="input input-bordered"
+            />
+          </label>
+          <label className="form-control w-full">
+            <span className="label-text font-semibold text-sm">Out of scope</span>
+            <select name="oos" defaultValue={params.oos || ""} className="select select-bordered">
+              <option value="">All entries</option>
+              <option value="1">Out-of-scope only</option>
+            </select>
+          </label>
+          <div className="flex items-end">
+            <button className="btn btn-primary w-full" type="submit">
+              Filter
+            </button>
+          </div>
         </div>
       </form>
 

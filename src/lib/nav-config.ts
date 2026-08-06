@@ -130,7 +130,7 @@ export const HEADER_ONLY_HREFS = new Set<string>(["/messages"]);
 
 export const DASHBOARD_LINK: NavLinkDef = {
   href: "/dashboard",
-  label: "Dashboard",
+  label: "Home",
 };
 
 export const DASHBOARD_ICON = LayoutDashboard;

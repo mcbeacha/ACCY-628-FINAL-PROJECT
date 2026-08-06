@@ -25,6 +25,7 @@ export function AttorneyDocumentRequestForm({ profile, compact = false }: Props)
   const [paralegalsByMatter, setParalegalsByMatter] = useState<
     Record<string, { id: string; name: string }[]>
   >({});
+  const [clientId, setClientId] = useState("");
   const [matterId, setMatterId] = useState("");
   const [paralegalId, setParalegalId] = useState("");
   const [instructions, setInstructions] = useState("");
@@ -96,7 +97,34 @@ export function AttorneyDocumentRequestForm({ profile, compact = false }: Props)
     };
   }, [supabase]);
 
+  const clients = useMemo(() => {
+    const map = new Map<string, Client>();
+    for (const m of matters) {
+      const client = Array.isArray(m.clients) ? m.clients[0] : m.clients;
+      if (!client?.id || map.has(client.id)) continue;
+      map.set(client.id, client);
+    }
+    return [...map.values()].sort((a, b) =>
+      clientDisplayName(a).localeCompare(clientDisplayName(b))
+    );
+  }, [matters]);
+
+  const mattersForClient = useMemo(
+    () => (clientId ? matters.filter((m) => m.client_id === clientId) : []),
+    [matters, clientId]
+  );
+
   const paralegals = matterId ? paralegalsByMatter[matterId] || [] : [];
+
+  useEffect(() => {
+    if (!clientId) {
+      setMatterId("");
+      return;
+    }
+    if (matterId && !mattersForClient.some((m) => m.id === matterId)) {
+      setMatterId("");
+    }
+  }, [clientId, matterId, mattersForClient]);
 
   useEffect(() => {
     if (!matterId) {
@@ -114,7 +142,7 @@ export function AttorneyDocumentRequestForm({ profile, compact = false }: Props)
     const matter = matters.find((m) => m.id === matterId);
     const paralegal = paralegals.find((p) => p.id === paralegalId);
     if (!matter || !paralegal) {
-      setError("Select a matter and an assigned paralegal.");
+      setError("Select a client, matter, and assigned paralegal.");
       return;
     }
     if (!instructions.trim()) {
@@ -173,8 +201,31 @@ export function AttorneyDocumentRequestForm({ profile, compact = false }: Props)
         ) : (
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="form-grid">
+              <label className="label-cell" htmlFor="doc-client">
+                Client
+              </label>
+              <div className="field-cell">
+                <select
+                  id="doc-client"
+                  className="select select-bordered w-full"
+                  value={clientId}
+                  onChange={(e) => {
+                    setClientId(e.target.value);
+                    setMatterId("");
+                  }}
+                  required
+                >
+                  <option value="">Select a client…</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {clientDisplayName(c)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <label className="label-cell" htmlFor="doc-matter">
-                Matter / client
+                Matter
               </label>
               <div className="field-cell">
                 <select
@@ -183,12 +234,14 @@ export function AttorneyDocumentRequestForm({ profile, compact = false }: Props)
                   value={matterId}
                   onChange={(e) => setMatterId(e.target.value)}
                   required
+                  disabled={!clientId}
                 >
-                  <option value="">Select a matter…</option>
-                  {matters.map((m) => (
+                  <option value="">
+                    {clientId ? "Select a matter…" : "Select a client first…"}
+                  </option>
+                  {mattersForClient.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.matter_number} · {m.matter_name} —{" "}
-                      {clientDisplayName(m.clients as Client)}
+                      {m.matter_number} · {m.matter_name}
                     </option>
                   ))}
                 </select>
