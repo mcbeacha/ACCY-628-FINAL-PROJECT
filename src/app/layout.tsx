@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Source_Sans_3 } from "next/font/google";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 
-const sourceSans = Source_Sans_3({
-  variable: "--font-source-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
-});
-
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
-  weight: ["500", "600", "700"],
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -24,7 +19,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       data-theme="rebel-navy"
-      className={`${sourceSans.variable} ${cormorant.variable} h-full`}
+      className={`${manrope.variable} h-full`}
       suppressHydrationWarning
     >
       <body className="min-h-full antialiased">

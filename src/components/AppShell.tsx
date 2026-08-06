@@ -82,14 +82,14 @@ export function AppShell({
 
             <div className="flex-1 gap-2 sm:gap-3 min-w-0">
               <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-                <span className="btn btn-square btn-primary btn-sm pointer-events-none app-brand-mark">
+                <span className="btn btn-square btn-primary btn-sm pointer-events-none app-brand-mark shadow-none">
                   <Scale className="h-4 w-4" />
                 </span>
                 <span className="min-w-0 hidden xs:block sm:block">
-                  <span className="font-display text-base sm:text-lg font-semibold block truncate">
+                  <span className="font-display text-[0.95rem] sm:text-base block truncate leading-tight">
                     {APP_NAME}
                   </span>
-                  <span className="text-xs opacity-60 hidden md:block truncate">
+                  <span className="text-[0.7rem] text-base-content/50 hidden md:block truncate tracking-wide uppercase">
                     {APP_SUBTITLE}
                   </span>
                 </span>
@@ -171,31 +171,31 @@ export function AppShell({
             className="drawer-overlay lg:hidden"
             aria-label="Close navigation menu"
           />
-          <aside className="app-sidebar border-r min-h-full w-72 max-w-[85vw] p-4 flex flex-col">
-            <div className="flex items-center gap-2 mb-4 px-1 lg:hidden">
-              <span className="btn btn-square btn-primary btn-xs pointer-events-none app-brand-mark">
+          <aside className="app-sidebar min-h-full w-72 max-w-[85vw] p-4 flex flex-col">
+            <div className="flex items-center gap-2 mb-5 px-1 lg:hidden">
+              <span className="btn btn-square btn-primary btn-xs pointer-events-none app-brand-mark shadow-none">
                 <Scale className="h-3.5 w-3.5" />
               </span>
-              <span className="font-display font-semibold truncate">{APP_NAME}</span>
+              <span className="font-display truncate text-sm">{APP_NAME}</span>
             </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary/70 mb-3 px-2">
-              Navigation
+            <p className="app-sidebar-label text-[0.65rem] font-semibold uppercase tracking-[0.16em] mb-3 px-2">
+              Workspace
             </p>
             <div className="flex-1 overflow-y-auto overscroll-contain pr-1">
               <SidebarNav role={profile.role} closeDrawerOnNavigate />
             </div>
-            <div className="mt-6 p-3 rounded-lg border border-primary/15 bg-base-100/70 text-xs opacity-80">
+            <div className="app-sidebar-foot mt-6 p-3 rounded-md text-xs">
               {demoMode ? (
                 <>
-                  Demo user: <span className="font-semibold">{profile.full_name}</span>
+                  Demo user: <span className="font-semibold text-[var(--sidebar-fg)]">{profile.full_name}</span>
                   <div className="mt-1">{ROLE_LABELS[profile.role]}</div>
-                  <div className="mt-2 opacity-60">
+                  <div className="mt-2 opacity-80">
                     Simulated permissions for presentation — not real authentication.
                   </div>
                 </>
               ) : (
                 <>
-                  Signed in as <span className="font-semibold">{profile.email}</span>
+                  Signed in as <span className="font-semibold text-[var(--sidebar-fg)]">{profile.email}</span>
                   <div className="mt-1 md:hidden">{ROLE_LABELS[profile.role]}</div>
                 </>
               )}

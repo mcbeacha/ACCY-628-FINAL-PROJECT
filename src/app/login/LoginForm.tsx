@@ -125,55 +125,68 @@ export function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen app-canvas flex flex-col">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/12 via-transparent to-accent/10" />
-        <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-accent/15 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-primary/15 blur-3xl" />
-      </div>
+    <div className="min-h-screen flex flex-col lg:flex-row bg-base-200">
+      <section className="login-brand-panel relative hidden lg:flex lg:w-[44%] xl:w-[46%] flex-col justify-between p-10 xl:p-14">
+        <div>
+          <div className="inline-flex items-center gap-3">
+            <span className="btn btn-square bg-white/10 border-white/15 text-white pointer-events-none shadow-none app-brand-mark">
+              <Scale className="h-5 w-5" />
+            </span>
+            <span className="font-display text-xl tracking-tight">{APP_NAME}</span>
+          </div>
+          <h1 className="font-display text-3xl xl:text-4xl leading-tight mt-10 max-w-md">
+            Engagement control from first agreement to matter oversight
+          </h1>
+          <div className="login-accent-line" aria-hidden />
+          <p className="mt-5 text-base text-white/75 max-w-md leading-relaxed">
+            A professional workspace for client intake, engagement terms, staffing,
+            tasks, and billing readiness—built for classroom demonstrations with
+            fictional data only.
+          </p>
+        </div>
+        <ul className="space-y-3 text-sm text-white/70">
+          <li className="flex gap-2">
+            <span className="text-accent mt-0.5" aria-hidden>
+              —
+            </span>
+            Role-based access for partners, attorneys, staff, and clients
+          </li>
+          <li className="flex gap-2">
+            <span className="text-accent mt-0.5" aria-hidden>
+              —
+            </span>
+            Matter approval controls before work is activated
+          </li>
+          <li className="flex gap-2">
+            <span className="text-accent mt-0.5" aria-hidden>
+              —
+            </span>
+            Structured engagement and billing-readiness fields
+          </li>
+        </ul>
+      </section>
 
-      <div className="relative z-10 flex justify-end p-4">
-        <ThemeSelector compact />
-      </div>
+      <div className="flex-1 flex flex-col min-h-screen">
+        <div className="flex justify-end p-4">
+          <ThemeSelector compact />
+        </div>
 
-      <div className="relative z-10 flex-1 flex items-center justify-center px-4 pb-10">
-        <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-8 items-center">
-          <section className="hidden lg:block text-base-content px-4">
-            <div className="inline-flex items-center gap-2 mb-6">
-              <span className="btn btn-primary btn-square app-brand-mark">
-                <Scale className="h-5 w-5" />
+        <div className="flex-1 flex items-center justify-center px-4 pb-10">
+          <div className="w-full max-w-md">
+            <div className="lg:hidden flex items-center gap-2 mb-6">
+              <span className="btn btn-primary btn-square btn-sm shadow-none app-brand-mark">
+                <Scale className="h-4 w-4" />
               </span>
-              <span className="font-display text-2xl font-bold">{APP_NAME}</span>
+              <span className="font-display text-xl tracking-tight">{APP_NAME}</span>
             </div>
-            <h1 className="font-display text-4xl font-bold leading-tight page-title-rule">
-              Engagement control from first agreement to matter oversight
-            </h1>
-            <p className="mt-4 text-lg opacity-80 max-w-md">
-              A professional workspace for client intake, engagement terms, staffing,
-              tasks, and billing readiness—built for classroom demonstrations with
-              fictional data only.
-            </p>
-            <ul className="mt-8 space-y-3 text-sm opacity-80">
-              <li>• Role-based access for partners, attorneys, staff, and clients</li>
-              <li>• Matter approval controls before work is activated</li>
-              <li>• Structured engagement and billing-readiness fields</li>
-            </ul>
-          </section>
 
-          <div className="card bg-base-100 shadow-xl border border-base-300">
-            <div className="card-body">
-              <div className="lg:hidden flex items-center gap-2 mb-2">
-                <span className="btn btn-primary btn-square btn-sm">
-                  <Scale className="h-4 w-4" />
-                </span>
-                <span className="font-display text-xl font-bold">{APP_NAME}</span>
-              </div>
-              <h2 className="card-title font-display text-2xl">
+            <div className="rounded-lg border border-base-content/10 bg-base-100 p-6 sm:p-8 shadow-sm">
+              <h2 className="font-display text-2xl tracking-tight">
                 {mode === "login" ? "Sign in" : "Create account"}
               </h2>
-              <p className="text-sm opacity-70">{APP_SUBTITLE}</p>
+              <p className="text-sm text-base-content/60 mt-1">{APP_SUBTITLE}</p>
 
-              <form className="mt-4 space-y-4" onSubmit={onSubmit}>
+              <form className="mt-6 space-y-4" onSubmit={onSubmit}>
                 {mode === "signup" && (
                   <div className="form-grid">
                     <label className="label-cell" htmlFor="fullName">
@@ -247,11 +260,11 @@ export function LoginForm() {
                 </button>
               </form>
 
-              <div className="divider text-xs">or</div>
+              <div className="divider text-xs my-5">or</div>
 
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
+                className="btn btn-ghost btn-sm w-full"
                 onClick={() => {
                   setMode(mode === "login" ? "signup" : "login");
                   setError(null);
@@ -263,18 +276,18 @@ export function LoginForm() {
                   : "Already registered? Log in"}
               </button>
 
-              <p className="text-xs opacity-60 mt-2">
+              <p className="text-xs text-base-content/55 mt-4 leading-relaxed">
                 Public signups receive the <strong>Client</strong> role only. Staff roles
                 are assigned through seed accounts or partner control—not self-selected.
               </p>
             </div>
           </div>
         </div>
-      </div>
 
-      <p className="relative z-10 text-center text-xs opacity-60 pb-6 px-4">
-        {ACADEMIC_NOTICE}
-      </p>
+        <p className="text-center text-xs text-base-content/50 pb-6 px-4">
+          {ACADEMIC_NOTICE}
+        </p>
+      </div>
     </div>
   );
 }
