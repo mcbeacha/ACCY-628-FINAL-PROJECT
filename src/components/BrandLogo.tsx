@@ -1,0 +1,51 @@
+import Image from "next/image";
+import Link from "next/link";
+import { APP_NAME, APP_SUBTITLE } from "@/lib/constants";
+
+const LOGO_SRC = "/rebel-law-group-logo.png";
+
+type Props = {
+  /** Compact mark + wordmark for the top navbar. */
+  variant?: "header" | "sidebar";
+  href?: string;
+};
+
+export function BrandLogo({ variant = "header", href = "/dashboard" }: Props) {
+  if (variant === "sidebar") {
+    return (
+      <Link
+        href={href}
+        className="block px-1 mb-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary rounded-lg"
+        aria-label={APP_NAME}
+      >
+        <Image
+          src={LOGO_SRC}
+          alt={APP_NAME}
+          width={220}
+          height={260}
+          className="w-full max-w-[10.5rem] mx-auto h-auto object-contain"
+          priority
+        />
+      </Link>
+    );
+  }
+
+  return (
+    <Link href={href} className="flex items-center gap-2 min-w-0" aria-label={APP_NAME}>
+      <Image
+        src={LOGO_SRC}
+        alt=""
+        width={40}
+        height={40}
+        className="h-9 w-9 shrink-0 rounded-md object-cover object-top bg-base-100 border border-base-300"
+        priority
+      />
+      <span className="min-w-0 hidden sm:block">
+        <span className="font-display text-base sm:text-lg font-semibold block truncate">
+          {APP_NAME}
+        </span>
+        <span className="text-xs opacity-60 hidden md:block truncate">{APP_SUBTITLE}</span>
+      </span>
+    </Link>
+  );
+}
