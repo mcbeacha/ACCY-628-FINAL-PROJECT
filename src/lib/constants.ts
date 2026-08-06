@@ -167,6 +167,7 @@ export function statusBadgeClass(status: string): string {
     case "Completed":
     case "Ready":
     case "Compliant":
+    case "Posted":
       return "badge-success";
     case "Pending Approval":
     case "On Hold":
@@ -175,11 +176,16 @@ export function statusBadgeClass(status: string): string {
     case "Missing Information":
     case "Needs Attention":
     case "Prospective":
+    case "Unbilled":
+    case "Client Funds":
+    case "Deferred":
+    case "Ready for Review":
       return "badge-warning";
     case "Canceled":
     case "Rejected":
     case "Returned for Correction":
     case "Not Ready":
+    case "Missing Support":
       return "badge-error";
     case "Draft":
     case "Closed":

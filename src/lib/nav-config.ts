@@ -86,6 +86,7 @@ export const NAV_SECTIONS: NavSectionDef[] = [
       { href: "/retainers", label: "Retainers" },
       { href: "/trust-ledger", label: "Trust Ledger" },
       { href: "/journal", label: "Journal Entries" },
+      { href: "/revenue-recognition", label: "Revenue Recognition" },
       { href: "/portal/billing", label: "My Invoices & Payments" },
     ],
   },
