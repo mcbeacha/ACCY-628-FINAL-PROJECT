@@ -58,9 +58,7 @@ export function WeeklyUtilizationCard({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="card-title text-base">Weekly utilization</h2>
-            <p className="text-xs opacity-60 -mt-0.5">
-              Week of {formatDate(weekStart)} · billable hours ÷ available hours
-            </p>
+            <p className="text-xs opacity-60 -mt-0.5">Week of {formatDate(weekStart)}</p>
           </div>
           <Link href={href} className="link text-sm">
             View time
@@ -135,11 +133,6 @@ export function WeeklyUtilizationCard({
           <Metric label="Nonbillable" value={`${nonbillable.toFixed(1)}h`} />
           <Metric label="Total logged" value={`${totalHours.toFixed(1)}h`} />
         </div>
-
-        <p className="text-xs opacity-50">
-          Available hours come from your profile (default 40). Utilization is a management estimate, not a
-          performance ranking.
-        </p>
       </div>
     </div>
   );

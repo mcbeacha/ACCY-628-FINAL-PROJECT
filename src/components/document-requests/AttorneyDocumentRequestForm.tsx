@@ -186,13 +186,7 @@ export function AttorneyDocumentRequestForm({ profile, compact = false }: Props)
   return (
     <div className={`card bg-base-100 border border-base-300 shadow-sm ${compact ? "" : ""}`}>
       <div className="card-body gap-4">
-        <div>
-          <h2 className="card-title text-base">Request documents from a client</h2>
-          <p className="text-sm opacity-70">
-            Describe what you need. Your request is routed to the matter&apos;s assigned paralegal
-            to prepare and send to the client.
-          </p>
-        </div>
+        <h2 className="card-title text-base">Request documents</h2>
 
         {loading ? (
           <div className="flex items-center gap-2 text-sm opacity-70">

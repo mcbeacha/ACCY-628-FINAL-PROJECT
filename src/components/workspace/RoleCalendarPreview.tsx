@@ -7,11 +7,9 @@ import Link from "next/link";
 /** Compact upcoming agenda for role dashboards — links to the full calendar. */
 export function RoleCalendarPreview({
   role,
-  title = "Upcoming on your calendar",
   limit = 5,
 }: {
   role: UserRole;
-  title?: string;
   limit?: number;
 }) {
   const today = new Date();
@@ -27,14 +25,14 @@ export function RoleCalendarPreview({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5 opacity-70" aria-hidden />
-            <h2 className="card-title text-base">{title}</h2>
+            <h2 className="card-title text-base">Calendar</h2>
           </div>
           <Link href="/calendar" className="btn btn-outline btn-sm">
-            Open calendar
+            View all
           </Link>
         </div>
         {upcoming.length === 0 ? (
-          <p className="text-sm opacity-60">No upcoming events for this role.</p>
+          <p className="text-sm opacity-60">Nothing upcoming.</p>
         ) : (
           <ul className="divide-y divide-base-200">
             {upcoming.map((event) => (
@@ -43,7 +41,9 @@ export function RoleCalendarPreview({
                   <p className="font-medium text-sm">{event.title}</p>
                   <p className="text-xs opacity-60">
                     {formatDate(event.date)} · {event.startTime}
-                    {event.matterRef !== "—" ? ` · ${event.matterRef}` : ""}
+                    {event.matterRef !== "—" && event.matterRef !== "Firm" && event.matterRef !== "AR"
+                      ? ` · ${event.matterRef}`
+                      : ""}
                   </p>
                 </div>
                 <span className="badge badge-ghost badge-sm shrink-0">{event.type}</span>

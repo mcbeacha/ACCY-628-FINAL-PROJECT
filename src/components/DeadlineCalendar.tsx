@@ -189,7 +189,7 @@ export function DeadlineCalendar({
           <div>
             <h2 className="card-title text-base">{title}</h2>
             <p className="text-xs opacity-60 -mt-0.5">
-              {rangeLabel} · tasks, court dates & filing deadlines through {formatDate(end)}
+              {rangeLabel} · through {formatDate(end)}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs">

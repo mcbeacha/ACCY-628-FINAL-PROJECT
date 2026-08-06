@@ -110,15 +110,10 @@ export function ParalegalDocumentQueue({ profile, mineOnly = true }: Props) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="font-display text-xl font-semibold">Document request assignments</h2>
-          <p className="text-sm opacity-70 max-w-2xl">
-            Prepare request drafts, collect documents from the client, and organize them for the
-            attorney. Follow the attorney&apos;s instructions — you are often the first to contact
-            the client.
-          </p>
+          <h2 className="font-display text-xl font-semibold">Document requests</h2>
         </div>
         <Link href="/document-requests" className="btn btn-sm btn-outline">
-          Open full queue
+          View all
         </Link>
       </div>
 
