@@ -2,12 +2,15 @@
 
 import { StatusBadge, PriorityBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
+import { Asc606MatterCard } from "@/components/Asc606MatterCard";
+import { EngagementContractFeeTerms } from "@/components/EngagementContractFeeTerms";
 import { MatterCostTab } from "@/components/MatterCostTab";
 import { PageHeader } from "@/components/PageHeader";
 import {
   TaskCompletionModal,
   type TaskCompletionResult,
 } from "@/components/TaskCompletionModal";
+import { evaluateAsc606 } from "@/lib/asc606";
 import { ASSIGNMENT_ROLES, TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
@@ -27,7 +30,7 @@ import {
 } from "./MatterWorkspaceTabs";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Props = {
   matterId: string;
@@ -37,6 +40,7 @@ type Props = {
 
 export function MatterDetailClient({ matterId, role, userId }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isClient = role === "client";
   const canApprove = role === "managing_partner";
   const canEditTasks =
@@ -45,7 +49,8 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
   const canLogTimeExpense =
     role === "managing_partner" || role === "attorney" || role === "paralegal";
 
-  const [tab, setTab] = useState("overview");
+  const initialTab = searchParams.get("tab") || "overview";
+  const [tab, setTab] = useState(initialTab);
   const [matter, setMatter] = useState<Matter | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [assignments, setAssignments] = useState<MatterAssignment[]>([]);
@@ -378,12 +383,22 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
     const patch: Record<string, unknown> = {
       billing_method: String(fd.get("billing_method") || "") || null,
       hourly_rate: fd.get("hourly_rate") ? Number(fd.get("hourly_rate")) : null,
+      court_hourly_rate: fd.get("court_hourly_rate") ? Number(fd.get("court_hourly_rate")) : null,
       fixed_fee_amount: fd.get("fixed_fee_amount") ? Number(fd.get("fixed_fee_amount")) : null,
       contingency_percentage: fd.get("contingency_percentage")
         ? Number(fd.get("contingency_percentage"))
         : null,
+      estimated_matter_value: fd.get("estimated_matter_value")
+        ? Number(fd.get("estimated_matter_value"))
+        : null,
       initial_retainer_amount: fd.get("initial_retainer_amount")
         ? Number(fd.get("initial_retainer_amount"))
+        : null,
+      retainer_replenishment_threshold: fd.get("retainer_replenishment_threshold")
+        ? Number(fd.get("retainer_replenishment_threshold"))
+        : null,
+      maximum_fee_amount: fd.get("maximum_fee_amount")
+        ? Number(fd.get("maximum_fee_amount"))
         : null,
       matter_budget: fd.get("matter_budget") ? Number(fd.get("matter_budget")) : null,
       payment_terms_days: fd.get("payment_terms_days") ? Number(fd.get("payment_terms_days")) : null,
@@ -393,9 +408,13 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
     const significantKeys = [
       "billing_method",
       "hourly_rate",
+      "court_hourly_rate",
       "fixed_fee_amount",
       "contingency_percentage",
+      "estimated_matter_value",
       "initial_retainer_amount",
+      "retainer_replenishment_threshold",
+      "maximum_fee_amount",
       "matter_budget",
       "payment_terms_days",
       "scope_summary",
@@ -717,8 +736,16 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
                 <h2 className="card-title text-base">Fee snapshot</h2>
                 <dl className="grid sm:grid-cols-2 gap-3 text-sm">
                   <div>
-                    <dt className="opacity-60">Hourly rate</dt>
+                    <dt className="opacity-60">Hourly charge</dt>
                     <dd className="font-medium">{formatCurrency(matter.hourly_rate)}</dd>
+                  </div>
+                  <div>
+                    <dt className="opacity-60">Court hourly charge</dt>
+                    <dd className="font-medium">{formatCurrency(matter.court_hourly_rate)}</dd>
+                  </div>
+                  <div>
+                    <dt className="opacity-60">Maximum charge</dt>
+                    <dd className="font-medium">{formatCurrency(matter.maximum_fee_amount)}</dd>
                   </div>
                   <div>
                     <dt className="opacity-60">Fixed fee</dt>
@@ -758,8 +785,21 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
 
       {!isClient && mockTabIds.includes(tab) && <MatterWorkspaceTabs tab={tab} />}
 
-      {tab === "engagement" && !isClient && (
+      {tab === "engagement" && !isClient && matter && (
         <div className="space-y-4">
+          <Asc606MatterCard assessment={evaluateAsc606(matter, client)} />
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
+            <div className="card-body space-y-4 text-sm">
+              <div>
+                <h2 className="card-title text-base">Engagement contract — fee terms</h2>
+                <p className="text-xs opacity-60 mt-1">
+                  Hourly charge, maximum charge, retainer mechanics (contract liability under ASC
+                  606), and court-hour premium as written into the client engagement.
+                </p>
+              </div>
+              <EngagementContractFeeTerms matter={matter} />
+            </div>
+          </div>
           <div className="card bg-base-100 border border-base-300 shadow-sm">
             <div className="card-body space-y-4 text-sm">
               <div>
@@ -802,8 +842,9 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
                   Edit significant terms
                 </h2>
                 <p className="text-xs opacity-70 md:col-span-2">
-                  Changing billing method, rates, fixed fee, contingency, retainer requirement, budget, payment
-                  terms, or scope on an approved matter returns it to Needs Review.
+                  Changing billing method, rates, maximum charge, fixed fee, contingency, retainer
+                  requirement, budget, payment terms, or scope on an approved matter returns it to
+                  Needs Review.
                 </p>
                 <label className="form-control">
                   <span className="label-text text-xs">Billing method</span>
@@ -814,13 +855,34 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
                   />
                 </label>
                 <label className="form-control">
-                  <span className="label-text text-xs">Hourly rate</span>
+                  <span className="label-text text-xs">Hourly charge</span>
                   <input
                     name="hourly_rate"
                     type="number"
                     step="0.01"
                     className="input input-bordered input-sm"
                     defaultValue={matter.hourly_rate ?? ""}
+                  />
+                </label>
+                <label className="form-control">
+                  <span className="label-text text-xs">Court hourly charge (higher)</span>
+                  <input
+                    name="court_hourly_rate"
+                    type="number"
+                    step="0.01"
+                    className="input input-bordered input-sm"
+                    defaultValue={matter.court_hourly_rate ?? ""}
+                    placeholder="Defaults to 1.5× hourly if blank"
+                  />
+                </label>
+                <label className="form-control">
+                  <span className="label-text text-xs">Maximum charge</span>
+                  <input
+                    name="maximum_fee_amount"
+                    type="number"
+                    step="0.01"
+                    className="input input-bordered input-sm"
+                    defaultValue={matter.maximum_fee_amount ?? ""}
                   />
                 </label>
                 <label className="form-control">
@@ -844,13 +906,33 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
                   />
                 </label>
                 <label className="form-control">
-                  <span className="label-text text-xs">Initial retainer</span>
+                  <span className="label-text text-xs">Estimated matter value (not revenue)</span>
+                  <input
+                    name="estimated_matter_value"
+                    type="number"
+                    step="0.01"
+                    className="input input-bordered input-sm"
+                    defaultValue={matter.estimated_matter_value ?? ""}
+                  />
+                </label>
+                <label className="form-control">
+                  <span className="label-text text-xs">Initial retainer (contract liability)</span>
                   <input
                     name="initial_retainer_amount"
                     type="number"
                     step="0.01"
                     className="input input-bordered input-sm"
                     defaultValue={matter.initial_retainer_amount ?? ""}
+                  />
+                </label>
+                <label className="form-control">
+                  <span className="label-text text-xs">Retainer replenishment threshold</span>
+                  <input
+                    name="retainer_replenishment_threshold"
+                    type="number"
+                    step="0.01"
+                    className="input input-bordered input-sm"
+                    defaultValue={matter.retainer_replenishment_threshold ?? ""}
                   />
                 </label>
                 <label className="form-control">

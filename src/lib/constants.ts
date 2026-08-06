@@ -159,17 +159,20 @@ export function statusBadgeClass(status: string): string {
     case "Approved":
     case "Completed":
     case "Ready":
+    case "Compliant":
       return "badge-success";
     case "Pending Approval":
     case "On Hold":
     case "Needs Review":
     case "Waiting":
     case "Missing Information":
+    case "Needs Attention":
     case "Prospective":
       return "badge-warning";
     case "Canceled":
     case "Rejected":
     case "Returned for Correction":
+    case "Not Ready":
       return "badge-error";
     case "Draft":
     case "Closed":

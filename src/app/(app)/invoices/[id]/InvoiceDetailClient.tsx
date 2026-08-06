@@ -310,7 +310,7 @@ export function InvoiceDetailClient(props: Props) {
     const { error: err } = await supabase.rpc("finalize_invoice", { p_invoice_id: inv.id });
     if (err) setError(err.message);
     else {
-      setMessage("Invoice finalized. Simulated AR journal entry created.");
+      setMessage("Invoice finalized. ASC 606: revenue recognized for satisfied performance obligations; simulated AR journal entry created.");
       await refresh();
     }
     setBusy(false);
@@ -332,7 +332,7 @@ export function InvoiceDetailClient(props: Props) {
     });
     if (err) setError(err.message);
     else {
-      setMessage("Retainer applied (simulated).");
+      setMessage("Retainer applied (ASC 606): contract liability reduced against earned invoice; simulated.");
       setRetainerAmt("");
       await refresh();
     }

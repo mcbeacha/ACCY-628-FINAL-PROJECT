@@ -90,7 +90,7 @@ export default async function JournalPage({
     <>
       <PageHeader
         title="Simulated Journal Entries"
-        description="Read-only report of balanced simulated GL postings from financial events."
+        description="ASC 606 teaching ledger: Retainer Deposit = contract liability (not revenue); Invoice Finalized = revenue recognition when POs are satisfied; Retainer Application reduces contract liability against earned fees."
       />
 
       <form>
