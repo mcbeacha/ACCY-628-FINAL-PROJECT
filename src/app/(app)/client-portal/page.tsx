@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/Badges";
 import { SwitchDemoClientButton } from "@/components/client-portal/SwitchDemoClientButton";
+import { RoleCalendarPreview } from "@/components/workspace/RoleCalendarPreview";
 import { DEMO_CLIENT_NOTICE } from "@/lib/demo-config";
 import {
   clientFacingInvoiceStatus,
@@ -73,6 +74,9 @@ export default async function ClientPortalDashboardPage() {
         <Link href="/client-portal/matters" className="btn btn-outline">
           View My Matters
         </Link>
+        <Link href="/calendar" className="btn btn-outline">
+          My Calendar
+        </Link>
         <Link href="/client-portal/retainers" className="btn btn-outline">
           Review Retainer Activity
         </Link>
@@ -80,6 +84,8 @@ export default async function ClientPortalDashboardPage() {
           Contact My Legal Team
         </Link>
       </div>
+
+      <RoleCalendarPreview role="client" title="My upcoming dates" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard label="Active matters" value={activeMatters.length} href="/client-portal/matters" />

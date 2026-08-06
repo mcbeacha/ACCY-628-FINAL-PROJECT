@@ -87,25 +87,18 @@ export type ActivityEvent = {
   minutesAgo: number;
 };
 
-export type CalendarEventType =
-  | "Hearing"
-  | "Deposition"
-  | "Client Meeting"
-  | "Filing Deadline"
-  | "Statute Deadline"
-  | "Internal Meeting"
-  | "CLE";
+export type {
+  CalendarEvent,
+  CalendarEventType,
+} from "@/lib/calendar";
 
-export type CalendarEvent = {
-  id: string;
-  title: string;
-  type: CalendarEventType;
-  date: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  matterRef: string;
-};
+export {
+  CALENDAR_EVENTS,
+  eventsForRole,
+  eventsOnDate,
+  calendarConfigForRole,
+  filterTypesForRole,
+} from "@/lib/calendar";
 
 export type DocumentRecord = {
   id: string;
@@ -534,99 +527,6 @@ export const ACTIVITY: ActivityEvent[] = [
     description: "added a call note from opposing counsel",
     matterRef: "2026-0108",
     minutesAgo: 2_900,
-  },
-];
-
-export const CALENDAR_EVENTS: CalendarEvent[] = [
-  {
-    id: "ev-1",
-    title: "Motion hearing — Northvale Logistics",
-    type: "Hearing",
-    date: dayOffset(0),
-    startTime: "9:30 AM",
-    endTime: "11:00 AM",
-    location: "Lafayette County Circuit Court, Courtroom 2",
-    matterRef: "2026-0114",
-  },
-  {
-    id: "ev-2",
-    title: "Client strategy call — Cedar Ridge",
-    type: "Client Meeting",
-    date: dayOffset(0),
-    startTime: "2:00 PM",
-    endTime: "2:45 PM",
-    location: "Video conference",
-    matterRef: "2026-0127",
-  },
-  {
-    id: "ev-3",
-    title: "Deposition — R. Alvarez",
-    type: "Deposition",
-    date: dayOffset(1),
-    startTime: "10:00 AM",
-    endTime: "3:00 PM",
-    location: "Rebel Law Group, Conference Room A",
-    matterRef: "2026-0108",
-  },
-  {
-    id: "ev-4",
-    title: "Discovery responses due",
-    type: "Filing Deadline",
-    date: dayOffset(2),
-    startTime: "5:00 PM",
-    endTime: "5:00 PM",
-    location: "E-filing portal",
-    matterRef: "2026-0108",
-  },
-  {
-    id: "ev-5",
-    title: "Preliminary injunction hearing",
-    type: "Hearing",
-    date: dayOffset(3),
-    startTime: "1:15 PM",
-    endTime: "3:00 PM",
-    location: "U.S. District Court, N.D. Miss.",
-    matterRef: "2026-0131",
-  },
-  {
-    id: "ev-6",
-    title: "Practice group meeting",
-    type: "Internal Meeting",
-    date: dayOffset(4),
-    startTime: "8:30 AM",
-    endTime: "9:15 AM",
-    location: "Oxford office",
-    matterRef: "—",
-  },
-  {
-    id: "ev-7",
-    title: "CLE — Evidence update",
-    type: "CLE",
-    date: dayOffset(8),
-    startTime: "12:00 PM",
-    endTime: "1:30 PM",
-    location: "Webinar",
-    matterRef: "—",
-  },
-  {
-    id: "ev-8",
-    title: "Statute of limitations — negligence claim",
-    type: "Statute Deadline",
-    date: dayOffset(12),
-    startTime: "All day",
-    endTime: "All day",
-    location: "Docket control",
-    matterRef: "2026-0096",
-  },
-  {
-    id: "ev-9",
-    title: "Quarterly client review — Sunbelt Grocers",
-    type: "Client Meeting",
-    date: dayOffset(-3),
-    startTime: "11:00 AM",
-    endTime: "12:00 PM",
-    location: "Jackson office",
-    matterRef: "2026-0122",
   },
 ];
 
@@ -1348,10 +1248,4 @@ export function searchWorkspace(query: string, limit = 8): SearchRecord[] {
   return SEARCH_INDEX.filter(
     (r) => r.title.toLowerCase().includes(q) || r.subtitle.toLowerCase().includes(q)
   ).slice(0, limit);
-}
-
-export function eventsOnDate(isoDate: string): CalendarEvent[] {
-  return CALENDAR_EVENTS.filter((e) => e.date === isoDate).sort((a, b) =>
-    a.startTime.localeCompare(b.startTime)
-  );
 }

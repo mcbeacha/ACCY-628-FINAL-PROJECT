@@ -22,6 +22,7 @@ import type { Client, Matter, MatterTask, Profile } from "@/lib/types";
 import { SectionHeader } from "@/components/workspace/SectionHeader";
 import { TodaysFocus } from "@/components/workspace/TodaysFocus";
 import { PartnerQuickActions } from "@/components/workspace/PartnerQuickActions";
+import { RoleCalendarPreview } from "@/components/workspace/RoleCalendarPreview";
 import { DeadlineCard } from "@/components/workspace/DeadlineCard";
 import { ActivityFeed } from "@/components/workspace/ActivityFeed";
 import { ActiveMattersPanel } from "@/components/workspace/ActiveMattersPanel";
@@ -191,6 +192,9 @@ async function PartnerDashboard({
               {inboxMeta.title}
               {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
             </Link>
+            <Link href="/calendar" className="btn btn-outline btn-sm">
+              Open calendar
+            </Link>
             <Link href="/reports" className="btn btn-outline btn-sm">
               Open reports
             </Link>
@@ -206,6 +210,11 @@ async function PartnerDashboard({
         />
         <PartnerQuickActions />
       </section>
+
+      <RoleCalendarPreview
+        role="managing_partner"
+        title="Firm calendar — partner view"
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -971,13 +980,20 @@ async function StaffDashboard({
         title="Paralegal/Legal Staff Workspace"
         description="Process document requests, track assigned tasks, due dates, matter support work, and timekeeping."
         actions={
-          <Link href="/inbox" className="btn btn-primary btn-sm">
-            {inboxMeta.title}
-            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
-          </Link>
+          <>
+            <Link href="/inbox" className="btn btn-primary btn-sm">
+              {inboxMeta.title}
+              {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+            </Link>
+            <Link href="/calendar" className="btn btn-outline btn-sm">
+              Open calendar
+            </Link>
+          </>
         }
       />
       <ParalegalDocumentQueue profile={profile} mineOnly />
+
+      <RoleCalendarPreview role="paralegal" title="Staff calendar — upcoming" />
 
       <section className="space-y-3">
         <SectionHeader
@@ -1266,12 +1282,18 @@ async function BillingDashboard({
         title="Billing & Collections Dashboard"
         description="Unbilled work, draft invoices, AR aging cues, payments, and retainers."
         actions={
-          <Link href="/inbox" className="btn btn-primary btn-sm">
-            {inboxMeta.title}
-            {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
-          </Link>
+          <>
+            <Link href="/inbox" className="btn btn-primary btn-sm">
+              {inboxMeta.title}
+              {inboxItems.length > 0 ? ` (${inboxItems.length})` : ""}
+            </Link>
+            <Link href="/calendar" className="btn btn-outline btn-sm">
+              Open calendar
+            </Link>
+          </>
         }
       />
+      <RoleCalendarPreview role="billing_staff" title="Billing calendar — upcoming" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Items needing attention"

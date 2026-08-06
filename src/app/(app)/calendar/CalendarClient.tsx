@@ -1,24 +1,33 @@
 "use client";
 
 import { EmptyState } from "@/components/EmptyState";
-import { formatDate } from "@/lib/format";
+import { useDemoRole } from "@/components/demo/DemoRoleProvider";
 import {
-  CALENDAR_EVENTS,
+  calendarConfigForRole,
+  eventsForRole,
   type CalendarEvent,
   type CalendarEventType,
-} from "@/lib/workspace-mock";
+} from "@/lib/calendar";
+import { formatDate } from "@/lib/format";
+import type { UserRole } from "@/lib/types";
 import {
   AlarmClock,
   Building2,
   ChevronLeft,
   ChevronRight,
+  ClipboardSignature,
+  CreditCard,
+  FileCheck2,
   FileUp,
+  Flag,
   Gavel,
   GraduationCap,
   MessageSquare,
+  Receipt,
   Users,
+  Wallet,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 type ViewMode = "Month" | "Week" | "Agenda";
 
@@ -33,9 +42,15 @@ const EVENT_META: Record<
   "Statute Deadline": { badge: "badge-error", dot: "bg-error", Icon: AlarmClock },
   "Internal Meeting": { badge: "badge-ghost", dot: "bg-base-content/40", Icon: Building2 },
   CLE: { badge: "badge-accent", dot: "bg-accent", Icon: GraduationCap },
+  "Document Due": { badge: "badge-warning", dot: "bg-warning", Icon: FileCheck2 },
+  "Payment Due": { badge: "badge-secondary", dot: "bg-secondary", Icon: CreditCard },
+  "Invoice Review": { badge: "badge-primary", dot: "bg-primary", Icon: Receipt },
+  "Billing Cutoff": { badge: "badge-error", dot: "bg-error", Icon: AlarmClock },
+  "Retainer Alert": { badge: "badge-warning", dot: "bg-warning", Icon: Wallet },
+  "Signature Needed": { badge: "badge-accent", dot: "bg-accent", Icon: ClipboardSignature },
+  Milestone: { badge: "badge-info", dot: "bg-info", Icon: Flag },
 };
 
-const EVENT_TYPES = Object.keys(EVENT_META) as CalendarEventType[];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function isoOf(date: Date): string {
@@ -72,36 +87,41 @@ function weekGrid(anchor: Date): Date[] {
   });
 }
 
-export function CalendarClient() {
+export function CalendarClient({ role: fallbackRole }: { role: UserRole }) {
+  const demo = useDemoRole();
+  const role = (demo?.activeIdentity.role ?? fallbackRole) as UserRole;
+  const config = calendarConfigForRole(role);
+  const roleEvents = eventsForRole(role);
+  const filterTypes = config.filterTypes;
+
   const [view, setView] = useState<ViewMode>("Month");
   const [offset, setOffset] = useState(0);
   const [hidden, setHidden] = useState<CalendarEventType[]>([]);
 
+  // Ignore toggles for types that aren't offered on this role's filter row.
+  const activeHidden = hidden.filter((type) => filterTypes.includes(type));
+
   const today = startOfToday();
   const todayIso = isoOf(today);
 
-  const anchor = useMemo(() => {
-    const base = startOfToday();
-    if (view === "Month") return new Date(base.getFullYear(), base.getMonth() + offset, 1);
-    const shifted = new Date(base);
-    shifted.setDate(shifted.getDate() + offset * 7);
-    return shifted;
-  }, [view, offset]);
+  const base = startOfToday();
+  const anchor =
+    view === "Month"
+      ? new Date(base.getFullYear(), base.getMonth() + offset, 1)
+      : (() => {
+          const shifted = new Date(base);
+          shifted.setDate(shifted.getDate() + offset * 7);
+          return shifted;
+        })();
 
-  const visibleEvents = useMemo(
-    () => CALENDAR_EVENTS.filter((e) => !hidden.includes(e.type)),
-    [hidden]
-  );
+  const visibleEvents = roleEvents.filter((e) => !activeHidden.includes(e.type));
 
-  const byDate = useMemo(() => {
-    const map = new Map<string, CalendarEvent[]>();
-    for (const event of visibleEvents) {
-      const list = map.get(event.date) ?? [];
-      list.push(event);
-      map.set(event.date, list);
-    }
-    return map;
-  }, [visibleEvents]);
+  const byDate = new Map<string, CalendarEvent[]>();
+  for (const event of visibleEvents) {
+    const list = byDate.get(event.date) ?? [];
+    list.push(event);
+    byDate.set(event.date, list);
+  }
 
   function toggleType(type: CalendarEventType) {
     setHidden((current) =>
@@ -118,6 +138,13 @@ export function CalendarClient() {
 
   return (
     <div className="space-y-4">
+      <div className="alert border border-info/30 bg-info/10 text-sm">
+        <span>
+          Showing the <strong>{config.title.toLowerCase()}</strong> for this role
+          ({roleEvents.length} events). Filters below match the work this person tracks.
+        </span>
+      </div>
+
       <div className="card bg-base-100 border border-base-300 shadow-sm">
         <div className="card-body gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -172,17 +199,19 @@ export function CalendarClient() {
           </div>
 
           <fieldset className="flex flex-wrap gap-2">
-            <legend className="sr-only">Filter event types</legend>
-            {EVENT_TYPES.map((type) => {
+            <legend className="sr-only">Filter event types for this role</legend>
+            {filterTypes.map((type) => {
               const { Icon, dot } = EVENT_META[type];
-              const active = !hidden.includes(type);
+              const active = !activeHidden.includes(type);
               return (
                 <button
                   key={type}
                   type="button"
                   aria-pressed={active}
                   onClick={() => toggleType(type)}
-                  className={`btn btn-xs gap-1.5 normal-case ${active ? "btn-outline" : "btn-ghost opacity-50"}`}
+                  className={`btn btn-xs gap-1.5 normal-case ${
+                    active ? "btn-outline" : "btn-ghost opacity-50"
+                  }`}
                 >
                   <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />
                   <Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -256,7 +285,11 @@ function MonthView({
             >
               <div
                 className={`mb-1 text-xs ${
-                  iso === todayIso ? "font-bold text-primary" : outside ? "opacity-40" : "opacity-70"
+                  iso === todayIso
+                    ? "font-bold text-primary"
+                    : outside
+                      ? "opacity-40"
+                      : "opacity-70"
                 }`}
               >
                 {day.getDate()}

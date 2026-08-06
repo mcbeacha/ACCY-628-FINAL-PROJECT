@@ -1,19 +1,16 @@
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { CalendarClient } from "./CalendarClient";
-import { redirect } from "next/navigation";
+import { calendarConfigForRole } from "@/lib/calendar";
 
 export default async function CalendarPage() {
   const { profile } = await requireUser();
-  if (profile.role === "client") redirect("/client-portal");
+  const config = calendarConfigForRole(profile.role);
 
   return (
     <>
-      <PageHeader
-        title="Calendar"
-        description="Hearings, depositions, client meetings, filing deadlines, and firm events."
-      />
-      <CalendarClient />
+      <PageHeader title={config.title} description={config.description} />
+      <CalendarClient role={profile.role} />
     </>
   );
 }
