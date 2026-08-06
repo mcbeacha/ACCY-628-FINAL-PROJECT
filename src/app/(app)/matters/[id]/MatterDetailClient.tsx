@@ -16,6 +16,7 @@ import {
   approvalBadgeLabel,
   viewerCanApprove,
 } from "@/lib/approval-tiers";
+import { celebrateTaskComplete } from "@/lib/fun-effects";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
 import {
   displayApprovalStatus,
@@ -348,6 +349,7 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
           : `Task completed: ${task.task_title}. Work documented: ${result.completion_notes}`
     );
     setMessage(`Completed “${task.task_title}” with work documentation.`);
+    celebrateTaskComplete();
     setBusy(false);
     await load();
   }

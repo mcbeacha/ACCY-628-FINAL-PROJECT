@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @plugin "daisyui" {
-  themes: rebel-navy --default, rebel-night --prefersdark;
+  themes: rebel-navy --default, rebel-night --prefersdark, rebel-fun;
 }
 
 /* Brand tokens sampled from rebel-law-group-logo.png:
@@ -90,6 +90,49 @@
   --noise: 0;
 }
 
+@plugin "daisyui/theme" {
+  name: "rebel-fun";
+  default: false;
+  prefersdark: false;
+  color-scheme: light;
+
+  /* Soft lavender / pale-magenta neon bases (readable light surfaces) */
+  --color-base-100: #fff5fc;
+  --color-base-200: #f5e8ff;
+  --color-base-300: #e8d4ff;
+  --color-base-content: #2a0a45;
+
+  --color-primary: #ff2bd6;
+  --color-primary-content: #1a0033;
+
+  --color-secondary: #00f0ff;
+  --color-secondary-content: #001018;
+
+  --color-accent: #b8ff00;
+  --color-accent-content: #0a1400;
+
+  --color-neutral: #4b0082;
+  --color-neutral-content: #f5ffe8;
+
+  --color-info: #39c5ff;
+  --color-info-content: #001018;
+  --color-success: #39ff14;
+  --color-success-content: #041400;
+  --color-warning: #ffe600;
+  --color-warning-content: #1a1400;
+  --color-error: #ff3366;
+  --color-error-content: #1a0010;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
 html,
 body {
   min-height: 100%;
@@ -117,6 +160,14 @@ body {
 [data-theme="rebel-night"] .app-canvas {
   background-color: var(--color-base-200);
   background-image: none;
+}
+
+[data-theme="rebel-fun"] .app-canvas {
+  background-color: var(--color-base-200);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, oklch(88% 0.14 330 / 0.55) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 10%, oklch(90% 0.12 195 / 0.45) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, oklch(92% 0.14 130 / 0.35) 0%, transparent 45%);
 }
 
 .app-navbar {
