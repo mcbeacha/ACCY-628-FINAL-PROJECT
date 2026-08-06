@@ -27,30 +27,30 @@ export function ExecutiveCharts(props: {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <ChartCard title="Invoiced vs collected by month" decision="Track cash conversion lag vs billings.">
+      <ChartCard title="Invoiced vs collected">
         <MonthlyRevenueChart data={props.monthly} />
       </ChartCard>
-      <ChartCard title="AR aging (open balances)" decision="Prioritize collection work.">
+      <ChartCard title="AR aging">
         <ArAgingChart data={props.arAging} />
       </ChartCard>
-      <ChartCard title="Gross profit by practice area" decision="Where is contribution concentrated?">
+      <ChartCard title="Gross profit by practice">
         <GrossProfitByPracticeChart data={props.practices} />
       </ChartCard>
-      <ChartCard title="Collection rate by invoice month" decision="Is collection weakening?">
+      <ChartCard title="Collection rate">
         <CollectionTrendChart data={props.collectionTrend} />
       </ChartCard>
       {!compact && (
         <>
-          <ChartCard title="Matter gross profit (top/bottom)" decision="Review loss-making work.">
+          <ChartCard title="Matter gross profit">
             <MatterProfitBarChart data={props.matterProfit} />
           </ChartCard>
-          <ChartCard title="Revenue by billing method" decision="Balance fee structures.">
+          <ChartCard title="Revenue by billing method">
             <MethodRevenueChart data={props.byMethod} />
           </ChartCard>
-          <ChartCard title="Utilization by timekeeper (est.)" decision="Capacity and staffing.">
+          <ChartCard title="Utilization by timekeeper">
             <UtilizationChart data={props.utilization} />
           </ChartCard>
-          <ChartCard title="Write-downs & write-offs" decision="Pricing and bad debt trends.">
+          <ChartCard title="Write-downs & write-offs">
             <WriteTrendChart data={props.writeTrend} />
           </ChartCard>
         </>
@@ -59,20 +59,11 @@ export function ExecutiveCharts(props: {
   );
 }
 
-function ChartCard({
-  title,
-  decision,
-  children,
-}: {
-  title: string;
-  decision: string;
-  children: React.ReactNode;
-}) {
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="card bg-base-100 border border-base-300 shadow-sm">
       <div className="card-body p-4">
-        <h3 className="font-semibold text-sm">{title}</h3>
-        <p className="text-xs opacity-60 mb-2">{decision}</p>
+        <h3 className="font-semibold text-sm mb-2">{title}</h3>
         {children}
       </div>
     </div>

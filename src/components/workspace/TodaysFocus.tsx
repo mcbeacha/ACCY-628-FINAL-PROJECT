@@ -28,11 +28,10 @@ export function TodaysFocus({ items }: { items: FocusItem[] }) {
   if (items.length === 0) {
     return (
       <EmptyState
-        title="Nothing is scheduled for today"
-        description="Deadlines, hearings, meetings, and review requests will appear here."
+        title="Nothing due today"
         action={
           <Link href="/calendar" className="btn btn-primary btn-sm">
-            Open calendar
+            Calendar
           </Link>
         }
       />
@@ -46,39 +45,35 @@ export function TodaysFocus({ items }: { items: FocusItem[] }) {
       {sorted.map((item) => {
         const { label, Icon } = KIND_META[item.kind];
         return (
-          <li
-            key={item.id}
-            className="card bg-base-100 border border-base-300 shadow-sm transition-shadow hover:shadow-md"
-          >
-            <div className="card-body p-4 gap-2">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="text-xs font-semibold uppercase tracking-wide opacity-60">
-                  {label}
-                </span>
-                {item.dueTime && (
-                  <span className="ml-auto text-xs font-medium opacity-70">{item.dueTime}</span>
-                )}
-              </div>
+          <li key={item.id}>
+            <Link
+              href={item.href}
+              className="card bg-base-100 border border-base-300 shadow-sm transition-shadow hover:shadow-md hover:border-primary/50 block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <div className="card-body p-4 gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="text-xs font-semibold uppercase tracking-wide opacity-60">
+                    {label}
+                  </span>
+                  {item.dueTime && (
+                    <span className="ml-auto text-xs font-medium opacity-70">{item.dueTime}</span>
+                  )}
+                </div>
 
-              <p className="font-medium leading-snug">{item.title}</p>
-              <p className="text-xs opacity-70 truncate">
-                {item.matterRef} · {item.clientName}
-              </p>
+                <p className="font-medium leading-snug">{item.title}</p>
+                <p className="text-xs opacity-70 truncate">
+                  {item.matterRef} · {item.clientName}
+                </p>
 
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <PriorityBadge priority={item.priority} />
-                <StatusBadge status={item.status} />
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <PriorityBadge priority={item.priority} />
+                  <StatusBadge status={item.status} />
+                </div>
               </div>
-
-              <div className="card-actions mt-2">
-                <Link href={item.href} className="btn btn-outline btn-xs">
-                  Open record
-                </Link>
-              </div>
-            </div>
+            </Link>
           </li>
         );
       })}
