@@ -295,7 +295,7 @@ export function buildNavSectionsForDemoKey(key: DemoRoleKey | UserRole): {
     );
     const explore = allowed.find((i) => i.href === "/potential-client");
     return {
-      dashboard: home ? { href: home.href, label: "Client Dashboard" } : null,
+      dashboard: home ? { href: home.href, label: "Home" } : null,
       inbox: null,
       sections: [
         {

@@ -282,7 +282,7 @@ export function navForRole(role: UserRole): NavItem[] {
       ];
     case "client":
       return [
-        { href: "/client-portal", label: "Client Dashboard" },
+        { href: "/client-portal", label: "Home" },
         { href: "/calendar", label: "My Calendar" },
         { href: "/document-requests", label: "Document Requests" },
         { href: "/client-portal/matters", label: "My Matters" },

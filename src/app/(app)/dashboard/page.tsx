@@ -3,7 +3,6 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge, PriorityBadge } from "@/components/Badges";
 import { EmptyState } from "@/components/EmptyState";
-import { DeadlineCalendar, buildDeadlineWindow } from "@/components/DeadlineCalendar";
 import { WeeklyUtilizationCard } from "@/components/WeeklyUtilizationCard";
 import { CaseEvaluationsMiniList } from "@/components/intake/CaseEvaluationDetailClient";
 import { FirmPulse } from "./FirmPulse";
@@ -17,6 +16,7 @@ import { calcBillableAmount } from "@/lib/phase2-types";
 import { computeAnalytics, loadAnalyticsData, summarizeFirmPulse } from "@/lib/analytics-data";
 import { weeksInRange } from "@/lib/analytics";
 import { buildDataQualityExceptions } from "@/lib/data-quality";
+import { countUpcomingCalendarDeadlines } from "@/lib/calendar";
 import { inboxItemsToFocus, inboxMetaForRole, loadInboxItems } from "@/lib/inbox";
 import type { CaseEvaluation } from "@/lib/case-evaluations";
 import type { Client, Matter, MatterTask, Profile } from "@/lib/types";
@@ -24,7 +24,8 @@ import { SectionHeader } from "@/components/workspace/SectionHeader";
 import { TodaysFocus } from "@/components/workspace/TodaysFocus";
 import { PartnerQuickActions } from "@/components/workspace/PartnerQuickActions";
 import { RoleCalendarPreview } from "@/components/workspace/RoleCalendarPreview";
-import { DeadlineCard } from "@/components/workspace/DeadlineCard";
+import { ComingUpCalendar } from "@/components/workspace/ComingUpCalendar";
+import { UpcomingCalendarDeadlines } from "@/components/workspace/UpcomingCalendarDeadlines";
 import { ActivityFeed } from "@/components/workspace/ActivityFeed";
 import { ActiveMattersPanel } from "@/components/workspace/ActiveMattersPanel";
 import { MyTasksPanel } from "@/components/workspace/MyTasksPanel";
@@ -40,7 +41,6 @@ import {
   TASKS as MOCK_TASKS,
   TIMEKEEPING,
   daysUntil,
-  upcomingDeadlines,
 } from "@/lib/workspace-mock";
 import {
   buildTimekeeping,
@@ -57,7 +57,6 @@ import {
   padTasks,
 } from "@/lib/demo-density";
 import {
-  CalendarClock,
   ChartColumn,
   ClipboardList,
   History,
@@ -522,7 +521,6 @@ async function AttorneyDashboard({
   const activityEvents = padActivity(realActivity, ACTIVITY, 12);
   const liveFocus = focusFromTasks(workspaceTasks);
   const focusItems = padFocus(liveFocus, FOCUS_ITEMS, 10);
-  const deadlines = upcomingDeadlines(10);
   const liveTimekeeping = buildTimekeeping(timeRows, avail);
   const timekeeping = {
     ...liveTimekeeping,
@@ -544,14 +542,9 @@ async function AttorneyDashboard({
   const overdueTaskCount = myTasks.filter(
     (t) => t.lane !== "Completed" && daysUntil(t.dueDate) < 0
   ).length;
-  const deadlinesThisWeek = deadlines.filter((d) => daysUntil(d.dueDate) <= 7).length;
+  const deadlinesThisWeek = countUpcomingCalendarDeadlines("attorney", 7);
 
   const active = matterRows.filter((m) => m.matter_status === "Active");
-  const { items: deadlineItems, today: deadlineToday, end: deadlineEnd } = buildDeadlineWindow({
-    tasks: taskRows,
-    matters: matterRows,
-    days: 14,
-  });
   const needsUpdate = matterRows.filter((m) =>
     ["Draft", "Pending Approval", "Needs Review", "On Hold"].includes(m.matter_status) ||
     m.approval_status === "Needs Review"
@@ -638,32 +631,10 @@ async function AttorneyDashboard({
         <TodaysFocus items={focusItems} />
       </section>
 
-      <DeadlineCalendar
-        items={deadlineItems}
-        today={deadlineToday}
-        end={deadlineEnd}
-        title="Coming up"
-        emptyTitle="Nothing in the next 14 days."
-      />
+      <ComingUpCalendar role="attorney" />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-base flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-primary" />
-              Upcoming deadlines
-            </h2>
-            {deadlines.length === 0 ? (
-              <EmptyState title="No upcoming deadlines" />
-            ) : (
-              <ul className="space-y-2 mt-2">
-                {deadlines.map((deadline) => (
-                  <DeadlineCard key={deadline.id} deadline={deadline} />
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        <UpcomingCalendarDeadlines role="attorney" />
 
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
@@ -899,11 +870,6 @@ async function StaffDashboard({
     .order("updated_at", { ascending: false });
 
   const matterRows = (matters || []) as Matter[];
-  const { items: deadlineItems, today: deadlineToday, end: deadlineEnd } = buildDeadlineWindow({
-    tasks: taskRows,
-    matters: matterRows,
-    days: 14,
-  });
 
   const [{ data: myTime }] = await Promise.all([
     supabase
@@ -950,8 +916,6 @@ async function StaffDashboard({
     }
   }
   const hoursByMatter = Array.from(hoursByMatterMap.values()).sort((a, b) => b.hours - a.hours);
-
-  const deadlines = upcomingDeadlines(10);
 
   const { data: intakeEvals } = await supabase
     .from("case_evaluations")
@@ -1045,13 +1009,7 @@ async function StaffDashboard({
         )}
       </section>
 
-      <DeadlineCalendar
-        items={deadlineItems}
-        today={deadlineToday}
-        end={deadlineEnd}
-        title="Coming up"
-        emptyTitle="Nothing in the next 14 days."
-      />
+      <ComingUpCalendar role="paralegal" />
 
       <ParalegalDocumentQueue profile={profile} mineOnly />
 
@@ -1087,23 +1045,7 @@ async function StaffDashboard({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-base flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-primary" />
-              Upcoming deadlines
-            </h2>
-            {deadlines.length === 0 ? (
-              <EmptyState title="No upcoming deadlines" />
-            ) : (
-              <ul className="space-y-2 mt-2">
-                {deadlines.map((deadline) => (
-                  <DeadlineCard key={deadline.id} deadline={deadline} />
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        <UpcomingCalendarDeadlines role="paralegal" />
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="card-body">
             <h2 className="card-title text-base">Assigned tasks</h2>

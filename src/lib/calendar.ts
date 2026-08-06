@@ -952,3 +952,37 @@ export function eventsOnDate(isoDate: string, role?: UserRole): CalendarEvent[] 
 export function filterTypesForRole(role: UserRole): CalendarEventType[] {
   return calendarConfigForRole(role).filterTypes;
 }
+
+/** Event types that count as deadlines on home-page summaries. */
+export const DEADLINE_LIKE_EVENT_TYPES: CalendarEventType[] = [
+  "Hearing",
+  "Deposition",
+  "Filing Deadline",
+  "Statute Deadline",
+  "Document Due",
+  "Signature Needed",
+  "Payment Due",
+  "Billing Cutoff",
+  "Retainer Alert",
+];
+
+export function isDeadlineLikeEvent(event: CalendarEvent): boolean {
+  return DEADLINE_LIKE_EVENT_TYPES.includes(event.type);
+}
+
+/** Upcoming deadline-like calendar items for a role (matches /calendar data). */
+export function upcomingCalendarDeadlines(role: UserRole, limit = 10): CalendarEvent[] {
+  const today = dayOffset(0);
+  return eventsForRole(role)
+    .filter((e) => isDeadlineLikeEvent(e) && e.date >= today)
+    .slice(0, limit);
+}
+
+/** Count deadline-like events within the next `withinDays` days (inclusive of today). */
+export function countUpcomingCalendarDeadlines(role: UserRole, withinDays = 7): number {
+  const today = dayOffset(0);
+  const end = dayOffset(withinDays);
+  return eventsForRole(role).filter(
+    (e) => isDeadlineLikeEvent(e) && e.date >= today && e.date <= end
+  ).length;
+}
