@@ -50,6 +50,7 @@ export function MessagesIndicator({ viewer: fallbackViewer }: { viewer: Messagin
         tabIndex={0}
         role="button"
         className="btn btn-ghost btn-square btn-sm"
+        suppressHydrationWarning
         aria-label={`Messages for ${viewer.name}${
           unreadCount ? `, ${unreadCount} unread` : ""
         }`}

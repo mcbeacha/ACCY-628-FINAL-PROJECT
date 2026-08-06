@@ -1,5 +1,8 @@
 "use client";
 
+import { useDemoRole } from "@/components/demo/DemoRoleProvider";
+import { addUserCalendarEvent } from "@/lib/calendar-user-events";
+import { createClient } from "@/lib/supabase/client";
 import {
   CalendarPlus,
   Clock,
@@ -11,7 +14,8 @@ import {
   UserPlus,
 } from "lucide-react";
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
 
 type ModalKey = "task" | "document" | "event" | "note" | "conflict";
 
@@ -21,6 +25,8 @@ type QuickAction = {
   href?: string;
   modal?: ModalKey;
 };
+
+type MatterOpt = { id: string; matter_number: string; matter_name: string };
 
 const ACTIONS: QuickAction[] = [
   { label: "New Matter", Icon: FilePlus2, href: "/matters/new" },
@@ -33,43 +39,187 @@ const ACTIONS: QuickAction[] = [
   { label: "Run Conflict Check", Icon: ShieldCheck, modal: "conflict" },
 ];
 
-const MODAL_COPY: Record<ModalKey, { title: string; submit: string; success: string }> = {
-  task: {
-    title: "Add task",
-    submit: "Create task",
-    success: "Task captured. Connect the tasks API to persist it.",
-  },
-  document: {
-    title: "Upload document",
-    submit: "Upload",
-    success: "Upload recorded. Connect document storage to persist the file.",
-  },
-  event: {
-    title: "Schedule event",
-    submit: "Schedule",
-    success: "Event captured. Connect the calendar API to persist it.",
-  },
-  note: {
-    title: "Add note",
-    submit: "Save note",
-    success: "Note captured. Connect the notes API to persist it.",
-  },
-  conflict: {
-    title: "Run conflict check",
-    submit: "Run check",
-    success: "No conflicts found in the fictional demonstration data set.",
-  },
+const MODAL_COPY: Record<ModalKey, { title: string; submit: string }> = {
+  task: { title: "Add task", submit: "Create task" },
+  document: { title: "Upload document", submit: "Record upload" },
+  event: { title: "Schedule event", submit: "Schedule" },
+  note: { title: "Add note", submit: "Save note" },
+  conflict: { title: "Run conflict check", submit: "Run check" },
 };
 
 export function QuickActions() {
+  const router = useRouter();
+  const demo = useDemoRole();
+  const userId = demo?.activeDemoProfileId;
   const [open, setOpen] = useState<ModalKey | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [matters, setMatters] = useState<MatterOpt[]>([]);
+  const [title, setTitle] = useState("");
+  const [matterId, setMatterId] = useState("");
+  const [date, setDate] = useState("");
+  const [noteBody, setNoteBody] = useState("");
 
-  function submit(event: FormEvent) {
+  useEffect(() => {
+    if (!open) return;
+    const supabase = createClient();
+    void (async () => {
+      const { data } = await supabase
+        .from("matters")
+        .select("id, matter_number, matter_name")
+        .neq("matter_status", "Canceled")
+        .order("matter_number");
+      setMatters((data || []) as MatterOpt[]);
+    })();
+  }, [open]);
+
+  function resetForm() {
+    setTitle("");
+    setMatterId("");
+    setDate("");
+    setNoteBody("");
+    setError(null);
+  }
+
+  function openModal(key: ModalKey) {
+    resetForm();
+    setResult(null);
+    setDate(new Date().toISOString().slice(0, 10));
+    setOpen(key);
+  }
+
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (!open) return;
-    setResult(MODAL_COPY[open].success);
-    setOpen(null);
+    setBusy(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      const selected = matters.find((m) => m.id === matterId);
+      const matterLabel = selected
+        ? `${selected.matter_number} · ${selected.matter_name}`
+        : title.trim();
+
+      if (open === "task") {
+        if (!userId) throw new Error("Demo user not ready. Try again.");
+        if (!matterId) throw new Error("Select a related matter.");
+        if (!title.trim()) throw new Error("Task title is required.");
+        const { error: insErr } = await supabase.from("matter_tasks").insert({
+          matter_id: matterId,
+          task_title: title.trim(),
+          task_description: noteBody.trim() || null,
+          assigned_to: userId,
+          task_status: "Not Started",
+          priority: "Normal",
+          due_date: date || null,
+          client_visible: false,
+          created_by: userId,
+        });
+        if (insErr) throw new Error(insErr.message);
+        setResult(`Task created on ${selected?.matter_number}. It appears on My Tasks and the matter.`);
+        setOpen(null);
+        router.refresh();
+        return;
+      }
+
+      if (open === "event") {
+        if (!title.trim() || !date) throw new Error("Title and date are required.");
+        addUserCalendarEvent({
+          title: title.trim(),
+          date,
+          matterRef: selected?.matter_number || "—",
+          type: "Internal Meeting",
+        });
+        setResult(`Event scheduled for ${date}. Open Calendar to see it.`);
+        setOpen(null);
+        router.refresh();
+        return;
+      }
+
+      if (open === "note") {
+        if (!userId) throw new Error("Demo user not ready. Try again.");
+        if (!matterId) throw new Error("Select a related matter.");
+        if (!title.trim() && !noteBody.trim()) throw new Error("Enter a note title or body.");
+        const { data: matter } = await supabase
+          .from("matters")
+          .select("client_id")
+          .eq("id", matterId)
+          .maybeSingle();
+        const { error: insErr } = await supabase.from("matter_activity").insert({
+          matter_id: matterId,
+          client_id: matter?.client_id || null,
+          action_type: "note",
+          action_description: `${title.trim() || "Note"}${noteBody.trim() ? `: ${noteBody.trim()}` : ""}`,
+          performed_by: userId,
+        });
+        if (insErr) throw new Error(insErr.message);
+        setResult(`Note saved on ${selected?.matter_number}. Check the matter Activity tab.`);
+        setOpen(null);
+        router.refresh();
+        return;
+      }
+
+      if (open === "document") {
+        if (!userId) throw new Error("Demo user not ready. Try again.");
+        if (!matterId) throw new Error("Select a related matter.");
+        if (!title.trim()) throw new Error("Document title is required.");
+        const { data: matter } = await supabase
+          .from("matters")
+          .select("client_id")
+          .eq("id", matterId)
+          .maybeSingle();
+        const { error: insErr } = await supabase.from("matter_activity").insert({
+          matter_id: matterId,
+          client_id: matter?.client_id || null,
+          action_type: "document_upload",
+          action_description: `Document recorded: ${title.trim()} (demo metadata — file storage not connected).`,
+          performed_by: userId,
+        });
+        if (insErr) throw new Error(insErr.message);
+        setResult(`Document recorded on ${selected?.matter_number}. See matter Activity.`);
+        setOpen(null);
+        router.refresh();
+        return;
+      }
+
+      if (open === "conflict") {
+        const party = title.trim();
+        if (!party) throw new Error("Enter a party or organization name.");
+        const { data: clients } = await supabase
+          .from("clients")
+          .select("client_name, client_number")
+          .ilike("client_name", `%${party}%`)
+          .limit(5);
+        const { data: matterHits } = await supabase
+          .from("matters")
+          .select("matter_number, matter_name")
+          .or(`matter_name.ilike.%${party}%,matter_number.ilike.%${party}%`)
+          .limit(5);
+        const hits = [
+          ...(clients || []).map((c) => `Client ${c.client_number}: ${c.client_name}`),
+          ...(matterHits || []).map((m) => `Matter ${m.matter_number}: ${m.matter_name}`),
+        ];
+        if (hits.length) {
+          setResult(
+            `Possible matches for “${party}”: ${hits.join("; ")}. Review before intake.`
+          );
+        } else {
+          setResult(
+            `No conflicts found for “${party}” in the fictional demo client/matter set.`
+          );
+        }
+        setOpen(null);
+        return;
+      }
+
+      void matterLabel;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -97,10 +247,7 @@ export function QuickActions() {
               key={label}
               type="button"
               className={className}
-              onClick={() => {
-                setResult(null);
-                setOpen(modal ?? null);
-              }}
+              onClick={() => openModal(modal!)}
             >
               <Icon className="interactive-tile-icon h-4 w-4 shrink-0 opacity-55" />
               <span className="truncate">{label}</span>
@@ -114,45 +261,98 @@ export function QuickActions() {
           <div className="modal-box">
             <h3 className="font-display text-lg font-semibold">{MODAL_COPY[open].title}</h3>
             <p className="text-sm opacity-70 mt-1">
-              Fictional academic data. Submitting records the action in this session only.
+              {open === "event"
+                ? "Events are saved to your browser calendar for this demo."
+                : open === "conflict"
+                  ? "Searches fictional demo clients and matters."
+                  : "Saves to the live demo database for this role."}
             </p>
 
             <form className="mt-4 space-y-3" onSubmit={submit}>
-              <label className="form-control">
-                <span className="label-text text-sm font-medium">
-                  {open === "conflict" ? "Party or organization name" : "Title"}
-                </span>
-                <input className="input input-bordered w-full mt-1" required autoFocus />
-              </label>
+              {error && (
+                <div className="alert alert-error text-sm py-2">
+                  <span>{error}</span>
+                </div>
+              )}
 
               <label className="form-control">
-                <span className="label-text text-sm font-medium">Related matter</span>
+                <span className="label-text text-sm font-medium">
+                  {open === "conflict"
+                    ? "Party or organization name"
+                    : open === "document"
+                      ? "Document title"
+                      : "Title"}
+                </span>
                 <input
                   className="input input-bordered w-full mt-1"
-                  placeholder="e.g. 2026-0114"
+                  required
+                  autoFocus
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                 />
               </label>
 
-              {(open === "task" || open === "event") && (
+              {open !== "conflict" && (
                 <label className="form-control">
-                  <span className="label-text text-sm font-medium">Date</span>
-                  <input type="date" className="input input-bordered w-full mt-1" />
+                  <span className="label-text text-sm font-medium">
+                    Related matter{open === "event" ? " (optional)" : " *"}
+                  </span>
+                  <select
+                    className="select select-bordered w-full mt-1"
+                    required={open !== "event"}
+                    value={matterId}
+                    onChange={(e) => setMatterId(e.target.value)}
+                  >
+                    <option value="">{open === "event" ? "No matter" : "Select matter"}</option>
+                    {matters.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.matter_number} · {m.matter_name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               )}
 
-              {open === "note" && (
+              {(open === "task" || open === "event") && (
                 <label className="form-control">
-                  <span className="label-text text-sm font-medium">Note</span>
-                  <textarea className="textarea textarea-bordered w-full mt-1" rows={3} />
+                  <span className="label-text text-sm font-medium">
+                    {open === "task" ? "Due date" : "Event date"}
+                  </span>
+                  <input
+                    type="date"
+                    className="input input-bordered w-full mt-1"
+                    required={open === "event"}
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                  />
+                </label>
+              )}
+
+              {(open === "note" || open === "task") && (
+                <label className="form-control">
+                  <span className="label-text text-sm font-medium">
+                    {open === "note" ? "Note" : "Description"}
+                  </span>
+                  <textarea
+                    className="textarea textarea-bordered w-full mt-1"
+                    rows={3}
+                    value={noteBody}
+                    onChange={(e) => setNoteBody(e.target.value)}
+                  />
                 </label>
               )}
 
               <div className="modal-action">
-                <button type="button" className="btn btn-ghost" onClick={() => setOpen(null)}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setOpen(null)}
+                  disabled={busy}
+                >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  {MODAL_COPY[open].submit}
+                <button type="submit" className="btn btn-primary" disabled={busy}>
+                  {busy ? "Saving…" : MODAL_COPY[open].submit}
                 </button>
               </div>
             </form>

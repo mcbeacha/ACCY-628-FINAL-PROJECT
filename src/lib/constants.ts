@@ -140,10 +140,12 @@ export const COST_ELEVATED_MP_THRESHOLD = EXPENSE_ELEVATED_MP_THRESHOLD;
 
 export const LIGHT_THEME = "rebel-navy";
 export const DARK_THEME = "rebel-night";
+export const FUN_THEME = "rebel-fun";
 
 export const THEMES = [
   { id: LIGHT_THEME, label: "Navy & Gold" },
   { id: DARK_THEME, label: "Night" },
+  { id: FUN_THEME, label: "Fun" },
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]["id"];
@@ -152,9 +154,9 @@ export const DEFAULT_THEME: ThemeId = LIGHT_THEME;
 
 export const THEME_STORAGE_KEY = "rlg-theme";
 
-/** Older builds stored other daisyUI themes; map them onto the light/dark pair. */
+/** Older builds stored other daisyUI themes; map them onto known themes. */
 export function normalizeTheme(value: string | null | undefined): ThemeId {
-  if (value === LIGHT_THEME || value === DARK_THEME) return value;
+  if (value === LIGHT_THEME || value === DARK_THEME || value === FUN_THEME) return value;
   const legacyDark = ["night", "dim", "luxury", "dark", "nord", "business"];
   if (value === "corporate") return LIGHT_THEME;
   return value && legacyDark.includes(value) ? DARK_THEME : DEFAULT_THEME;
@@ -167,6 +169,7 @@ export function statusBadgeClass(status: string): string {
     case "Completed":
     case "Ready":
     case "Compliant":
+    case "Posted":
       return "badge-success";
     case "Pending Approval":
     case "On Hold":
@@ -175,11 +178,16 @@ export function statusBadgeClass(status: string): string {
     case "Missing Information":
     case "Needs Attention":
     case "Prospective":
+    case "Unbilled":
+    case "Client Funds":
+    case "Deferred":
+    case "Ready for Review":
       return "badge-warning";
     case "Canceled":
     case "Rejected":
     case "Returned for Correction":
     case "Not Ready":
+    case "Missing Support":
       return "badge-error";
     case "Draft":
     case "Closed":

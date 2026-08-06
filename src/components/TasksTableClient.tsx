@@ -6,6 +6,7 @@ import {
   type TaskCompletionResult,
 } from "@/components/TaskCompletionModal";
 import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants";
+import { celebrateTaskComplete } from "@/lib/fun-effects";
 import { formatDate, isOverdue } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { MatterTask } from "@/lib/types";
@@ -69,6 +70,9 @@ export function TasksTableClient({
         ? `Completed “${task.task_title}” with work documentation.`
         : `Updated “${task.task_title}”.`
     );
+    if (patch.task_status === "Completed") {
+      celebrateTaskComplete();
+    }
     setBusyId(null);
     router.refresh();
     return true;

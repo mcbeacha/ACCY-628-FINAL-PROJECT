@@ -11,6 +11,10 @@ import {
   type CalendarEventType,
 } from "@/lib/calendar";
 import {
+  mergeCalendarEvents,
+  readUserCalendarEvents,
+} from "@/lib/calendar-user-events";
+import {
   buildGoogleCalendarUrl,
   buildIcsCalendar,
   buildMeetingReminderMailto,
@@ -105,13 +109,19 @@ export function CalendarClient({ role: fallbackRole }: { role: UserRole }) {
   const demo = useDemoRole();
   const role = (demo?.activeIdentity.role ?? fallbackRole) as UserRole;
   const config = calendarConfigForRole(role);
-  const roleEvents = eventsForRole(role);
   const filterTypes = config.filterTypes;
 
   const [view, setView] = useState<ViewMode>("Month");
   const [offset, setOffset] = useState(0);
   const [hidden, setHidden] = useState<CalendarEventType[]>([]);
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
+  const [userEvents, setUserEvents] = useState<CalendarEvent[]>([]);
+
+  useEffect(() => {
+    setUserEvents(readUserCalendarEvents());
+  }, [role]);
+
+  const roleEvents = mergeCalendarEvents(eventsForRole(role), userEvents, role);
 
   const activeHidden = hidden.filter((type) => filterTypes.includes(type));
 

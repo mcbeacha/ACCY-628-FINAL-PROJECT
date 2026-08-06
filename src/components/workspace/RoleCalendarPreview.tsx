@@ -1,14 +1,32 @@
+"use client";
+
 import { eventsForRole } from "@/lib/calendar";
+import {
+  mergeCalendarEvents,
+  readUserCalendarEvents,
+} from "@/lib/calendar-user-events";
 import type { UserRole } from "@/lib/types";
 import { CalendarDays } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 /** Compact calendar icon for dashboards — opens the full calendar page. */
 export function RoleCalendarPreview({ role }: { role: UserRole }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString().slice(0, 10);
-  const upcomingCount = eventsForRole(role).filter((event) => event.date >= todayIso).length;
+  const [upcomingCount, setUpcomingCount] = useState(
+    () => eventsForRole(role).filter((event) => event.date >= todayIso).length
+  );
+
+  useEffect(() => {
+    const merged = mergeCalendarEvents(
+      eventsForRole(role),
+      readUserCalendarEvents(),
+      role
+    );
+    setUpcomingCount(merged.filter((event) => event.date >= todayIso).length);
+  }, [role, todayIso]);
 
   return (
     <Link

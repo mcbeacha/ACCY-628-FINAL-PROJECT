@@ -204,6 +204,7 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/retainers", label: "Retainers" },
         { href: "/trust-ledger", label: "Trust Ledger" },
         { href: "/journal", label: "Journal Entries" },
+        { href: "/revenue-recognition", label: "Revenue Recognition" },
         { href: "/exports", label: "Tax Info" },
         ...STAFF_FIRM,
       ];
@@ -275,12 +276,13 @@ export function navForRole(role: UserRole): NavItem[] {
         { href: "/retainers", label: "Retainers" },
         { href: "/trust-ledger", label: "Trust Ledger" },
         { href: "/journal", label: "Journal Entries" },
+        { href: "/revenue-recognition", label: "Revenue Recognition" },
         { href: "/exports", label: "Tax Info" },
         ...STAFF_FIRM,
       ];
     case "client":
       return [
-        { href: "/client-portal", label: "Client Dashboard" },
+        { href: "/client-portal", label: "Home" },
         { href: "/calendar", label: "My Calendar" },
         { href: "/document-requests", label: "Document Requests" },
         { href: "/client-portal/matters", label: "My Matters" },

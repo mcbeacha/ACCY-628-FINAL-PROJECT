@@ -48,13 +48,13 @@ export function padActivity(
   return padUniqueById(live, demo, limit);
 }
 
-/** Boost sparse week hours for demo dashboards so utilization looks lived-in. */
+/** Only pad empty weeks so real logged hours stay accurate. */
 export function densifyWeekHours(liveHours: number, floor = 22): number {
-  return Math.max(liveHours, floor);
+  if (liveHours > 0) return liveHours;
+  return floor;
 }
 
 export function densifyBillableHours(liveBillable: number, liveTotal: number, floorTotal = 22): number {
-  if (liveTotal >= floorTotal) return liveBillable;
-  const ratio = liveTotal > 0 ? liveBillable / liveTotal : 0.85;
-  return Math.round(floorTotal * ratio * 10) / 10;
+  if (liveTotal > 0) return liveBillable;
+  return Math.round(floorTotal * 0.85 * 10) / 10;
 }

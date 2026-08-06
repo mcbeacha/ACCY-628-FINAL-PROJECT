@@ -23,11 +23,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full antialiased">
-        {/* Applies the stored theme before first paint. Keep the key and values
-            in sync with THEME_STORAGE_KEY / LIGHT_THEME / DARK_THEME. */}
+        {/* Applies the stored theme before first paint. Keep in sync with
+            THEME_STORAGE_KEY / LIGHT_THEME / DARK_THEME / FUN_THEME. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("rlg-theme");document.documentElement.setAttribute("data-theme",t==="rebel-night"||t==="business"?"rebel-night":"rebel-navy")}catch(e){}`,
+            __html: `try{var t=localStorage.getItem("rlg-theme");var ok=["rebel-navy","rebel-night","rebel-fun"];document.documentElement.setAttribute("data-theme",ok.indexOf(t)>=0?t:(t==="business"?"rebel-night":"rebel-navy"))}catch(e){}`,
           }}
         />
         {children}

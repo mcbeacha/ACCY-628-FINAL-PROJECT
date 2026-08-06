@@ -1,12 +1,15 @@
+import type { CalendarEvent, CalendarEventType } from "@/lib/calendar";
 import { formatDate } from "@/lib/format";
 import Link from "next/link";
 
-export type DeadlineKind = "task" | "court" | "filing";
+export type DeadlineKind = "task" | "court" | "filing" | "meeting" | "billing";
 
 export type DeadlineItem = {
   id: string;
   date: string;
   kind: DeadlineKind;
+  /** Chip label; defaults from kind when omitted. */
+  kindLabel?: string;
   title: string;
   href: string;
   matterLabel: string;
@@ -19,7 +22,71 @@ const KIND_SHORT: Record<DeadlineKind, string> = {
   task: "Task",
   court: "Court",
   filing: "Filing",
+  meeting: "Meeting",
+  billing: "Billing",
 };
+
+function chipLabel(item: DeadlineItem) {
+  return item.kindLabel || KIND_SHORT[item.kind];
+}
+
+/** Map calendar event types onto Coming Up chip categories. */
+export function deadlineKindFromCalendarType(type: CalendarEventType): DeadlineKind {
+  switch (type) {
+    case "Hearing":
+    case "Deposition":
+      return "court";
+    case "Filing Deadline":
+    case "Statute Deadline":
+    case "Document Due":
+    case "Signature Needed":
+      return "filing";
+    case "Client Meeting":
+    case "Internal Meeting":
+    case "CLE":
+    case "Milestone":
+      return "meeting";
+    case "Payment Due":
+    case "Invoice Review":
+    case "Billing Cutoff":
+    case "Retainer Alert":
+      return "billing";
+    default:
+      return "task";
+  }
+}
+
+/** Build a 14-day Coming Up window from the same events the Calendar page uses. */
+export function buildDeadlineWindowFromCalendar(
+  events: CalendarEvent[],
+  days = 14
+): { items: DeadlineItem[]; today: string; end: string } {
+  const today = todayISO();
+  const end = addDaysISO(today, days);
+  const items: DeadlineItem[] = events
+    .filter((e) => {
+      const overdue = e.date < today;
+      const inWindow = e.date >= today && e.date <= end;
+      return overdue || inWindow;
+    })
+    .map((e) => ({
+      id: e.id,
+      date: e.date,
+      kind: deadlineKindFromCalendarType(e.type),
+      kindLabel: e.type,
+      title: e.title,
+      href: "/calendar",
+      matterLabel: e.matterRef && e.matterRef !== "—" ? e.matterRef : e.location,
+      overdue: e.date < today,
+    }));
+
+  items.sort((a, b) => {
+    if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+    return a.date.localeCompare(b.date) || a.title.localeCompare(b.title);
+  });
+
+  return { items, today, end };
+}
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -144,6 +211,8 @@ function eventChipClass(kind: DeadlineKind, overdue?: boolean) {
   if (overdue) return "bg-error/15 text-error border-error/30";
   if (kind === "court") return "bg-error/15 text-error border-error/25";
   if (kind === "filing") return "bg-warning/20 text-warning-content border-warning/40";
+  if (kind === "meeting") return "bg-info/15 text-info border-info/30";
+  if (kind === "billing") return "bg-secondary/15 text-secondary border-secondary/30";
   return "bg-base-200 text-base-content/80 border-base-300";
 }
 
@@ -194,17 +263,24 @@ export function DeadlineCalendar({
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-base-300 border border-base-content/20" />
-              Task
+              <span className="size-2.5 rounded-sm bg-error/70 border border-error" />
+              Court
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="size-2.5 rounded-sm bg-warning/70 border border-warning" />
               Filing
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-error/70 border border-error" />
-              Court
+              <span className="size-2.5 rounded-sm bg-info/70 border border-info" />
+              Meeting
             </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2.5 rounded-sm bg-secondary/70 border border-secondary" />
+              Billing
+            </span>
+            <Link href="/calendar" className="link link-hover ml-1">
+              Open calendar
+            </Link>
           </div>
         </div>
 
@@ -298,10 +374,10 @@ export function DeadlineCalendar({
                         <Link
                           key={item.id}
                           href={item.href}
-                          title={`${KIND_SHORT[item.kind]}: ${item.title} — ${item.matterLabel}`}
+                          title={`${chipLabel(item)}: ${item.title} — ${item.matterLabel}`}
                           className={`block rounded border px-1 py-0.5 text-[10px] leading-snug hover:brightness-95 ${eventChipClass(item.kind, item.overdue)}`}
                         >
-                          <span className="font-semibold">{KIND_SHORT[item.kind]}</span>
+                          <span className="font-semibold">{chipLabel(item)}</span>
                           <span className="block truncate">{item.title}</span>
                         </Link>
                       ))}
@@ -340,7 +416,7 @@ export function DeadlineCalendar({
                     {isToday && <span className="badge badge-primary badge-xs">Today</span>}
                   </div>
                   {dayItems.length === 0 ? (
-                    <p className="text-xs opacity-50">No deadlines</p>
+                    <p className="text-xs opacity-50">Nothing scheduled</p>
                   ) : (
                     <ul className="space-y-1.5">
                       {dayItems.map((item) => (
@@ -349,7 +425,7 @@ export function DeadlineCalendar({
                             href={item.href}
                             className={`block rounded border px-2 py-1.5 text-xs ${eventChipClass(item.kind, item.overdue)}`}
                           >
-                            <span className="font-semibold">{KIND_SHORT[item.kind]}</span>
+                            <span className="font-semibold">{chipLabel(item)}</span>
                             <span className="block font-medium mt-0.5">{item.title}</span>
                             <span className="block opacity-70 truncate">{item.matterLabel}</span>
                           </Link>

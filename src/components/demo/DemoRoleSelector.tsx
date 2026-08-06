@@ -7,6 +7,7 @@ import {
 } from "@/lib/demo-config";
 import { useDemoRole } from "@/components/demo/DemoRoleProvider";
 import { RotateCcw } from "lucide-react";
+import { useEffect } from "react";
 
 export function DemoRoleSelector() {
   const demo = useDemoRole();
@@ -69,17 +70,24 @@ export function DemoRoleSelector() {
 
 export function DemoModeToast() {
   const demo = useDemoRole();
-  if (!demo?.toast) return null;
+  const toast = demo?.toast ?? null;
+  const clearToast = demo?.clearToast;
+
+  useEffect(() => {
+    if (!toast || !clearToast) return;
+    const timer = window.setTimeout(() => {
+      clearToast();
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [toast, clearToast]);
+
+  if (!toast) return null;
 
   return (
     <div className="toast toast-top toast-end z-50 mt-16">
       <div className="alert alert-info shadow-lg max-w-sm text-sm">
-        <span>{demo.toast}</span>
-        <button
-          type="button"
-          className="btn btn-ghost btn-xs"
-          onClick={demo.clearToast}
-        >
+        <span>{toast}</span>
+        <button type="button" className="btn btn-ghost btn-xs" onClick={clearToast}>
           ✕
         </button>
       </div>

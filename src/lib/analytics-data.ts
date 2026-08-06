@@ -538,6 +538,96 @@ function daysToPayForClient(
   return result;
 }
 
+export type FirmPulseSummary = {
+  outstandingAR: number;
+  pastDueAR: number;
+  ar90Plus: number;
+  unbilledWip: number;
+  collectionRate: number | null;
+  avgDaysToPay: number | null;
+  billingRealization: number | null;
+  utilization: number | null;
+  grossMargin: number | null;
+  grossProfit: number;
+  invoicedRevenue: number;
+  collectedRevenue: number;
+  lastMonthCollected: number | null;
+  lastMonthLabel: string | null;
+};
+
+export type FirmPulseOptions = {
+  pastDueAR?: number;
+  unbilledWip?: number;
+};
+
+/**
+ * Firm-wide health rollups for the Managing Partner Firm pulse panel.
+ * Uses the same matter / attorney / AR definitions as profitability & productivity reports.
+ */
+export function summarizeFirmPulse(
+  bundle: AnalyticsBundle,
+  opts: FirmPulseOptions = {}
+): FirmPulseSummary {
+  const outstandingAR = bundle.arAging.reduce((s, b) => s + b.amount, 0);
+  const ar90Plus = bundle.arAging.find((b) => b.bucket === "90+")?.amount ?? 0;
+  const pastDueAR =
+    opts.pastDueAR != null
+      ? opts.pastDueAR
+      : bundle.clients.reduce((s, c) => s + c.pastDueAR, 0);
+  const unbilledWip = opts.unbilledWip ?? 0;
+
+  const invoicedRevenue = bundle.matters.reduce((s, m) => s + m.invoicedRevenue, 0);
+  const collectedRevenue = bundle.matters.reduce((s, m) => s + m.collectedRevenue, 0);
+  const grossProfit = bundle.matters.reduce((s, m) => s + m.grossProfit, 0);
+  const collectionRate =
+    invoicedRevenue > 0 ? (collectedRevenue / invoicedRevenue) * 100 : null;
+  const grossMargin = marginPct(grossProfit, invoicedRevenue);
+
+  // Billing realization: invoiced fees ÷ standard billable value (same as matter formula, firm-weighted)
+  let standardBillableValue = 0;
+  let invoicedFees = 0;
+  for (const m of bundle.matters) {
+    standardBillableValue += m.standardBillableValue;
+    invoicedFees += m.invoicedFees;
+  }
+  const billingRealization =
+    standardBillableValue > 0 ? (invoicedFees / standardBillableValue) * 100 : null;
+
+  // Utilization: billable-hours-weighted average across timekeepers with a util estimate
+  let utilBillable = 0;
+  let utilWeight = 0;
+  for (const a of bundle.attorneys) {
+    if (a.utilization == null) continue;
+    const w = a.billableHours > 0 ? a.billableHours : 1;
+    utilBillable += a.utilization * w;
+    utilWeight += w;
+  }
+  const utilization = utilWeight > 0 ? utilBillable / utilWeight : null;
+
+  const dtp = bundle.daysToPaySamples;
+  const avgDaysToPay =
+    dtp.length > 0 ? dtp.reduce((s, x) => s + x.days, 0) / dtp.length : null;
+
+  const lastMonth = bundle.monthly.length > 0 ? bundle.monthly[bundle.monthly.length - 1] : null;
+
+  return {
+    outstandingAR,
+    pastDueAR,
+    ar90Plus,
+    unbilledWip,
+    collectionRate,
+    avgDaysToPay,
+    billingRealization,
+    utilization,
+    grossMargin,
+    grossProfit,
+    invoicedRevenue,
+    collectedRevenue,
+    lastMonthCollected: lastMonth ? lastMonth.collected : null,
+    lastMonthLabel: lastMonth ? lastMonth.month : null,
+  };
+}
+
 /** Load analytics inputs via Supabase client (RLS applies). */
 export async function loadAnalyticsData(supabase: any) {
   const [

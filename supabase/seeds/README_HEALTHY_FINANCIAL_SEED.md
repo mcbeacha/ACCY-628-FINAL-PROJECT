@@ -12,6 +12,41 @@ Idempotent seed for the attorney demo profile only (`jharper@rebellaw.demo` / `a
 
 Apply in the Supabase SQL Editor against the demo project your app uses, or via MCP `execute_sql` / `apply_migration` when that project is linked.
 
+## Lane Kiffin — informational Criminal Defense AR (not a demo identity)
+
+Idempotent seed for a **data-only** client who does **not** appear in Demo Mode “View App As”:
+
+- File: [`lane_kiffin_criminal_ar.sql`](lane_kiffin_criminal_ar.sql)
+- Client: Lane Kiffin (`e110…0001`), Individual / Active, `portal_user_id` NULL (no Auth / portal login)
+- Matter: `State v. Kiffin — Murder Defense`, practice area **Criminal Defense**, Fixed Fee $350,000, Lead Attorney Jordan Harper
+- Invoice: `INV-LK-350000`, finalized, `balance_due = 350000`, due date ~75 days past → shows as past-due AR
+- Safe to re-run (`e110…` stable hex UUIDs + `ON CONFLICT`)
+- **Do not** add this person to `DEMO_IDENTITIES` in `src/lib/demo-config.ts`
+
+Apply in the Supabase SQL Editor against the demo project, or via MCP `execute_sql` when linked. Matter insert briefly disables `trg_matter_controls` if that trigger exists.
+
+## Dashboard edge-case seed (demo clients untouched)
+
+Idempotent seed for **additional informational clients/matters/invoices** used by dashboards and AR. Does **not** update Demo Mode identities or known demo rows (Northvale/Nora, MT-200x, INV-0100xx, etc.).
+
+- File: [`dashboard_edge_case_seed.sql`](dashboard_edge_case_seed.sql)
+- UUID prefix: `e120…` / `e121…` / `e122…` (hex-valid)
+- Covers: unprofitable contracts, late projects, over-budget work, unpaid invoices, partial payments, canceled contracts, renewals, change orders, disputed charges, expired agreements, work before approval, costs after billing, plus a broader client history
+- Safe to re-run (`ON CONFLICT`); never sets `portal_user_id`; leave `DEMO_IDENTITIES` unchanged
+
+Apply in the Supabase SQL Editor for project `xhrsitxkmyczocvdhyev` (or your linked demo project).
+
+## Cost categories catalog
+
+Cost Entry / Vendor Charge / Allocations load categories from `public.cost_categories` (not from app constants). The full catalog is seeded by migration:
+
+- File: [`../migrations/20260807100000_cost_categories_catalog.sql`](../migrations/20260807100000_cost_categories_catalog.sql)
+- Keeps **Advertising / Marketing** (`d400…0001`) for marketing ROI posting
+- Adds Outside Services, Legal and Matter Expenses, Travel, Allocated Costs, Employee Labor, and Other names so dropdowns are not limited to marketing
+- Safe to re-run (`ON CONFLICT (category_name) DO UPDATE`)
+
+`dashboard_edge_case_seed.sql` looks up the first active row in `Outside Services` and `Legal and Matter Expenses`; those groups are populated by this catalog.
+
 ## How seed data was revised
 
 Revisions were applied as idempotent remote migrations via the Supabase MCP (`apply_migration`), using stable demo UUIDs and `ON CONFLICT` upserts where practical.
@@ -48,7 +83,7 @@ Unfiltered attorney utilization previously used a hard-coded **12-week** denomin
 ## Re-run guidance
 
 1. Prefer re-applying the same idempotent SQL (stable IDs + `ON CONFLICT`) against the demo project.
-2. Do not truncate unknown tables; only upsert/update clearly identified demo UUID ranges (`a100…`, `b200…`, `c300…`, `aa00…`, `bb00…`, `e500…`, `ce00…`, `cf00…`, etc.).
+2. Do not truncate unknown tables; only upsert/update clearly identified demo UUID ranges (`a100…`, `b200…`, `c300…`, `aa00…`, `bb00…`, `e500…`, `e110…`, `ce00…`, `cf00…`, etc.).
 3. Matter status/approval updates may require briefly disabling `trg_matter_controls` (Managing Partner approval gate), then re-enabling it.
 4. After data changes, refresh dashboards/reports in the app — totals are calculated from DB rows, not hardcoded UI figures.
 5. Always re-run `supabase/seeds/ensure_mt05002_active_approved.sql` after financial re-seeds so PI matter **MT-05002** stays `matter_status = Active` and `approval_status = Approved` (it already has invoices, payments, retainers, write-offs, and contingency journal activity). Do not leave it `Pending Approval` while those rows exist.
