@@ -1,6 +1,21 @@
 import ExcelJS from "exceljs";
 import type { TaxCategoryGroup, TaxExportAudit } from "@/lib/tax-exports";
 
+/** Excel sheet names cannot contain * ? : \ / [ ] and must be ≤ 31 chars. */
+function excelSheetName(title: string, used: Set<string>): string {
+  const cleaned = title.replace(/[*?:\\/[\]]/g, "-").replace(/\s+/g, " ").trim() || "Sheet";
+  let base = cleaned.slice(0, 31);
+  let candidate = base;
+  let n = 2;
+  while (used.has(candidate.toLowerCase())) {
+    const suffix = ` (${n})`;
+    candidate = `${base.slice(0, Math.max(1, 31 - suffix.length))}${suffix}`;
+    n += 1;
+  }
+  used.add(candidate.toLowerCase());
+  return candidate;
+}
+
 /** Server-only Excel builder — do not import from Client Components. */
 export function buildTaxExportWorkbook(input: {
   groups: TaxCategoryGroup[];
@@ -9,6 +24,7 @@ export function buildTaxExportWorkbook(input: {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = input.audit.exportedByName;
   workbook.created = new Date(input.audit.exportedAtIso);
+  const usedNames = new Set<string>(["audit cover", "category summary"]);
 
   const cover = workbook.addWorksheet("Audit Cover");
   cover.addRow(["Rebel Law Group — Year-End Tax Package Export"]);
@@ -70,7 +86,7 @@ export function buildTaxExportWorkbook(input: {
   summary.getColumn(6).width = 55;
 
   for (const g of input.groups) {
-    const sheet = workbook.addWorksheet(g.title.slice(0, 31));
+    const sheet = workbook.addWorksheet(excelSheetName(g.title, usedNames));
     sheet.addRow(["Description", "Date", "Amount", "Source", "Reference", "Tax note"]);
     sheet.getRow(1).font = { bold: true };
     for (const item of g.items) {
