@@ -27,6 +27,8 @@ Named remote migrations applied for this revision (among others):
 - `healthy_seed_ar_margin_tweak` — PI vendor tweak, partial collections for AR mix
 - `healthy_seed_fix_invoice_payment_map` — corrected UUID↔invoice_number quirk for INV-010004/006
 - `healthy_seed_productivity_capacity` — `profiles.available_weekly_hours` for believable utilization
+- `fix_inv010006_reconciliation.sql` — INV-010006 historical note (superseded by settlement trust fix below for retainer detach)
+- `fix_pi_trust_settlement_ledger.sql` — MT-05002 Client Trust settlement chain (proceeds → lien → costs → fees → client); INV-010006 payment $700 / retainer $0 / balance $350; Trust Ledger UI filters to PI only
 
 ## Important ID quirk
 
@@ -49,6 +51,7 @@ Unfiltered attorney utilization previously used a hard-coded **12-week** denomin
 2. Do not truncate unknown tables; only upsert/update clearly identified demo UUID ranges (`a100…`, `b200…`, `c300…`, `aa00…`, `bb00…`, `e500…`, `ce00…`, `cf00…`, etc.).
 3. Matter status/approval updates may require briefly disabling `trg_matter_controls` (Managing Partner approval gate), then re-enabling it.
 4. After data changes, refresh dashboards/reports in the app — totals are calculated from DB rows, not hardcoded UI figures.
+5. Always re-run `supabase/seeds/ensure_mt05002_active_approved.sql` after financial re-seeds so PI matter **MT-05002** stays `matter_status = Active` and `approval_status = Approved` (it already has invoices, payments, retainers, write-offs, and contingency journal activity). Do not leave it `Pending Approval` while those rows exist.
 
 ## Pro bono
 

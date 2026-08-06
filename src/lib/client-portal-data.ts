@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { seedProfileContact } from "@/lib/seed-directory";
 import type { Client, Matter, MatterTask, Profile } from "@/lib/types";
 import { redirect } from "next/navigation";
 
@@ -55,6 +55,24 @@ export type ClientPortalBundle = {
   paralegal: Profile | null;
 };
 
+function hydrateResponsible(
+  matters: ClientPortalBundle["matters"]
+): ClientPortalBundle["matters"] {
+  return matters.map((m) => {
+    if (m.responsible?.full_name) return m;
+    const seeded = seedProfileContact(m.responsible_attorney_id);
+    if (!seeded) return m;
+    return {
+      ...m,
+      responsible: {
+        full_name: seeded.full_name,
+        email: seeded.email,
+        job_title: seeded.job_title,
+      },
+    };
+  });
+}
+
 export async function requireCurrentClientPortal(): Promise<ClientPortalBundle> {
   const { requireUser } = await import("@/lib/auth");
   const { profile, supabase } = await requireUser();
@@ -82,7 +100,7 @@ export async function requireCurrentClientPortal(): Promise<ClientPortalBundle> 
     .eq("client_id", clientRow.id)
     .order("created_at", { ascending: false });
 
-  const matterRows = (matters || []) as ClientPortalBundle["matters"];
+  const matterRows = hydrateResponsible((matters || []) as ClientPortalBundle["matters"]);
   const matterIds = matterRows.map((m) => m.id);
 
   let tasks: MatterTask[] = [];
@@ -134,6 +152,7 @@ export async function requireCurrentClientPortal(): Promise<ClientPortalBundle> 
     retainerTx = (data || []) as ClientPortalBundle["retainerTx"];
   }
 
+  const seededParalegal = seedProfileContact("a1000000-0000-4000-8000-000000000004");
   const { data: paralegal } = await supabase
     .from("profiles")
     .select("*")
@@ -149,7 +168,19 @@ export async function requireCurrentClientPortal(): Promise<ClientPortalBundle> 
     payments: (payments || []) as ClientPortalBundle["payments"],
     retainers: retainerRows,
     retainerTx,
-    paralegal: (paralegal as Profile) || null,
+    paralegal:
+      (paralegal as Profile) ||
+      (seededParalegal
+        ? ({
+            id: "a1000000-0000-4000-8000-000000000004",
+            full_name: seededParalegal.full_name,
+            email: seededParalegal.email || "",
+            role: "paralegal",
+            job_title: seededParalegal.job_title,
+            active_status: true,
+            created_at: "",
+          } as Profile)
+        : null),
   };
 }
 

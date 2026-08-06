@@ -17,6 +17,10 @@ import {
   viewerCanApprove,
 } from "@/lib/approval-tiers";
 import { clientDisplayName, formatCurrency, formatDate, isOverdue } from "@/lib/format";
+import {
+  displayApprovalStatus,
+  displayMatterStatus,
+} from "@/lib/matter-status";
 import { createClient } from "@/lib/supabase/client";
 import type {
   Client,
@@ -174,17 +178,23 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
         ? {
             approval_status: "Approved",
             matter_status: "Active",
+            approved_by: userId,
+            approved_at: new Date().toISOString(),
             approval_notes: note || matter.approval_notes,
           }
         : decision === "reject"
           ? {
               approval_status: "Rejected",
               matter_status: "Canceled",
+              approved_by: null,
+              approved_at: null,
               approval_notes: note,
             }
           : {
               approval_status: "Returned for Correction",
               matter_status: "Draft",
+              approved_by: null,
+              approved_at: null,
               approval_notes: note,
             };
 
@@ -623,8 +633,8 @@ export function MatterDetailClient({ matterId, role, userId }: Props) {
       )}
 
       <div className="flex flex-wrap gap-2 items-center">
-        <StatusBadge status={matter.matter_status} />
-        {!isClient && <StatusBadge status={matter.approval_status} />}
+        <StatusBadge status={displayMatterStatus(matter)} />
+        {!isClient && <StatusBadge status={displayApprovalStatus(matter)} />}
         <span className="badge badge-outline">{matter.practice_area}</span>
         {!isClient && matter.billing_method && (
           <span className="badge badge-outline">{matter.billing_method}</span>

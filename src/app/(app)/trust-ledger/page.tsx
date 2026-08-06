@@ -6,12 +6,19 @@ import { StatusBadge } from "@/components/Badges";
 import { clientDisplayName, formatCurrency, formatDate } from "@/lib/format";
 import type { RetainerTransaction } from "@/lib/phase2-types";
 import type { Client } from "@/lib/types";
+import {
+  SETTLEMENT_LEDGER_STEPS,
+  settlementDisplayLabel,
+  trustDecreaseAmount,
+  trustIncreaseAmount,
+} from "@/lib/trust-ledger";
 import { redirect } from "next/navigation";
 
 type TxnRow = RetainerTransaction & {
   matters?: {
     matter_number: string;
     matter_name: string;
+    practice_area?: string | null;
     clients?: Client | null;
   } | null;
 };
@@ -23,15 +30,15 @@ export default async function TrustLedgerPage() {
   const { data } = await supabase
     .from("retainer_transactions")
     .select(
-      "*, matters(matter_number, matter_name, clients(organization_name, first_name, last_name, client_type))"
+      "*, matters!inner(matter_number, matter_name, practice_area, clients(organization_name, first_name, last_name, client_type, primary_contact_name))"
     )
     .eq("approval_status", "Approved")
+    .eq("matters.practice_area", "Personal Injury")
     .order("transaction_date", { ascending: true })
     .order("created_at", { ascending: true });
 
   const rows = (data || []) as TxnRow[];
 
-  // Running balance overall across accounts (and also group per matter for display)
   const byMatter = new Map<string, TxnRow[]>();
   for (const r of rows) {
     const list = byMatter.get(r.matter_id) || [];
@@ -56,24 +63,16 @@ export default async function TrustLedgerPage() {
   for (const [, list] of byMatter) {
     let bal = 0;
     for (const r of list) {
-      const increase =
-        r.transaction_type === "Deposit" || r.transaction_type === "Adjustment Increase"
-          ? Number(r.amount)
-          : 0;
-      const decrease =
-        r.transaction_type === "Refund" ||
-        r.transaction_type === "Adjustment Decrease" ||
-        r.transaction_type === "Applied to Fees" ||
-        r.transaction_type === "Applied to Expenses"
-          ? Number(r.amount)
-          : 0;
+      const amt = Number(r.amount);
+      const increase = trustIncreaseAmount(r.transaction_type, amt);
+      const decrease = trustDecreaseAmount(r.transaction_type, amt);
       bal = bal + increase - decrease;
       ledgerLines.push({
         id: r.id,
         client: clientDisplayName(r.matters?.clients || null),
         matter: r.matters ? `${r.matters.matter_number} · ${r.matters.matter_name}` : r.matter_id,
         date: r.transaction_date,
-        type: r.transaction_type,
+        type: settlementDisplayLabel(r.transaction_type, r.description),
         desc: r.description || "—",
         increase,
         decrease,
@@ -84,18 +83,21 @@ export default async function TrustLedgerPage() {
     }
   }
 
-  // Sort by date for global view
-  ledgerLines.sort((a, b) => a.date.localeCompare(b.date));
+  ledgerLines.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 
   return (
     <>
       <PageHeader
-        title="Trust Ledger"
-        description="Retainer activity with running balances by matter."
+        title="Client Trust Ledger"
+        description="PI settlement proceeds, liens, cost reimbursement, attorney-fee transfers, and client distributions with running balances by matter."
       />
+      <p className="text-sm opacity-70 -mt-2">
+        Settlement sequence: {SETTLEMENT_LEDGER_STEPS.join(" → ")}. Operating retainers for hourly matters remain
+        on Retainers.
+      </p>
 
       {ledgerLines.length === 0 ? (
-        <EmptyState title="No approved trust/retainer transactions yet." />
+        <EmptyState title="No approved PI settlement trust transactions yet." />
       ) : (
         <div className="card bg-base-100 border border-base-300 shadow-sm">
           <div className="table-wrap">

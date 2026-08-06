@@ -28,6 +28,20 @@ export default async function ControlsPage() {
   const pmap = new Map<string, string>(
     raw.profiles.map((p: any) => [String(p.id), String(p.full_name || "—")])
   );
+  const matterStartById = new Map<string, string>();
+  for (const m of raw.matterRows) {
+    if (m.id && m.engagement_start_date) {
+      matterStartById.set(String(m.id), String(m.engagement_start_date).slice(0, 10));
+    }
+  }
+  const linesByInvoice = new Map<string, any[]>();
+  for (const line of raw.invoiceLines || []) {
+    const invId = String(line.invoice_id || "");
+    if (!invId) continue;
+    const list = linesByInvoice.get(invId) || [];
+    list.push(line);
+    linesByInvoice.set(invId, list);
+  }
   const rows: ControlRow[] = [];
 
   // Self-approved invoices (created_by == approved_by) high value
@@ -130,6 +144,49 @@ export default async function ControlsPage() {
         followUp: "Stop billing on duplicate numbers; void/cancel extras and keep one authoritative invoice",
       });
     }
+  }
+
+  // Invoice date before matter engagement start and/or billed service dates
+  for (const inv of raw.invoices) {
+    const invoiceDate = inv.invoice_date ? String(inv.invoice_date).slice(0, 10) : "";
+    if (!invoiceDate) continue;
+
+    const engagementStart = inv.matter_id ? matterStartById.get(String(inv.matter_id)) : undefined;
+    const beforeMatterStart = !!engagementStart && invoiceDate < engagementStart;
+
+    let earliestServiceAfterInvoice: string | null = null;
+    for (const line of linesByInvoice.get(String(inv.id)) || []) {
+      const serviceDate = line.service_date ? String(line.service_date).slice(0, 10) : "";
+      if (!serviceDate || invoiceDate >= serviceDate) continue;
+      if (!earliestServiceAfterInvoice || serviceDate < earliestServiceAfterInvoice) {
+        earliestServiceAfterInvoice = serviceDate;
+      }
+    }
+    const beforeServiceWork = !!earliestServiceAfterInvoice;
+
+    if (!beforeMatterStart && !beforeServiceWork) continue;
+
+    const predates: string[] = [];
+    if (beforeMatterStart) predates.push("matter start");
+    if (beforeServiceWork) predates.push("billed work");
+
+    const followBits: string[] = [`Invoice ${formatDate(invoiceDate)}`];
+    if (beforeMatterStart && engagementStart) {
+      followBits.push(`predates engagement start ${formatDate(engagementStart)}`);
+    }
+    if (beforeServiceWork && earliestServiceAfterInvoice) {
+      followBits.push(`predates service date ${formatDate(earliestServiceAfterInvoice)}`);
+    }
+
+    rows.push({
+      risk: "High",
+      record: `Invoice date predates ${predates.join(" / ")} — ${inv.invoice_number}`,
+      href: `/invoices/${inv.id}`,
+      user: pmap.get(inv.created_by) || "—",
+      date: invoiceDate,
+      status: "Control fail",
+      followUp: `${followBits.join("; ")}. Confirm billing period and matter open date.`,
+    });
   }
 
   // Missing approval on finalized
@@ -295,7 +352,7 @@ export default async function ControlsPage() {
     <>
       <PageHeader
         title="Control Monitoring"
-        description="Exception list for segregation of duties, duplicate invoice numbers, high-value adjustments, reversals, and lock gaps."
+        description="Exception list for segregation of duties, invoice date ordering (before matter start or billed work), duplicate invoice numbers, high-value adjustments, reversals, and lock gaps."
       />
       <p className="text-sm opacity-70">
         Failed sign-in attempt telemetry is not stored in app tables; monitor via Supabase Auth logs. Generated{" "}

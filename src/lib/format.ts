@@ -2,10 +2,22 @@ import type { Client } from "./types";
 
 export function clientDisplayName(client: Partial<Client> | null | undefined) {
   if (!client) return "Unknown client";
-  if (client.client_type === "Individual") {
-    return [client.first_name, client.last_name].filter(Boolean).join(" ") || "Unnamed client";
+
+  const personName = [client.first_name, client.last_name].filter(Boolean).join(" ");
+  const orgName = (client.organization_name || "").trim();
+  const contactName = (client.primary_contact_name || "").trim();
+
+  // Prefer person name for individuals. Also treat missing client_type as individual when
+  // person fields are present and organization is empty (common when selects omit client_type).
+  const isIndividual =
+    client.client_type === "Individual" ||
+    ((!client.client_type || client.client_type === "Other") && !!personName && !orgName);
+
+  if (isIndividual) {
+    return personName || contactName || "Unnamed client";
   }
-  return client.organization_name || client.primary_contact_name || "Unnamed organization";
+
+  return orgName || contactName || personName || "Unnamed organization";
 }
 
 export function formatCurrency(value: number | null | undefined) {

@@ -10,6 +10,7 @@ import {
   MATTER_STATUSES,
   PRACTICE_AREAS,
 } from "@/lib/constants";
+import { displayMatterStatus } from "@/lib/matter-status";
 import type { Client, Matter, Profile } from "@/lib/types";
 import Link from "next/link";
 
@@ -37,8 +38,28 @@ export default async function MattersPage({
   if (params.billing) query = query.eq("billing_method", params.billing);
   if (params.attorney) query = query.eq("responsible_attorney_id", params.attorney);
 
-  const { data } = await query;
+  // Finance staff should see the same matters that power invoices/AR/retainers/trust.
+  // If a nested profile embed fails under RLS, fall back to a simpler select so matters
+  // like MT-05002 still appear for billing_staff.
+  let { data, error } = await query;
+  if (error && (profile.role === "billing_staff" || profile.role === "managing_partner")) {
+    let fallback = supabase
+      .from("matters")
+      .select("*, clients(*)")
+      .order("updated_at", { ascending: false });
+    if (params.status) fallback = fallback.eq("matter_status", params.status);
+    if (params.practice) fallback = fallback.eq("practice_area", params.practice);
+    if (params.billing) fallback = fallback.eq("billing_method", params.billing);
+    if (params.attorney) fallback = fallback.eq("responsible_attorney_id", params.attorney);
+    const retry = await fallback;
+    data = retry.data;
+    error = retry.error;
+  }
+
   let matters = (data || []) as Matter[];
+  if (error) {
+    console.error("Matters list query failed:", error.message);
+  }
 
   if (params.q?.trim()) {
     const q = params.q.trim().toLowerCase();
@@ -173,7 +194,7 @@ export default async function MattersPage({
                     )}
                     <td className="text-sm">{m.practice_area}</td>
                     <td>
-                      <StatusBadge status={m.matter_status} />
+                      <StatusBadge status={displayMatterStatus(m)} />
                     </td>
                     {profile.role !== "client" && (
                       <td className="text-sm">{m.billing_method || "—"}</td>

@@ -23,7 +23,7 @@ export function RetainersClient({ userId }: { userId: string }) {
     const [{ data: a }, { data: t }] = await Promise.all([
       supabase
         .from("retainer_accounts")
-        .select("*, matters(id, matter_number, matter_name, clients(organization_name, first_name, last_name))")
+        .select("*, matters(id, matter_number, matter_name, clients(organization_name, first_name, last_name, client_type, primary_contact_name))")
         .order("created_at", { ascending: false }),
       supabase
         .from("retainer_transactions")

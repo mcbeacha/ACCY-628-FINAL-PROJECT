@@ -5,6 +5,7 @@
  */
 
 import { clientDisplayName } from "./format";
+import { displayMatterStatus } from "./matter-status";
 import type { Client, Matter, MatterTask } from "./types";
 import type { MatterCardData } from "@/components/workspace/MatterCard";
 import type {
@@ -32,21 +33,24 @@ export function toMatterCards(
   matters: Matter[],
   responsibleNames: Map<string, string> = new Map()
 ): MatterCardData[] {
-  return matters.map((matter) => ({
-    id: matter.id,
-    matterNumber: matter.matter_number,
-    matterName: matter.matter_name,
-    clientName: clientDisplayName(matter.clients as Client | undefined),
-    practiceArea: matter.practice_area || "Unassigned",
-    status: matter.matter_status,
-    responsibleAttorney:
-      matter.responsible?.full_name ||
-      responsibleNames.get(matter.responsible_attorney_id ?? "") ||
-      "Unassigned",
-    nextDeadline: matter.expected_end_date ?? null,
-    lastActivity: matter.updated_at ?? matter.created_at ?? null,
-    stage: STAGE_BY_STATUS[matter.matter_status] ?? 50,
-  }));
+  return matters.map((matter) => {
+    const status = displayMatterStatus(matter);
+    return {
+      id: matter.id,
+      matterNumber: matter.matter_number,
+      matterName: matter.matter_name,
+      clientName: clientDisplayName(matter.clients as Client | undefined),
+      practiceArea: matter.practice_area || "Unassigned",
+      status,
+      responsibleAttorney:
+        matter.responsible?.full_name ||
+        responsibleNames.get(matter.responsible_attorney_id ?? "") ||
+        "Unassigned",
+      nextDeadline: matter.expected_end_date ?? null,
+      lastActivity: matter.updated_at ?? matter.created_at ?? null,
+      stage: STAGE_BY_STATUS[status] ?? 50,
+    };
+  });
 }
 
 function toPriority(value: string | null | undefined): Priority {

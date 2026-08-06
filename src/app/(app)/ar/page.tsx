@@ -24,7 +24,7 @@ export default async function ARPage({
     supabase
       .from("invoices")
       .select(
-        "*, matters(matter_number, matter_name, practice_area, responsible_attorney_id, responsible:profiles!matters_responsible_attorney_id_fkey(full_name)), clients(organization_name, first_name, last_name, client_number)"
+        "*, matters(matter_number, matter_name, practice_area, responsible_attorney_id, responsible:profiles!matters_responsible_attorney_id_fkey(full_name)), clients(organization_name, first_name, last_name, client_number, client_type, primary_contact_name)"
       )
       .not("finalized_at", "is", null)
       .order("due_date"),

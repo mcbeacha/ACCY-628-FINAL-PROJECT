@@ -57,7 +57,7 @@ export function PaymentsClient({ userId }: { userId: string }) {
       supabase.from("clients").select("*").order("client_number"),
       supabase
         .from("payments")
-        .select("*, clients(organization_name, first_name, last_name)")
+        .select("*, clients(organization_name, first_name, last_name, client_type, primary_contact_name)")
         .order("payment_date", { ascending: false })
         .limit(40),
     ]);
