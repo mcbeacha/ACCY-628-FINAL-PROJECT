@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-const REPORTS = [
+const REPORTS: { slug: string; title: string; roles: string; href?: string }[] = [
   { slug: "matter-profitability", title: "Matter Profitability Report", roles: "Partner & Billing" },
   { slug: "client-profitability", title: "Client Profitability Report", roles: "Partner & Billing" },
   { slug: "practice-area", title: "Practice Area Profitability Report", roles: "Partner & Billing" },
@@ -19,6 +19,7 @@ const REPORTS = [
   { slug: "write-downs-offs", title: "Write-Down and Write-Off Report", roles: "Partner & Billing" },
   { slug: "unbilled", title: "Unbilled Activity Report", roles: "Partner & Billing" },
   { slug: "budget-variance", title: "Matter Budget Variance Report", roles: "Partner & Billing" },
+  { slug: "marketing-performance", title: "Marketing Performance Report", roles: "Partner & Billing", href: "/marketing" },
 ];
 
 export default async function ReportsHubPage() {
@@ -65,7 +66,7 @@ export default async function ReportsHubPage() {
         {REPORTS.map((r) => (
           <Link
             key={r.slug}
-            href={`/reports/${r.slug}`}
+            href={r.href || `/reports/${r.slug}`}
             className="card bg-base-100 border border-base-300 shadow-sm hover:border-primary transition-colors"
           >
             <div className="card-body p-4">

@@ -8,15 +8,18 @@ import {
   type CaseEvaluationActivity,
 } from "@/lib/case-evaluations";
 import { formatDate } from "@/lib/format";
+import type { LeadSource, MarketingCampaign } from "@/lib/marketing-types";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile, UserRole } from "@/lib/types";
+import type { Profile } from "@/lib/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 type EvalRow = CaseEvaluation & {
   partner?: { full_name: string } | null;
   paralegal?: { full_name: string } | null;
+  lead_sources?: { source_name: string; channel_group?: string } | null;
+  marketing_campaigns?: { campaign_name: string; campaign_code: string } | null;
 };
 
 export function CaseEvaluationDetailClient({
@@ -24,11 +27,15 @@ export function CaseEvaluationDetailClient({
   activity,
   profile,
   attorneys,
+  leadSources = [],
+  campaigns = [],
 }: {
   evaluation: EvalRow;
   activity: CaseEvaluationActivity[];
   profile: Profile;
   attorneys: Profile[];
+  leadSources?: LeadSource[];
+  campaigns?: Pick<MarketingCampaign, "id" | "campaign_name" | "campaign_code" | "lead_source_id">[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +47,14 @@ export function CaseEvaluationDetailClient({
   const [recommendation, setRecommendation] = useState(evaluation.partner_recommendation || "");
   const [declineReason, setDeclineReason] = useState(evaluation.decline_reason || "");
   const [partnerId, setPartnerId] = useState(evaluation.assigned_partner_id || "");
+  const [leadSourceId, setLeadSourceId] = useState(evaluation.lead_source_id || "");
+  const [campaignId, setCampaignId] = useState(evaluation.campaign_id || "");
+  const [referralDetail, setReferralDetail] = useState(evaluation.referral_source || "");
+
+  const filteredCampaigns = useMemo(
+    () => campaigns.filter((c) => !leadSourceId || c.lead_source_id === leadSourceId),
+    [campaigns, leadSourceId]
+  );
 
   const role = profile.role;
   const isParalegal = role === "paralegal";
@@ -258,6 +273,24 @@ export function CaseEvaluationDetailClient({
                 <dt className="opacity-60">Suggested partner</dt>
                 <dd>{evaluation.partner?.full_name || "—"}</dd>
               </div>
+              <div className="flex justify-between gap-4">
+                <dt className="opacity-60">Lead source</dt>
+                <dd className="font-medium text-right">
+                  {evaluation.lead_sources?.source_name || evaluation.referral_source || "—"}
+                </dd>
+              </div>
+              {evaluation.marketing_campaigns?.campaign_name && (
+                <div className="flex justify-between gap-4">
+                  <dt className="opacity-60">Campaign</dt>
+                  <dd className="text-right text-sm">{evaluation.marketing_campaigns.campaign_name}</dd>
+                </div>
+              )}
+              {evaluation.utm_campaign && (
+                <div className="flex justify-between gap-4">
+                  <dt className="opacity-60">UTM campaign</dt>
+                  <dd className="text-right text-xs">{evaluation.utm_campaign}</dd>
+                </div>
+              )}
             </dl>
             <p className="text-sm mt-3 whitespace-pre-wrap opacity-85">{evaluation.case_summary}</p>
             {!showInternal && (
@@ -268,6 +301,78 @@ export function CaseEvaluationDetailClient({
           </div>
         </div>
       </div>
+
+      {showInternal && !evaluation.converted_matter_id && (
+        <div className="card bg-base-100 border border-base-300 shadow-sm">
+          <div className="card-body space-y-3">
+            <h2 className="card-title text-base">Attribution</h2>
+            <p className="text-sm opacity-70">
+              Correct lead source before conversion so marketing ROI stays accurate.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="form-control">
+                <span className="label-text">Lead source</span>
+                <select
+                  className="select select-bordered"
+                  value={leadSourceId}
+                  onChange={(e) => {
+                    setLeadSourceId(e.target.value);
+                    setCampaignId("");
+                  }}
+                >
+                  <option value="">Unattributed</option>
+                  {leadSources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.source_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-control">
+                <span className="label-text">Campaign</span>
+                <select
+                  className="select select-bordered"
+                  value={campaignId}
+                  onChange={(e) => setCampaignId(e.target.value)}
+                >
+                  <option value="">None</option>
+                  {filteredCampaigns.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.campaign_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-control sm:col-span-2">
+                <span className="label-text">Referral detail</span>
+                <input
+                  className="input input-bordered"
+                  value={referralDetail}
+                  onChange={(e) => setReferralDetail(e.target.value)}
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              disabled={busy}
+              onClick={() =>
+                saveUpdate(
+                  {
+                    lead_source_id: leadSourceId || null,
+                    campaign_id: campaignId || null,
+                    referral_source: referralDetail.trim() || null,
+                  },
+                  "Attribution updated",
+                  "Lead source / campaign corrected on evaluation."
+                )
+              }
+            >
+              Save attribution
+            </button>
+          </div>
+        </div>
+      )}
 
       {isParalegal && (
         <div className="card bg-base-100 border border-base-300 shadow-sm">

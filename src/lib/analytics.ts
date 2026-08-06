@@ -29,6 +29,14 @@ export const FORMULAS = {
   budgetConsumed: "Direct labor cost + direct matter expenses + approved vendor costs + allocated costs",
   budgetRemaining: "Matter budget − budget consumed",
   budgetVariance: "Matter budget − actual cost (positive = under budget)",
+  costPerLead:
+    "Approved marketing spend ÷ leads attributed to the channel/campaign in the period.",
+  costPerAcquisition:
+    "Approved marketing spend ÷ converted (retained) matters attributed to the channel/campaign.",
+  marketingRoi:
+    "((Collected revenue of attributed converted matters − approved spend) ÷ approved spend) × 100. Collected uses the same definition as firm analytics.",
+  marketingContribution:
+    "Collected revenue of attributed converted matters − approved marketing spend.",
 } as const;
 
 export type ProfitStatus =

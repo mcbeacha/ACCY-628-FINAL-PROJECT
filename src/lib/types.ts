@@ -81,6 +81,9 @@ export type Matter = {
   created_by: string | null;
   created_at: string;
   updated_at?: string;
+  lead_source_id?: string | null;
+  campaign_id?: string | null;
+  origin_evaluation_id?: string | null;
   clients?: Client | null;
   responsible?: Profile | null;
   originating?: Profile | null;

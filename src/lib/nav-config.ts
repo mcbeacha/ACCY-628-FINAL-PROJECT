@@ -93,6 +93,7 @@ export const NAV_SECTIONS: NavSectionDef[] = [
       { href: "/profitability/clients", label: "Client Profitability" },
       { href: "/profitability/practice-areas", label: "Practice Areas" },
       { href: "/productivity", label: "Attorney Productivity" },
+      { href: "/marketing", label: "Marketing Performance" },
       { href: "/reports", label: "Reports" },
       { href: "/data-quality", label: "Data Quality" },
       { href: "/controls", label: "Control Monitor" },

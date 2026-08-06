@@ -18,6 +18,7 @@ import {
 } from "@/lib/case-evaluations";
 import { isDemoMode } from "@/lib/demo-config";
 import { emailLooksValid } from "@/lib/format";
+import { DEMO_LEAD_SOURCES, type LeadSource, type MarketingCampaign } from "@/lib/marketing-types";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/lib/types";
 import {
@@ -33,7 +34,8 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Props = {
   profile: Profile;
@@ -398,11 +400,13 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
       </section>
 
       {/* Case evaluation form */}
-      <CaseEvaluationForm
-        profile={profile}
-        practiceArea={formPracticeArea}
-        onPracticeAreaChange={setFormPracticeArea}
-      />
+      <Suspense fallback={<div className="px-4 py-14 text-center opacity-60">Loading evaluation form…</div>}>
+        <CaseEvaluationForm
+          profile={profile}
+          practiceArea={formPracticeArea}
+          onPracticeAreaChange={setFormPracticeArea}
+        />
+      </Suspense>
 
       {/* Existing client CTA */}
       <section id="client-portal" className="px-4 sm:px-8 lg:px-12 py-14 scroll-mt-20">
@@ -545,9 +549,53 @@ function CaseEvaluationForm({
   practiceArea: string;
   onPracticeAreaChange: (v: string) => void;
 }) {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successRef, setSuccessRef] = useState<string | null>(null);
+  const [leadSources, setLeadSources] = useState<LeadSource[]>(DEMO_LEAD_SOURCES);
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  const [leadSourceId, setLeadSourceId] = useState("");
+
+  const utmSource = searchParams.get("utm_source") || "";
+  const utmMedium = searchParams.get("utm_medium") || "";
+  const utmCampaign = searchParams.get("utm_campaign") || "";
+
+  useEffect(() => {
+    const supabase = createClient();
+    (async () => {
+      const [{ data: sources }, { data: camps }] = await Promise.all([
+        supabase.from("lead_sources").select("*").eq("active_status", true).order("display_order"),
+        supabase.from("marketing_campaigns").select("*").eq("status", "Active").order("campaign_name"),
+      ]);
+      if (sources?.length) setLeadSources(sources as LeadSource[]);
+      if (camps?.length) {
+        setCampaigns(camps as MarketingCampaign[]);
+        if (utmCampaign) {
+          const match = (camps as MarketingCampaign[]).find(
+            (c) => c.utm_campaign === utmCampaign || c.campaign_code === utmCampaign
+          );
+          if (match) {
+            setLeadSourceId(match.lead_source_id);
+          }
+        }
+      }
+      if (utmSource && !leadSourceId) {
+        const byUtm = (sources as LeadSource[] | null)?.find(
+          (s) =>
+            s.source_code.includes(utmSource) ||
+            s.source_name.toLowerCase().includes(utmSource.toLowerCase())
+        );
+        if (byUtm) setLeadSourceId(byUtm.id);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [utmCampaign, utmSource]);
+
+  const campaignsForSource = useMemo(
+    () => campaigns.filter((c) => !leadSourceId || c.lead_source_id === leadSourceId),
+    [campaigns, leadSourceId]
+  );
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -621,6 +669,13 @@ function CaseEvaluationForm({
       urgency_level: String(fd.get("urgency_level") || "Routine"),
       currently_represented: fd.get("currently_represented") === "yes",
       referral_source: String(fd.get("referral_source") || "").trim() || null,
+      lead_source_id: String(fd.get("lead_source_id") || "").trim() || null,
+      campaign_id: String(fd.get("campaign_id") || "").trim() || null,
+      utm_source: String(fd.get("utm_source") || "").trim() || null,
+      utm_medium: String(fd.get("utm_medium") || "").trim() || null,
+      utm_campaign: String(fd.get("utm_campaign") || "").trim() || null,
+      landing_page: typeof window !== "undefined" ? window.location.pathname : "/potential-client",
+      tracking_phone: String(fd.get("tracking_phone") || "").trim() || null,
       consent_to_contact: true,
       disclaimer_acknowledged: true,
       evaluation_status: "New",
@@ -779,8 +834,50 @@ function CaseEvaluationForm({
               </label>
               <label className="form-control">
                 <span className="label-text font-medium">How did you hear about us?</span>
-                <input name="referral_source" className="input input-bordered" />
+                <select
+                  name="lead_source_id"
+                  className="select select-bordered"
+                  value={leadSourceId}
+                  onChange={(e) => setLeadSourceId(e.target.value)}
+                >
+                  <option value="">Select…</option>
+                  {leadSources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.source_name}
+                    </option>
+                  ))}
+                </select>
               </label>
+              <label className="form-control">
+                <span className="label-text font-medium">Campaign (if known)</span>
+                <select name="campaign_id" className="select select-bordered" defaultValue="">
+                  <option value="">None / not sure</option>
+                  {campaignsForSource.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.campaign_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-control sm:col-span-2">
+                <span className="label-text font-medium">Referral detail (optional)</span>
+                <input
+                  name="referral_source"
+                  className="input input-bordered"
+                  placeholder="Friend name, attorney name, or other detail"
+                />
+              </label>
+              <input type="hidden" name="utm_source" value={utmSource} />
+              <input type="hidden" name="utm_medium" value={utmMedium} />
+              <input type="hidden" name="utm_campaign" value={utmCampaign} />
+              <input
+                type="hidden"
+                name="tracking_phone"
+                value={
+                  campaignsForSource.find((c) => c.utm_campaign === utmCampaign)?.tracking_phone ||
+                  ""
+                }
+              />
             </div>
           </fieldset>
 
