@@ -429,6 +429,7 @@ body {
 }
 
 .page-enter {
+  @apply space-y-6;
   animation: page-enter 220ms ease-out both;
 }
 
