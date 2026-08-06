@@ -70,8 +70,8 @@ export function AppShell({
         <input id="app-drawer" type="checkbox" className="drawer-toggle" />
 
         <div className="drawer-content flex flex-col min-h-screen">
-          <div className="navbar app-navbar border-b px-2 sm:px-4 lg:px-6 sticky top-0 z-40 min-h-16 gap-2">
-            <div className="navbar-start gap-2 shrink-0 w-auto">
+          <div className="app-navbar sticky top-0 z-40 flex min-h-16 items-center gap-2 border-b px-2 sm:px-4 lg:px-6">
+            <div className="flex shrink-0 items-center gap-2">
               <div className="flex-none lg:hidden">
                 <label
                   htmlFor="app-drawer"
@@ -84,13 +84,8 @@ export function AppShell({
               <BrandLogo variant="header" />
             </div>
 
-            {isStaff && (
-              <div className="navbar-center flex-1 min-w-[8rem] px-1 sm:px-3">
-                <GlobalSearch />
-              </div>
-            )}
-
-            <div className="navbar-end gap-1 sm:gap-2 shrink-0 w-auto">
+            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+              {isStaff && <GlobalSearch />}
               {hasWorkspaceInbox && (
                 <>
                   <MessagesIndicator viewer={headerViewer} />
