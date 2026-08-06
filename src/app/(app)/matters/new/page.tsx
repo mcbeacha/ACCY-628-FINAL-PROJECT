@@ -107,6 +107,8 @@ function NewMatterForm() {
     }
     for (const key of [
       "hourly_rate",
+      "court_hourly_rate",
+      "maximum_fee_amount",
       "fixed_fee_amount",
       "initial_retainer_amount",
       "matter_budget",
@@ -141,10 +143,12 @@ function NewMatterForm() {
       originating_attorney_id: String(fd.get("originating_attorney_id") || "") || null,
       billing_method: billingMethod || null,
       hourly_rate: num("hourly_rate"),
+      court_hourly_rate: num("court_hourly_rate"),
       fixed_fee_amount: num("fixed_fee_amount"),
       contingency_percentage: num("contingency_percentage"),
       initial_retainer_amount: num("initial_retainer_amount"),
       retainer_replenishment_threshold: num("retainer_replenishment_threshold"),
+      maximum_fee_amount: num("maximum_fee_amount"),
       estimated_matter_value: num("estimated_matter_value"),
       matter_budget: num("matter_budget"),
       billing_frequency: String(fd.get("billing_frequency") || "") || null,
@@ -443,10 +447,27 @@ function NewMatterForm() {
               {["Hourly", "Retainer-Funded Hourly", "Hybrid"].includes(billingMethod) && (
                 <>
                   <label className="label-cell" htmlFor="hourly_rate">
-                    Hourly rate {billingMethod !== "Hybrid" ? "*" : ""}
+                    Hourly charge {billingMethod !== "Hybrid" ? "*" : ""}
                   </label>
                   <div className="field-cell">
                     <input id="hourly_rate" name="hourly_rate" type="number" min="0" step="0.01" className="input input-bordered w-full" />
+                    <p className="text-xs opacity-60 mt-1">Standard office, research, and drafting time.</p>
+                  </div>
+                  <label className="label-cell" htmlFor="court_hourly_rate">
+                    Court hourly charge
+                  </label>
+                  <div className="field-cell">
+                    <input id="court_hourly_rate" name="court_hourly_rate" type="number" min="0" step="0.01" className="input input-bordered w-full" placeholder="Higher than standard" />
+                    <p className="text-xs opacity-60 mt-1">
+                      Court, hearing, and appearance time is billed higher than ordinary fees. Leave blank to default to 1.5× the hourly charge.
+                    </p>
+                  </div>
+                  <label className="label-cell" htmlFor="maximum_fee_amount">
+                    Maximum charge
+                  </label>
+                  <div className="field-cell">
+                    <input id="maximum_fee_amount" name="maximum_fee_amount" type="number" min="0" step="0.01" className="input input-bordered w-full" />
+                    <p className="text-xs opacity-60 mt-1">Not-to-exceed professional fees without prior client approval.</p>
                   </div>
                 </>
               )}
@@ -487,12 +508,18 @@ function NewMatterForm() {
                   </label>
                   <div className="field-cell">
                     <input id="initial_retainer_amount" name="initial_retainer_amount" type="number" min="0" step="0.01" className="input input-bordered w-full" />
+                    <p className="text-xs opacity-60 mt-1">
+                      Advance deposit held for future services—not earned when received. Applied to invoices as work is billed; unused balance is refunded or carried forward when the matter closes.
+                    </p>
                   </div>
                   <label className="label-cell" htmlFor="retainer_replenishment_threshold">
                     Replenishment threshold
                   </label>
                   <div className="field-cell">
                     <input id="retainer_replenishment_threshold" name="retainer_replenishment_threshold" type="number" min="0" step="0.01" className="input input-bordered w-full" />
+                    <p className="text-xs opacity-60 mt-1">
+                      When the retainer falls to this amount, the client agrees to deposit additional funds so work can continue.
+                    </p>
                   </div>
                 </>
               )}

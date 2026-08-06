@@ -5,9 +5,9 @@
 
 export const FORMULAS = {
   matterRevenue:
-    "Sum of finalized invoice totals (invoice_total) for the matter, excluding Draft and Canceled invoices. Pre-billing write-downs are already reflected in invoice lines. Payments and unapplied retainers are not revenue.",
+    "ASC 606 Step 5 proxy: Sum of finalized invoice totals (invoice_total) for the matter, excluding Draft and Canceled invoices. Revenue is recognized when (or as) performance obligations are satisfied—not when retainers are received. Pre-billing write-downs are already reflected in invoice lines. Payments and unapplied retainers are not revenue.",
   collectedRevenue:
-    "Sum of payments_applied + retainer_applied on finalized invoices (capped by invoice total). Not double-counted as new invoiced revenue.",
+    "Cash / applied consideration: Sum of payments_applied + retainer_applied on finalized invoices (capped by invoice total). Retainer application settles contract liability against earned revenue; it is not double-counted as new invoiced revenue.",
   directLaborCost:
     "Sum of (approved hours × preserved internal_cost_rate) on approved time entries. Client billing rate is not used.",
   directMatterExpense:
