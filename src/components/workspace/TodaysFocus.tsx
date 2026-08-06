@@ -48,7 +48,7 @@ export function TodaysFocus({ items }: { items: FocusItem[] }) {
           <li key={item.id}>
             <Link
               href={item.href}
-              className="card bg-base-100 border border-base-300 shadow-sm transition-shadow hover:shadow-md hover:border-primary/50 block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="interactive-card card bg-base-100 border border-base-300 shadow-sm block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <div className="card-body p-4 gap-2">
                 <div className="flex items-center gap-2">

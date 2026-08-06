@@ -3,6 +3,7 @@ import { canPrepareInvoices } from "@/lib/permissions";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/Badges";
+import { InteractiveTableRow } from "@/components/InteractiveTableRow";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Invoice } from "@/lib/billing-types";
 import { findDuplicateInvoiceNumbers } from "@/lib/invoice-controls";
@@ -90,7 +91,7 @@ export default async function InvoicesPage() {
                     !r.finalized_at &&
                     r.approval_status === "Draft";
                   return (
-                  <tr key={r.id} className="hover">
+                  <InteractiveTableRow key={r.id} href={`/invoices/${r.id}`}>
                     <td>
                       <Link href={`/invoices/${r.id}`} className="link link-hover font-medium">
                         {r.invoice_number}
@@ -115,7 +116,7 @@ export default async function InvoicesPage() {
                         {canEdit ? "Edit" : "Open"}
                       </Link>
                     </td>
-                  </tr>
+                  </InteractiveTableRow>
                   );
                 })}
               </tbody>

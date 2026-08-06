@@ -20,7 +20,7 @@ import { MessagesIndicator } from "@/components/workspace/MessagesIndicator";
 import { NotificationCenter } from "@/components/workspace/NotificationCenter";
 import type { MessagingPerson } from "@/lib/messaging";
 import { LogOut, Menu } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function AppShell({
@@ -35,6 +35,7 @@ export function AppShell({
   demoMode?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [busy, setBusy] = useState(false);
   const demo = useDemoRole();
   const viewBadge = demo?.activeIdentity.viewBadge;
@@ -143,7 +144,9 @@ export function AppShell({
                   </span>
                 </div>
               )}
-              {children}
+              <div key={pathname} className="page-enter">
+                {children}
+              </div>
             </main>
             <footer className="max-w-7xl mx-auto mt-10 pb-6 text-center text-xs opacity-60">
               {demoMode

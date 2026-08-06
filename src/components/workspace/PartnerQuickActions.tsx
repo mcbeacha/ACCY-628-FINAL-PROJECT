@@ -35,13 +35,17 @@ export function PartnerQuickActions() {
             key={label}
             href={href}
             className={[
-              "flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+              "interactive-tile group flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
               primary
                 ? "bg-primary text-primary-content shadow-sm hover:brightness-110"
                 : "border border-base-content/10 bg-base-100 text-base-content/80 shadow-[0_1px_2px_oklch(22%_0.03_255_/_0.04)] hover:border-primary/30 hover:text-primary",
             ].join(" ")}
           >
-            <Icon className={`h-4 w-4 shrink-0 ${primary ? "opacity-90" : "opacity-55"}`} />
+            <Icon
+              className={`interactive-tile-icon h-4 w-4 shrink-0 ${
+                primary ? "opacity-90" : "opacity-55"
+              }`}
+            />
             <span className="truncate">{label}</span>
           </Link>
         );

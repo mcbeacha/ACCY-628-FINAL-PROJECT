@@ -33,7 +33,7 @@ export function MatterCard({
   onTogglePin: (id: string) => void;
 }) {
   return (
-    <div className="card bg-base-100 border border-base-300 shadow-sm transition-shadow hover:shadow-md">
+    <div className="interactive-card card bg-base-100 border border-base-300 shadow-sm">
       <div className="card-body p-4 gap-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -44,13 +44,19 @@ export function MatterCard({
           </div>
           <button
             type="button"
-            className={`btn btn-ghost btn-xs btn-square ${pinned ? "text-warning" : "opacity-50"}`}
+            className={`btn btn-ghost btn-xs btn-square transition-colors ${
+              pinned ? "text-warning" : "opacity-50 hover:opacity-100"
+            }`}
             onClick={() => onTogglePin(matter.id)}
             aria-pressed={pinned}
             aria-label={pinned ? `Unpin ${matter.matterNumber}` : `Pin ${matter.matterNumber}`}
             title={pinned ? "Unpin matter" : "Pin matter"}
           >
-            <Star className={`h-4 w-4 ${pinned ? "fill-current" : ""}`} />
+            <Star
+              className={`h-4 w-4 transition-transform duration-200 ${
+                pinned ? "fill-current scale-110" : "scale-100"
+              }`}
+            />
           </button>
         </div>
 

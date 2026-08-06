@@ -31,7 +31,7 @@ export default async function ClientPortalMilestonesPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {tasks.map((t) => (
-            <article key={t.id} className="rounded-box border border-base-300 bg-base-100 p-4">
+            <article key={t.id} className="interactive-card rounded-box border border-base-300 bg-base-100 p-4">
               <div className="flex flex-wrap justify-between gap-2">
                 <h2 className="font-semibold">{t.task_title}</h2>
                 <StatusBadge status={milestoneLabel(t.task_status)} />

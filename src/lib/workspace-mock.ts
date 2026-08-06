@@ -12,6 +12,7 @@
 
 import type { UserRole } from "@/lib/types";
 import type { CalendarEvent, CalendarEventType } from "@/lib/calendar";
+import { TEAM_HEADSHOTS } from "@/lib/team-photos";
 
 export type Priority = "Critical" | "High" | "Medium" | "Low";
 
@@ -129,6 +130,7 @@ export type DirectoryPerson = {
   phone: string;
   availability: "Available" | "In Court" | "In a Meeting" | "Out of Office";
   initials: string;
+  photoUrl?: string;
 };
 
 export type ResourceLink = {
@@ -678,6 +680,19 @@ export const DOCUMENTS: DocumentRecord[] = [
 
 export const DIRECTORY: DirectoryPerson[] = [
   {
+    id: "p-0",
+    name: "Margaret Sinclair",
+    title: "Managing Partner",
+    department: "Firm Leadership",
+    practiceArea: "Business Law",
+    office: "Oxford",
+    email: "partner@rebellaw.demo",
+    phone: "(662) 555-0140",
+    availability: "In a Meeting",
+    initials: "MS",
+    photoUrl: TEAM_HEADSHOTS["Margaret Sinclair"],
+  },
+  {
     id: "p-1",
     name: "Jordan Harper",
     title: "Managing Partner",
@@ -688,6 +703,7 @@ export const DIRECTORY: DirectoryPerson[] = [
     phone: "(662) 555-0142",
     availability: "In a Meeting",
     initials: "JH",
+    photoUrl: TEAM_HEADSHOTS["Jordan Harper"],
   },
   {
     id: "p-2",
@@ -700,6 +716,7 @@ export const DIRECTORY: DirectoryPerson[] = [
     phone: "(662) 555-0188",
     availability: "Available",
     initials: "AC",
+    photoUrl: TEAM_HEADSHOTS["Avery Chen"],
   },
   {
     id: "p-3",

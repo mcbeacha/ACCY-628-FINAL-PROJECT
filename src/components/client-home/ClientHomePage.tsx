@@ -62,7 +62,10 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
   const [selectedArea, setSelectedArea] = useState<PracticeAreaLead | null>(null);
   const [formPracticeArea, setFormPracticeArea] = useState("");
   const [highlightAreas, setHighlightAreas] = useState<string[]>([]);
+  const [previewAreas, setPreviewAreas] = useState<string[]>([]);
   const dialogRef = useRef<HTMLDialogElement>(null);
+
+  const activeHighlight = previewAreas.length > 0 ? previewAreas : highlightAreas;
 
   useEffect(() => {
     if (initialLeads.length) return;
@@ -131,7 +134,7 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
           }}
         />
         <div
-          className="absolute inset-0 opacity-[0.07]"
+          className="hero-breathe absolute inset-0 opacity-[0.07]"
           style={{
             backgroundImage:
               "radial-gradient(circle at 20% 20%, oklch(var(--p)) 0.5px, transparent 0.6px)",
@@ -152,15 +155,15 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
           <div className="mt-8 flex flex-wrap gap-3">
             <button
               type="button"
-              className="btn btn-primary gap-2"
+              className="group btn btn-primary gap-2"
               onClick={() => scrollToId("case-evaluation")}
             >
               Request a Free Case Evaluation
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="cta-arrow-nudge h-4 w-4" />
             </button>
             <button
               type="button"
-              className="btn btn-outline"
+              className="btn btn-outline underline-grow"
               onClick={() => scrollToId("practice-areas")}
             >
               Explore Our Practice Areas
@@ -205,7 +208,9 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
             {orderedLeads.map((lead) => {
               const Icon = practiceAreaIcon(lead.practice_area);
               const dimmed =
-                highlightAreas.length > 0 && !highlightAreas.includes(lead.practice_area);
+                activeHighlight.length > 0 && !activeHighlight.includes(lead.practice_area);
+              const highlighted =
+                activeHighlight.length > 0 && activeHighlight.includes(lead.practice_area);
               const leadName = lead.lead?.full_name ?? "Lead attorney";
               const isPartner =
                 lead.lead?.job_title?.toLowerCase().includes("partner") ||
@@ -213,16 +218,21 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
               return (
                 <article
                   key={lead.id}
-                  className={`group rounded-box border border-base-300 bg-base-100 p-5 transition duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md ${
-                    dimmed ? "opacity-40" : ""
-                  }`}
+                  className={`interactive-card group rounded-box border bg-base-100 p-5 ${
+                    highlighted
+                      ? "border-primary/50 shadow-md"
+                      : "border-base-300"
+                  } ${dimmed ? "opacity-40" : "opacity-100"}`}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="btn btn-circle btn-sm btn-primary btn-outline pointer-events-none">
+                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary text-primary transition-colors duration-200 group-hover:bg-primary group-hover:text-primary-content">
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-display text-xl font-semibold">{lead.practice_area}</h3>
+                      <h3 className="font-display text-xl font-semibold flex items-center gap-2">
+                        {lead.practice_area}
+                        <ArrowRight className="cta-arrow-nudge h-4 w-4 opacity-0 text-primary transition-opacity group-hover:opacity-100" />
+                      </h3>
                       <p className="text-sm mt-1 opacity-75">{lead.short_description}</p>
                       <p className="text-xs mt-3 opacity-60">
                         {isPartner ? "Lead Partner" : "Lead Attorney"}:{" "}
@@ -277,12 +287,14 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
               return (
                 <article
                   key={a.id}
-                  className="rounded-box border border-base-300 bg-base-100 p-5"
+                  className="interactive-card group rounded-box border border-base-300 bg-base-100 p-5"
                 >
-                  <Icon className="h-5 w-5 text-primary mb-3" />
+                  <Icon className="h-5 w-5 text-primary mb-3 transition-transform duration-200 group-hover:scale-110" />
                   <h3 className="font-display text-lg font-semibold">{a.activity_name}</h3>
                   <p className="text-sm mt-2 opacity-75">{a.description}</p>
-                  <p className="text-sm font-semibold mt-3 text-primary">{a.impact_metric}</p>
+                  <p className="text-sm font-semibold mt-3 text-primary transition-transform duration-200 origin-left group-hover:translate-x-0.5">
+                    {a.impact_metric}
+                  </p>
                   <p className="text-xs mt-2 opacity-60">
                     Related: {a.related_name} · {a.related_role}
                   </p>
@@ -314,23 +326,35 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
             {LIFE_STAGES.map((stage) => (
               <article
                 key={stage.id}
-                className="rounded-box border border-base-300 bg-base-100 p-5 flex flex-col"
+                className="interactive-card group rounded-box border border-base-300 bg-base-100 p-5 flex flex-col"
+                onMouseEnter={() => setPreviewAreas(stage.practice_areas)}
+                onMouseLeave={() => setPreviewAreas([])}
+                onFocus={() => setPreviewAreas(stage.practice_areas)}
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setPreviewAreas([]);
+                  }
+                }}
               >
                 <h3 className="font-display text-lg font-semibold">{stage.life_event}</h3>
                 <p className="text-sm mt-2 opacity-75 flex-1">{stage.explanation}</p>
                 <div className="mt-3 flex flex-wrap gap-1">
                   {stage.practice_areas.map((pa) => (
-                    <span key={pa} className="badge badge-ghost badge-sm">
+                    <span
+                      key={pa}
+                      className="badge badge-ghost badge-sm transition-colors group-hover:badge-primary group-hover:badge-outline"
+                    >
                       {pa}
                     </span>
                   ))}
                 </div>
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline mt-4 w-fit"
+                  className="btn btn-sm btn-outline mt-4 w-fit gap-1"
                   onClick={() => filterByLifeStage(stage.practice_areas)}
                 >
                   See How We Can Help
+                  <ArrowRight className="cta-arrow-nudge h-3.5 w-3.5" />
                 </button>
               </article>
             ))}
@@ -351,7 +375,7 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
                 Meet the Attorneys Serving Oxford
               </h2>
               <p className="mt-2 opacity-70">
-                Fictional academic-project profiles. Photos are placeholders.
+                Fictional academic-project profiles for Rebel Law Group.
               </p>
             </div>
           </div>
@@ -359,12 +383,31 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
             {ATTORNEY_CARDS.map((atty) => (
               <article
                 key={atty.id}
-                className="rounded-box border border-base-300 bg-base-100 p-5"
+                className={`interactive-card group rounded-box border bg-base-100 p-5 ${
+                  atty.is_managing_partner
+                    ? "border-primary/40 ring-1 ring-primary/20"
+                    : "border-base-300"
+                }`}
+                onMouseEnter={() => setPreviewAreas(atty.practice_focus)}
+                onMouseLeave={() => setPreviewAreas([])}
+                onFocus={() => setPreviewAreas(atty.practice_focus)}
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setPreviewAreas([]);
+                  }
+                }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="avatar placeholder">
-                    <div className="bg-primary text-primary-content rounded-full w-14">
-                      <span className="text-lg font-display">{atty.photo_initials}</span>
+                  <div className="avatar">
+                    <div className="photo-zoom w-14 rounded-full ring ring-base-300 ring-offset-base-100 ring-offset-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={atty.photo_url}
+                        alt={`Professional headshot of ${atty.full_name}`}
+                        width={56}
+                        height={56}
+                        className="object-cover"
+                      />
                     </div>
                   </div>
                   <div>
@@ -372,23 +415,29 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
                     <p className="text-sm opacity-70">{atty.role}</p>
                   </div>
                 </div>
-                <p className="text-sm mt-4 opacity-80">{atty.biography}</p>
-                <p className="text-xs mt-3 opacity-60">
+                <p className="text-sm mt-4 opacity-80 line-clamp-2 group-hover:line-clamp-none transition-[max-height] duration-200">
+                  {atty.biography}
+                </p>
+                <p className="text-xs mt-3 opacity-0 max-h-0 overflow-hidden transition-all duration-200 group-hover:opacity-60 group-hover:max-h-12">
                   Oxford community: {atty.community_involvement}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-1">
                   {atty.practice_focus.map((pa) => (
-                    <span key={pa} className="badge badge-outline badge-sm">
+                    <span
+                      key={pa}
+                      className="badge badge-outline badge-sm transition-colors group-hover:badge-primary"
+                    >
                       {pa}
                     </span>
                   ))}
                 </div>
                 <button
                   type="button"
-                  className="btn btn-sm btn-primary btn-outline mt-4"
+                  className="btn btn-sm btn-primary btn-outline mt-4 gap-1"
                   onClick={() => filterByAttorney(atty.practice_focus)}
                 >
                   View Practice Areas
+                  <ArrowRight className="cta-arrow-nudge h-3.5 w-3.5" />
                 </button>
               </article>
             ))}
@@ -411,7 +460,7 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
 
       {/* Existing client CTA */}
       <section id="client-portal" className="px-4 sm:px-8 lg:px-12 py-14 scroll-mt-20">
-        <div className="max-w-4xl mx-auto rounded-box border border-base-300 bg-base-100 p-6 sm:p-8">
+        <div className="interactive-card max-w-4xl mx-auto rounded-box border border-base-300 bg-base-100 p-6 sm:p-8">
           <h2 className="font-display text-2xl sm:text-3xl font-semibold">
             Already a Rebel Law Group Client?
           </h2>
@@ -420,8 +469,9 @@ export function ClientHomePage({ profile, initialLeads = [] }: Props) {
             milestones for your fictional account.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <SwitchDemoClientButton target="current_client" className="btn btn-primary btn-sm">
+            <SwitchDemoClientButton target="current_client" className="btn btn-primary btn-sm gap-1">
               Already a Client? Open Client Portal
+              <ArrowRight className="cta-arrow-nudge h-3.5 w-3.5" />
             </SwitchDemoClientButton>
             <SwitchDemoClientButton target="current_client" className="btn btn-outline btn-sm">
               View Client Portal

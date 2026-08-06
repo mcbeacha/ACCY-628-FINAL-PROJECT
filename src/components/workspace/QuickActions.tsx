@@ -86,10 +86,10 @@ export function QuickActions() {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {ACTIONS.map(({ label, Icon, href, modal }) => {
           const className =
-            "flex items-center gap-2.5 rounded-md border border-base-content/10 bg-base-100 px-3 py-2.5 text-sm font-medium text-base-content/80 shadow-[0_1px_2px_oklch(22%_0.03_255_/_0.04)] transition-colors hover:border-primary/30 hover:text-primary";
+            "interactive-tile group flex items-center gap-2.5 rounded-md border border-base-content/10 bg-base-100 px-3 py-2.5 text-sm font-medium text-base-content/80 shadow-[0_1px_2px_oklch(22%_0.03_255_/_0.04)] transition-colors hover:border-primary/30 hover:text-primary";
           return href ? (
             <Link key={label} href={href} className={className}>
-              <Icon className="h-4 w-4 shrink-0 opacity-55" />
+              <Icon className="interactive-tile-icon h-4 w-4 shrink-0 opacity-55" />
               <span className="truncate">{label}</span>
             </Link>
           ) : (
@@ -102,7 +102,7 @@ export function QuickActions() {
                 setOpen(modal ?? null);
               }}
             >
-              <Icon className="h-4 w-4 shrink-0 opacity-55" />
+              <Icon className="interactive-tile-icon h-4 w-4 shrink-0 opacity-55" />
               <span className="truncate">{label}</span>
             </button>
           );

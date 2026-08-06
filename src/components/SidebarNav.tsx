@@ -150,7 +150,13 @@ function SidebarSection({
         aria-label={`${section.label} section`}
         onClick={onToggle}
       >
-        <Icon className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+        <Icon
+          className={[
+            "nav-link-icon h-4 w-4 shrink-0",
+            hasActiveChild ? "opacity-100 text-primary" : "opacity-70",
+          ].join(" ")}
+          aria-hidden
+        />
         <span
           className="flex-1 text-left truncate transition-opacity duration-200"
           aria-live={titleLive ? "polite" : undefined}

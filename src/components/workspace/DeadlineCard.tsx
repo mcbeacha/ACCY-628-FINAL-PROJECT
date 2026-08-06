@@ -15,7 +15,7 @@ export function DeadlineCard({ deadline }: { deadline: WorkspaceDeadline }) {
 
   return (
     <li
-      className={`rounded-box border p-3 transition-colors hover:bg-base-200/60 ${
+      className={`interactive-card rounded-box border p-3 ${
         urgent ? "border-error/50 bg-error/5" : "border-base-300 bg-base-100"
       }`}
     >

@@ -10,14 +10,29 @@ const AVAILABILITY_CLASS: Record<DirectoryPerson["availability"], string> = {
 
 export function ProfileCard({ person }: { person: DirectoryPerson }) {
   return (
-    <div className="card bg-base-100 border border-base-300 shadow-sm transition-shadow hover:shadow-md">
+    <div className="interactive-card group card bg-base-100 border border-base-300 shadow-sm">
       <div className="card-body p-5 gap-3">
         <div className="flex items-center gap-3">
-          <div className="avatar avatar-placeholder">
-            <div className="bg-primary/10 text-primary w-12 rounded-full">
-              <span className="text-sm font-semibold">{person.initials}</span>
+          {person.photoUrl ? (
+            <div className="avatar">
+              <div className="photo-zoom w-12 rounded-full ring ring-base-300 ring-offset-base-100 ring-offset-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={person.photoUrl}
+                  alt={`Professional headshot of ${person.name}`}
+                  width={48}
+                  height={48}
+                  className="object-cover"
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="avatar avatar-placeholder">
+              <div className="bg-primary/10 text-primary w-12 rounded-full">
+                <span className="text-sm font-semibold">{person.initials}</span>
+              </div>
+            </div>
+          )}
           <div className="min-w-0">
             <p className="font-display text-lg font-semibold leading-tight truncate">
               {person.name}
