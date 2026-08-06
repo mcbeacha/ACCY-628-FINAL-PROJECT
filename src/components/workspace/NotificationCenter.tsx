@@ -12,6 +12,8 @@ import {
   unreadConversationsFor,
 } from "@/lib/messaging-store";
 import type { MessagingPerson } from "@/lib/messaging";
+import { createClient } from "@/lib/supabase/client";
+import { evaluationDisplayName } from "@/lib/case-evaluations";
 import { notificationsForRole, type PersonNotification } from "@/lib/notifications";
 import { relativeTime, type NotificationKind } from "@/lib/workspace-mock";
 import {
@@ -26,7 +28,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 const ICONS: Record<NotificationKind, React.ComponentType<{ className?: string }>> = {
   deadline: CalendarClock,
@@ -39,6 +41,12 @@ const ICONS: Record<NotificationKind, React.ComponentType<{ className?: string }
   announcement: Megaphone,
 };
 
+function minutesSince(iso: string): number {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return 0;
+  return Math.max(1, Math.round(ms / 60_000));
+}
+
 export function NotificationCenter({ viewer: fallbackViewer }: { viewer: MessagingPerson }) {
   const demo = useDemoRole();
   const viewer = resolveMessagingViewer(
@@ -48,11 +56,56 @@ export function NotificationCenter({ viewer: fallbackViewer }: { viewer: Messagi
   // Read state is tracked per person so switching identities does not carry
   // one person's dismissed alerts into another person's bell.
   const [readByViewer, setReadByViewer] = useState<Record<string, string[]>>({});
+  const [intakeAlerts, setIntakeAlerts] = useState<PersonNotification[]>([]);
   const rawStore = useSyncExternalStore(
     subscribeToMessages,
     getMessageSnapshot,
     getServerMessageSnapshot
   );
+
+  useEffect(() => {
+    if (viewer.role !== "paralegal") {
+      setIntakeAlerts([]);
+      return;
+    }
+
+    let cancelled = false;
+    const supabase = createClient();
+
+    async function loadIntakeAlerts() {
+      const { data } = await supabase
+        .from("case_evaluations")
+        .select("id, reference_number, first_name, last_name, practice_area, urgency_level, submitted_at")
+        .eq("evaluation_status", "New")
+        .order("submitted_at", { ascending: false })
+        .limit(8);
+
+      if (cancelled) return;
+
+      const rows = data || [];
+      setIntakeAlerts(
+        rows.map((row) => ({
+          id: `intake-${row.id}`,
+          kind: "matter_assignment" as const,
+          title: "New prospective client request",
+          detail: `${evaluationDisplayName(row)} submitted ${row.reference_number} (${row.practice_area}, ${row.urgency_level})`,
+          minutesAgo: minutesSince(row.submitted_at),
+          unread: true,
+          href: `/case-evaluations/${row.id}`,
+        }))
+      );
+    }
+
+    void loadIntakeAlerts();
+    const timer = window.setInterval(() => {
+      void loadIntakeAlerts();
+    }, 30_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [viewer.role]);
 
   const notifications = useMemo(() => {
     const store = readStore(rawStore);
@@ -72,10 +125,10 @@ export function NotificationCenter({ viewer: fallbackViewer }: { viewer: Messagi
       };
     });
 
-    return [...messageAlerts, ...notificationsForRole(viewer.role)].sort(
+    return [...intakeAlerts, ...messageAlerts, ...notificationsForRole(viewer.role)].sort(
       (a, b) => a.minutesAgo - b.minutesAgo
     );
-  }, [rawStore, viewer]);
+  }, [rawStore, viewer, intakeAlerts]);
 
   const readIds = readByViewer[viewer.id] ?? [];
   const items = notifications.map((notification) => ({

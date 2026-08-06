@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { DeadlineCalendar, buildDeadlineWindow } from "@/components/DeadlineCalendar";
 import { WeeklyUtilizationCard } from "@/components/WeeklyUtilizationCard";
 import { CaseEvaluationsMiniList } from "@/components/intake/CaseEvaluationDetailClient";
+import { ProspectiveClientIntakeAlert } from "@/components/ProspectiveClientIntakeAlert";
 import { ExecutiveCharts } from "./ExecutiveCharts";
 import { AttorneyDocumentRequestForm } from "@/components/document-requests/AttorneyDocumentRequestForm";
 import { AttorneyDocumentRequestList } from "@/components/document-requests/AttorneyDocumentRequestList";
@@ -962,6 +963,8 @@ async function StaffDashboard({
           </>
         }
       />
+
+      <ProspectiveClientIntakeAlert items={newEvals} />
 
       <section className="space-y-3">
         <SectionHeader title="Quick actions" icon={<LayoutGrid className="h-5 w-5" />} />
